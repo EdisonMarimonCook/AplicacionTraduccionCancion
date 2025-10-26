@@ -50,3 +50,14 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Entorno virtual
+venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Archivos de VSCode
+.vscode/
+
