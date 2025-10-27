@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="40dp"
+    android:background="#F5F5F5">
+
+    <!-- Título de la App -->
+    <TextView
+        android:id="@+id/tvAppTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🎤 Hip Hop English"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="50dp" />
+
+    <!-- PRIMERO: Campo de Email -->
+    <EditText
+        android:id="@+id/etEmail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="📧 Tu email"
+        android:inputType="textEmailAddress"
+        android:layout_marginBottom="20dp" />
+
+    <!-- SEGUNDO: Campo de Contraseña con CANDADO -->
+    <EditText
+        android:id="@+id/etPassword"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="🔒 Tu contraseña"
+        android:inputType="textPassword"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Selector de Nivel -->
+    <Spinner
+        android:id="@+id/spinnerLevel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="30dp" />
+
+    <!-- Botón de Comenzar -->
+    <Button
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🎵 Comenzar a Aprender"
+        android:textSize="18sp" />
+
+</LinearLayout>
