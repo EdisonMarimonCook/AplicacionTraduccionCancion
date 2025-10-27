@@ -1,0 +1,4 @@
+**Clona y abre:**
+   ```bash
+   git clone https://github.com/EdisonMarimonCook/AplicacionTraduccionCancion.git
+   # Abre frontend/android/ en Android Studio
