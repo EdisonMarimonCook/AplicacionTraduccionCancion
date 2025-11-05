@@ -61,3 +61,47 @@ __pycache__/
 # Archivos de VSCode
 .vscode/
 
+# Variables de entorno - ¡IMPORTANTE! No subir credenciales
+.env
+.env.local
+.env.*.local
+
+# Archivos de IDE
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Directorios temporales
+tmp/
+temp/
+*.tmp
+
+# Bases de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos compilados de pip
+dist/
+build/
+*.egg-info/
+
+# Archivos de caché de pytest
+.pytest_cache/
+.coverage
+
+# Archivos generados por la aplicación
+*.csv
+*.json
+cache/
+
