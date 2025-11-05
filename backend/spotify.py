@@ -17,6 +17,8 @@ import requests  # Para hacer peticiones HTTP a la API de Spotify
 from dotenv import load_dotenv  # Para cargar variables de .env
 from typing import List, Dict  # Para definir tipos de datos
 import logging  # Para registrar eventos y errores
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
 # Configuración de logging - registra eventos en la consola
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +59,9 @@ SEARCH_QUERIES = {
     "de": ["deutsche hits", "top deutschland", "deutsche pop"],  # Búsquedas para alemán
     "it": ["canzoni italiane", "hit italia", "pop italiano"]  # Búsquedas para italiano
 }
+
+# OBJETO que soluciona toda la autentificacion
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET))
 
 def get_access_token() -> str:
     """
