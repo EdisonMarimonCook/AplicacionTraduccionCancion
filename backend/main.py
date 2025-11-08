@@ -23,9 +23,20 @@ def top10_endpoint(language: str = "en"):
     """
     Devuelve el top10 de canciones por idioma.
     Usa el cache que se llena al iniciar la app y se actualiza cada hora.
+    
+    Args:
+        language (str): Código del idioma ('en', 'es', 'fr', etc.)
+        
+    Returns:
+        dict: Top 10 de canciones del idioma especificado
     """
-    songs = top10_cache.get(language, top10_cache.get(str)) 
-    return {"top10": songs}
+    # Obtener canciones del cache, retornar lista vacía si no existen
+    songs = top10_cache.get(language, [])
+    
+    if not songs:
+        logging.warning(f"No hay canciones en cache para idioma: {language}")
+    
+    return {"language": language, "top10": songs}
 
 # Endpoint para obtener top10 de canciones según el idioma
 @app.get("/api/songs/top10/{language}")
@@ -46,7 +57,7 @@ def top10_by_language(language: str):
 @app.on_event("startup")
 async def startup_event():
     # Lista de idiomas que soportas
-    SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt"]
+    SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "jp"]
 
     def update_full_cache():
         logging.info("Actualizando todo el cache de Top 10...")

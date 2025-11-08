@@ -43,7 +43,8 @@ MARKET_MAP = {
     "fr": "FR",  # Francés - Mercado Francia
     "de": "DE",  # Alemán - Mercado Alemania
     "it": "IT",  # Italiano - Mercado Italia
-    "pt": "PT"   # Portugués - Mercado Portugal
+    "pt": "PT",  # Portugués - Mercado Portugal
+    "jp": "JP"   # Japonés - Mercado Japón
 }
 
 # ==============================================================================
@@ -57,7 +58,8 @@ SEARCH_QUERIES = {
     "es": ["éxitos españa", "canciones populares español", "top latino"],  # Búsquedas para español
     "fr": ["hits france", "chansons populaires", "top france"],  # Búsquedas para francés
     "de": ["deutsche hits", "top deutschland", "deutsche pop"],  # Búsquedas para alemán
-    "it": ["canzoni italiane", "hit italia", "pop italiano"]  # Búsquedas para italiano
+    "it": ["canzoni italiane", "hit italia", "pop italiano"],  # Búsquedas para italiano
+    "jp": ["アニメ オープニング", "日本のヒット曲", "トレンド", "バイラルヒット"]  # Búsquedas para japonés
 }
 
 # OBJETO que soluciona toda la autentificacion
