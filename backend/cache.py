@@ -1,1 +1,1 @@
-top10_cache = []
+top10_cache = {}

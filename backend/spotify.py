@@ -17,6 +17,8 @@ import requests  # Para hacer peticiones HTTP a la API de Spotify
 from dotenv import load_dotenv  # Para cargar variables de .env
 from typing import List, Dict  # Para definir tipos de datos
 import logging  # Para registrar eventos y errores
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 
 # Configuración de logging - registra eventos en la consola
 logging.basicConfig(level=logging.INFO)
@@ -41,7 +43,8 @@ MARKET_MAP = {
     "fr": "FR",  # Francés - Mercado Francia
     "de": "DE",  # Alemán - Mercado Alemania
     "it": "IT",  # Italiano - Mercado Italia
-    "pt": "PT"   # Portugués - Mercado Portugal
+    "pt": "PT",  # Portugués - Mercado Portugal
+    "jp": "JP"   # Japonés - Mercado Japón
 }
 
 # ==============================================================================
@@ -55,8 +58,12 @@ SEARCH_QUERIES = {
     "es": ["éxitos españa", "canciones populares español", "top latino"],  # Búsquedas para español
     "fr": ["hits france", "chansons populaires", "top france"],  # Búsquedas para francés
     "de": ["deutsche hits", "top deutschland", "deutsche pop"],  # Búsquedas para alemán
-    "it": ["canzoni italiane", "hit italia", "pop italiano"]  # Búsquedas para italiano
+    "it": ["canzoni italiane", "hit italia", "pop italiano"],  # Búsquedas para italiano
+    "jp": ["アニメ オープニング", "日本のヒット曲", "トレンド", "バイラルヒット"]  # Búsquedas para japonés
 }
+
+# OBJETO que soluciona toda la autentificacion
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET))
 
 def get_access_token() -> str:
     """
