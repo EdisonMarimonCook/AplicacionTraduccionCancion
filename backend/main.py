@@ -3,6 +3,7 @@ import asyncio
 from spotify import get_top10_playlist
 from lyrics import get_lyrics
 from cache import top10_cache
+import logging
 
 app = FastAPI()
 
@@ -22,8 +23,20 @@ def top10_endpoint(language: str = "en"):
     """
     Devuelve el top10 de canciones por idioma.
     Usa el cache que se llena al iniciar la app y se actualiza cada hora.
+    
+    Args:
+        language (str): Código del idioma ('en', 'es', 'fr', etc.)
+        
+    Returns:
+        dict: Top 10 de canciones del idioma especificado
     """
-    return {"top10": top10_cache}
+    # Obtener canciones del cache, retornar lista vacía si no existen
+    songs = top10_cache.get(language, [])
+    
+    if not songs:
+        logging.warning(f"No hay canciones en cache para idioma: {language}")
+    
+    return {"language": language, "top10": songs}
 
 # Endpoint para obtener top10 de canciones según el idioma
 @app.get("/api/songs/top10/{language}")
@@ -31,24 +44,33 @@ def top10_by_language(language: str):
     """
     Devuelve el top10 de canciones según el idioma especificado.
     """
-    top10_songs = get_top10_playlist(language)
+    songs = top10_cache.get(language)
+    if not songs:
+        # Opcional: devolver un error 404
+        return {"error": "Language not supported or cache not ready"}, 404
     return {
         "language": language,
-        "top10": top10_songs
+        "top10": songs
     }
 
 # Evento al iniciar la app: llenamos cache y lanzamos actualización cada hora
 @app.on_event("startup")
 async def startup_event():
+    # Lista de idiomas que soportas
+    SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "jp"]
+
+    def update_full_cache():
+        logging.info("Actualizando todo el cache de Top 10...")
+        for lang in SUPPORTED_LANGUAGES:
+            top10_cache[lang] = get_top10_playlist(lang)
+
     # Llenamos el cache inicialmente
-    top10_cache.clear()
-    top10_cache.extend(get_top10_playlist())  # por defecto "en"
+    update_full_cache()
 
     # Función que actualiza el cache cada hora en segundo plano
     async def actualizar_top10():
         while True:
-            top10_cache.clear()
-            top10_cache.extend(get_top10_playlist())
             await asyncio.sleep(3600)
+            update_full_cache()
 
     asyncio.create_task(actualizar_top10())
