@@ -27,10 +27,16 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(default="your-super-secret-key-change-in-production")
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=30)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
     
     # OpenAI
     OPENAI_API_KEY: str = Field(default="")
+    
+    # GENIUS API
+    GENIUS_API_TOKEN: str = Field(
+        default="your-genius-api-token",
+        description="Token de Genius API para extraer letras"
+    )
     
     # Entorno
     ENVIRONMENT: str = Field(default="development")
