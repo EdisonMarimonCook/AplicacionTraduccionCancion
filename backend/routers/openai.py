@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from openai_client import analyze_lyrics
+from services.openai_client import analyze_lyrics
 
 router = APIRouter(prefix="/api/v1/openai", tags=["OpenAI"])
 

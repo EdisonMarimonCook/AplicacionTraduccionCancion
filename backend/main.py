@@ -23,7 +23,7 @@ from utils.genius_client import is_genius_configured
 # IMPORTS DE ROUTERS
 # ===============================================================================
 
-from routers import auth_router, songs_router, lyrics_router
+from routers import auth_router, songs_router, lyrics_router, openai_router
 
 # ===============================================================================
 # CONFIGURAR LOGGING
