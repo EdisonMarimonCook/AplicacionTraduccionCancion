@@ -1,3 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Diccionario_HipHop</string>
+    <!-- App Name -->
+    <string name="app_name">Diccionario HipHop</string>
+
+    <!-- Activity Titles -->
+    <string name="select_song">Seleccionar Canción</string>
+    <string name="song_learning">Aprender Canción</string>
+    <string name="settings">Configuración</string>
+
+    <!-- Common UI -->
+    <string name="back">Atrás</string>
+    <string name="add_to_favorites">Añadir a favoritos</string>
+    <string name="login">Iniciar Sesión</string>
+    <string name="register">Registrarse</string>
+    <string name="email">Email</string>
+    <string name="password">Contraseña</string>
+    <string name="remember_me">Recordarme</string>
+    <string name="forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="create_account">Crear cuenta</string>
+
+    <!-- Song Learning -->
+    <string name="add_to_dictionary">Añadir al diccionario</string>
+    <string name="create_flashcard">Crear flashcard</string>
+    <string name="statistics">Estadísticas</string>
+    <string name="level">Nivel</string>
+    <string name="difficulty">Dificultad</string>
+
+    <!-- Connection Status -->
+    <string name="connecting">Conectando...</string>
+    <string name="connected">Conectado</string>
+    <string name="connection_error">Error de conexión</string>
+    <string name="reconnect">Reconectar</string>
 </resources>

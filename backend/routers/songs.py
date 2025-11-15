@@ -76,30 +76,23 @@ async def get_all_songs(
 ):
     """
     📚 Obtiene TODAS las canciones disponibles
-    
-    PARÁMETROS:
-    - language (opcional): Filtrar por idioma (ej: "en", "es", "fr")
     """
     
     try:
         logger.info(f"📥 Obteniendo canciones para usuario: {current_user.email}")
         
         if language:
-            # Si se especifica idioma, obtener solo de ese idioma
             songs = get_cached_songs_by_language(language)
             logger.info(f"📥 Canciones filtradas por idioma '{language}': {len(songs)} encontradas")
         else:
-            # Si no, obtener TODAS las canciones
             from cache import get_cached_songs
             songs = get_cached_songs()
             logger.info(f"📥 Todas las canciones: {len(songs)} encontradas")
         
-        # ✅ Transformar canciones (simplificar estructura)
         simplified_songs = []
         
         for song in songs:
             try:
-                # Crear estructura simple (sin validación Pydantic)
                 simplified = {
                     "id": song.get("id") or song.get("uri", "").split(":")[-1] or "unknown",
                     "name": song.get("name", "Unknown"),
@@ -108,7 +101,7 @@ async def get_all_songs(
                     "image_url": song.get("image_url") or (
                         song.get("album", {}).get("images", [{}])[0].get("url") if isinstance(song.get("album"), dict) else None
                     ),
-                    "language": song.get("language", "en")
+                    "language": song.get("language", "en")  # Por ahora default "en"
                 }
                 simplified_songs.append(simplified)
             

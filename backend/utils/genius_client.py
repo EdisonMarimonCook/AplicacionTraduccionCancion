@@ -9,6 +9,7 @@ from typing import Optional, List, Dict
 import lyricsgenius as lg
 from config import settings
 import requests
+from langdetect import detect, LangDetectException  # 🆕 AGREGAR
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,54 @@ genius = lg.Genius(
 )
 
 # ===============================================================================
+# 🆕 FUNCIÓN: Detectar idioma
+# ===============================================================================
+
+def detect_language_from_text(text: str, min_length: int = 100) -> str:
+    """
+    🌍 DETECTA EL IDIOMA DE UN TEXTO USANDO LANGDETECT
+    
+    PARÁMETROS:
+    - text: Texto a analizar
+    - min_length: Mínimo de caracteres para detectar (default: 100)
+    
+    RETORNA:
+    - Código idioma ISO 639-1 (en, es, fr, de, etc.)
+    
+    SOPORTA: 55+ idiomas
+    """
+    
+    try:
+        # Validar longitud mínima
+        if len(text) < min_length:
+            logger.warning(f"⚠️  Texto muy corto ({len(text)} chars), usando default 'en'")
+            return "en"
+        
+        # Limpiar texto (remover metadata de Genius)
+        cleaned_text = text.replace("[", "").replace("]", "").strip()
+        
+        if len(cleaned_text) < min_length:
+            logger.warning(f"⚠️  Texto limpio muy corto, usando default 'en'")
+            return "en"
+        
+        # Usar solo primeras líneas (más eficiente)
+        lines = cleaned_text.split("\n")
+        sample = "\n".join(lines[:30])
+        
+        # Detectar idioma
+        detected = detect(sample)
+        logger.info(f"✅ Idioma detectado: {detected}")
+        
+        return detected
+    
+    except LangDetectException:
+        logger.warning(f"⚠️  No se pudo detectar idioma con langdetect, usando default 'en'")
+        return "en"
+    except Exception as e:
+        logger.error(f"❌ Error detectando idioma: {str(e)}")
+        return "en"
+
+# ===============================================================================
 # FUNCIONES PRINCIPALES
 # ===============================================================================
 
@@ -33,7 +82,7 @@ async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     LÓGICA:
     1. Recibe título y artista
     2. Busca en Genius API
-    3. Si existe, retorna la letra
+    3. Si existe, retorna la letra + idioma detectado
     4. Si no existe, retorna None
     """
     
@@ -52,16 +101,20 @@ async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
         raw_lyrics = song.lyrics
         lines = [line.strip() for line in raw_lyrics.split("\n") if line.strip()]
         
+        # 🆕 DETECTAR IDIOMA
+        detected_language = detect_language_from_text(raw_lyrics)
+        
         result = {
             "title": song.title,
             "artist": song.artist,
             "url": song.url,
             "lyrics": raw_lyrics,
             "lines": lines,
-            "line_count": len(lines)
+            "line_count": len(lines),
+            "language": detected_language  # 🆕 AGREGAR IDIOMA
         }
         
-        logger.info(f"✅ Letra encontrada: {song.title} ({len(lines)} líneas)")
+        logger.info(f"✅ Letra encontrada: {song.title} ({len(lines)} líneas, idioma: {detected_language})")
         
         return result
     
@@ -102,7 +155,8 @@ async def get_song_verses(song_title: str, artist_name: str) -> Optional[List[Di
                     "type": section_type,
                     "number": section_number,
                     "text": "",
-                    "lines": []
+                    "lines": [],
+                    "language": song_data.get("language", "en") 
                 }
             
             else:

@@ -11,7 +11,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from email_validator import validate_email, EmailNotValidError
 
 from config import settings
-from models import UserCreate, UserLogin, User, Token
+from models import UserCreate, UserLogin, User, Token, LearningLanguage
 from auth import hash_password, verify_password, create_access_token, verify_token
 from crud import create_user, get_user_by_email, user_exists
 
@@ -29,7 +29,7 @@ security = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """Dependency para obtener usuario actual del token"""
-    token = credentials.credentials  # ← CAMBIAR: credentials.credentials
+    token = credentials.credentials
     
     # Verificar token
     token_data = verify_token(token)
@@ -59,11 +59,29 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 @router.post("/register", response_model=dict)
 async def register(user_data: UserCreate):
     """
-    🔐 Registro de nuevo usuario
+    🔐 Registro de nuevo usuario CON IDIOMAS
+    
+    Request:
+    {
+      "email": "user@example.com",
+      "username": "user123",
+      "password": "password123",
+      "learning_languages": [
+        {
+          "language": "es",
+          "level": "A1"
+        },
+        {
+          "language": "en",
+          "level": "B1"
+        }
+      ]
+    }
     
     - Valida email
     - Verifica que no exista
     - Encripta contraseña
+    - Guarda learning_languages
     - Guarda en BD
     """
     try:
@@ -83,31 +101,52 @@ async def register(user_data: UserCreate):
             detail="Email already registered"
         )
     
-    # Crear usuario
+    # Validar que haya al menos un idioma
+    if not user_data.learning_languages or len(user_data.learning_languages) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must select at least one language"
+        )
+    
+    # Crear usuario 🆕 CON learning_languages
     user_dict = {
         "email": user_data.email,
         "username": user_data.username,
         "full_name": user_data.full_name,
         "password_hash": hash_password(user_data.password),
         "is_active": True,
-        "language_level": "A1",
         "native_language": "en",
-        "learning_language": "es"
+        "learning_languages": [
+            {
+                "language": lang.language,
+                "level": lang.level,
+                "started_at": lang.started_at.isoformat(),
+                "last_tested": None
+            }
+            for lang in user_data.learning_languages
+        ]
     }
     
     await create_user(user_dict)
     logger.info(f"✅ Nuevo usuario registrado: {user_data.email}")
+    logger.info(f"📚 Idiomas: {[f'{l.language}({l.level})' for l in user_data.learning_languages]}")
     
     return {
         "message": "User registered successfully",
         "email": user_data.email,
-        "username": user_data.username
+        "username": user_data.username,
+        "learning_languages": [
+            {"language": l.language, "level": l.level}
+            for l in user_data.learning_languages
+        ]
     }
 
 @router.post("/login", response_model=Token)
 async def login(credentials: UserLogin):
     """
     🔐 Login de usuario y generación de token JWT
+    
+    AHORA RETORNA: learning_languages + user_id
     """
     user_dict = await get_user_by_email(credentials.email)
     
@@ -132,18 +171,33 @@ async def login(credentials: UserLogin):
         expires_delta=access_token_expires
     )
     
+    # 🆕 Preparar learning_languages para response
+    learning_languages = [
+        LearningLanguage(
+            language=lang.get("language"),
+            level=lang.get("level"),
+            started_at=lang.get("started_at"),
+            last_tested=lang.get("last_tested")
+        )
+        for lang in user_dict.get("learning_languages", [])
+    ]
+    
     logger.info(f"✅ Login exitoso: {credentials.email}")
     
     return Token(
         access_token=access_token,
         token_type="bearer",
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user_id=user_dict.get("_id") or user_dict.get("id"),  # 🆕
+        email=credentials.email,  # 🆕
+        learning_languages=learning_languages  # 🆕
     )
 
 @router.get("/me", response_model=User)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     👤 Obtiene información del usuario actual autenticado
+    AHORA INCLUYE: learning_languages
     """
     logger.info(f"✅ Información del usuario solicitada: {current_user.email}")
     return current_user
@@ -153,7 +207,7 @@ async def verify_token_endpoint(credentials: HTTPAuthorizationCredentials = Depe
     """
     ✅ Verifica si un token es válido
     """
-    token_data = verify_token(credentials.credentials)  # ← CAMBIAR: credentials.credentials
+    token_data = verify_token(credentials.credentials)
     
     if not token_data:
         raise HTTPException(
