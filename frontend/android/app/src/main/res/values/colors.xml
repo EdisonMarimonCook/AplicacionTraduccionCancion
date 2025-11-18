@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Colores existentes -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Colores para dificultades -->
+    <color name="difficulty_beginner">#4CAF50</color>      <!-- Verde -->
+    <color name="difficulty_intermediate">#FF9800</color>  <!-- Naranja -->
+    <color name="difficulty_advanced">#F44336</color>      <!-- Rojo -->
+    <color name="difficulty_expert">#9C27B0</color>        <!-- Púrpura -->
+
+    <!-- Colores adicionales para la app -->
+    <color name="gray">#FF9E9E9E</color>
+    <color name="gray_light">#FFE0E0E0</color>
+    <color name="red">#FFFF0000</color>
+    <color name="green">#FF4CAF50</color>
+    <color name="orange">#FFFF9800</color>
+    <color name="yellow">#FFFFEB3B</color>
 </resources>

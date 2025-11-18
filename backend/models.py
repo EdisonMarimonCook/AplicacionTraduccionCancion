@@ -9,6 +9,17 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
 
 # ================================================================
+# LEARNING LANGUAGE (NUEVO)
+# ================================================================
+
+class LearningLanguage(BaseModel):
+    """Schema para idioma que está aprendiendo"""
+    language: str = Field(..., description="es, en, fr, de, it, pt, ja, ko, zh")
+    level: str = Field(default="A1", description="A1, A2, B1, B2, C1, C2")
+    started_at: datetime = Field(default_factory=datetime.now)
+    last_tested: Optional[datetime] = None
+
+# ================================================================
 # USUARIO
 # ================================================================
 
@@ -21,6 +32,10 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema para crear usuario (incluye password)"""
     password: str = Field(..., min_length=8)
+    learning_languages: List[LearningLanguage] = Field(
+        default=[LearningLanguage(language="es", level="A1")],
+        description="Idiomas que quiere aprender"
+    )
 
 class UserLogin(BaseModel):
     """Schema para login"""
@@ -33,9 +48,16 @@ class User(UserBase):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
-    language_level: str = "A1"  # A1, A2, B1, B2, C1, C2
+    
+    # 🆕 NUEVOS CAMPOS
+    learning_languages: List[LearningLanguage] = Field(
+        default=[LearningLanguage(language="es", level="A1")]
+    )
     native_language: str = "en"
-    learning_language: str = "es"
+    
+    # ❌ ELIMINADOS (ya no necesarios)
+    # language_level: str = "A1"
+    # learning_language: str = "es"
     
     class Config:
         populate_by_name = True
@@ -46,6 +68,9 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int  # segundos
+    user_id: Optional[str] = None  # 🆕
+    email: Optional[str] = None  # 🆕
+    learning_languages: Optional[List[LearningLanguage]] = None  # 🆕
 
 class TokenData(BaseModel):
     """Data dentro del JWT"""
@@ -65,6 +90,7 @@ class DictionaryEntry(BaseModel):
     translation: Optional[str] = None
     definition: Optional[str] = None
     example: Optional[str] = None
+    category: str = Field(default="palabra", description="palabra o expresión")  # 🆕
     difficulty_level: str = "A1"
     created_at: datetime = Field(default_factory=datetime.now)
     last_reviewed: Optional[datetime] = None

@@ -76,10 +76,8 @@ async def get_lyrics(
     try:
         logger.info(f"📥 Buscando letra: {title} por {artist}")
         
-        # ✅ AWAIT la función async
         lyrics_data = await get_song_lyrics(title, artist)
         
-        # ✅ Verificar que sea Dict, no None
         if not lyrics_data or not isinstance(lyrics_data, dict):
             logger.warning(f"⚠️  Letra no encontrada: {title} - {artist}")
             raise HTTPException(
@@ -95,6 +93,7 @@ async def get_lyrics(
             "lyrics": lyrics_data.get("lyrics"),
             "line_count": lyrics_data.get("line_count"),
             "url": lyrics_data.get("url"),
+            "language": lyrics_data.get("language", "en"), 
             "status": "success"
         }
     

@@ -15,7 +15,7 @@ from fastapi.openapi.utils import get_openapi
 # IMPORTS INTERNOS
 # ===============================================================================
 from config import settings
-from database import connect_to_mongo, close_mongo_connection, is_using_mock_db
+from database import db, USE_MOCK
 from cache import top10_cache
 from utils.genius_client import is_genius_configured
 
@@ -120,11 +120,8 @@ async def startup_event():
     logger.info(f"🔧 Debug: {settings.DEBUG}")
     logger.info(f"🎵 Genius API: {'✅ Configurado' if is_genius_configured() else '❌ No configurado'}")
     
-    # ========== CONECTAR A BASE DE DATOS ==========
-    logger.info("📊 Conectando a base de datos...")
-    await connect_to_mongo()
-    
-    if is_using_mock_db():
+    # ========== BASE DE DATOS ==========
+    if USE_MOCK:
         logger.warning("=" * 80)
         logger.warning("⚠️  USANDO BASE DE DATOS SIMULADA (MOCK)")
         logger.warning("=" * 80)
@@ -184,8 +181,6 @@ async def shutdown_event():
     logger.info("🛑 CERRANDO MUSIC TRANSIATOR API")
     logger.info("=" * 80)
     
-    await close_mongo_connection()
-    
     logger.info("✅ Aplicación cerrada correctamente")
     logger.info("=" * 80)
 
@@ -204,7 +199,7 @@ app.include_router(lyrics_router)
 @app.get("/", tags=["Health"])
 def root():
     """Endpoint raíz - Verifica que la API está funcionando"""
-    db_status = "🗄️  MongoDB Real" if not is_using_mock_db() else "🔄 Mock DB (Simulada)"
+    db_status = "🗄️  MongoDB Real" if not USE_MOCK else "🔄 Mock DB (Simulada)"
     
     return {
         "message": "🎵 Servidor Music TransIAtor funcionando correctamente",
@@ -221,7 +216,7 @@ def health_check():
     return {
         "status": "healthy",
         "version": "1.0.0",
-        "database": "🗄️  MongoDB Real" if not is_using_mock_db() else "🔄 Mock DB",
+        "database": "🗄️  MongoDB Real" if not USE_MOCK else "🔄 Mock DB",
         "cache_size": len(top10_cache),
         "cache_languages": list(top10_cache.keys()),
         "environment": settings.ENVIRONMENT
@@ -241,9 +236,9 @@ def status_detailed():
             "debug": settings.DEBUG
         },
         "database": {
-            "type": "MongoDB Real" if not is_using_mock_db() else "Mock DB",
-            "name": settings.MONGODB_DB_NAME,
-            "url": settings.MONGODB_URL if settings.ENVIRONMENT == "development" else "***"
+            "type": "MongoDB Real" if not USE_MOCK else "Mock DB",
+            "name": settings.MONGODB_DB_NAME if hasattr(settings, 'MONGODB_DB_NAME') else "transiaditor",
+            "url": settings.MONGODB_URL if (settings.ENVIRONMENT == "development" and hasattr(settings, 'MONGODB_URL')) else "***"
         },
         "cache": {
             "languages": len(top10_cache),

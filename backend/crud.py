@@ -1,115 +1,69 @@
 """
-MÓDULO: CRUD (Create, Read, Update, Delete)
-Operaciones de base de datos centralizadas
+CRUD - Operaciones de Base de Datos
+Usa MOCK DB si no hay MongoDB, usa BD real cuando esté lista
 """
 
 import logging
-from datetime import datetime
-from typing import Optional, List
-from database import get_database
+from database import db
 
 logger = logging.getLogger(__name__)
 
-# ===============================================================================
+# ================================================================
 # USUARIOS
-# ===============================================================================
+# ================================================================
 
-async def create_user(user_data: dict) -> dict:
-    """
-    Crea un nuevo usuario en BD
-    
-    Args:
-        user_data: Datos del usuario
-    
-    Returns:
-        dict: Usuario creado
-    """
-    db = get_database()
-    users_collection = db.get("users", [])
-    
-    new_user = {
-        "id": str(datetime.now().timestamp()),
-        **user_data,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat()
-    }
-    
-    users_collection.append(new_user)
-    db["users"] = users_collection
-    
-    logger.info(f"✅ Usuario creado: {user_data.get('email')}")
-    return new_user
+async def create_user(user_data: dict) -> str:
+    """Crear usuario"""
+    return await db.create_user(user_data)
 
-async def get_user_by_email(email: str) -> Optional[dict]:
-    """Busca usuario por email"""
-    db = get_database()
-    users_collection = db.get("users", [])
-    return next((u for u in users_collection if u.get("email") == email), None)
-
-async def get_user_by_id(user_id: str) -> Optional[dict]:
-    """Busca usuario por ID"""
-    db = get_database()
-    users_collection = db.get("users", [])
-    return next((u for u in users_collection if u.get("id") == user_id), None)
+async def get_user_by_email(email: str) -> dict:
+    """Obtener usuario por email"""
+    return await db.get_user_by_email(email)
 
 async def user_exists(email: str) -> bool:
-    """Verifica si un usuario existe"""
-    user = await get_user_by_email(email)
-    return user is not None
+    """Verificar si usuario existe"""
+    return await db.user_exists(email)
 
-# ===============================================================================
+async def get_user_by_id(user_id: str) -> dict:
+    """Obtener usuario por ID"""
+    return await db.get_user_by_id(user_id)
+
+# ================================================================
 # DICCIONARIO
-# ===============================================================================
+# ================================================================
 
-async def add_word_to_dictionary(user_id: str, word_data: dict) -> dict:
-    """Añade palabra al diccionario personal del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    
-    new_entry = {
-        "id": str(datetime.now().timestamp()),
-        "user_id": user_id,
-        **word_data,
-        "created_at": datetime.now().isoformat()
-    }
-    
-    dictionary.append(new_entry)
-    db["dictionary"] = dictionary
-    
-    logger.info(f"✅ Palabra guardada: {word_data.get('word')} para usuario {user_id}")
-    return new_entry
+async def create_dictionary_entry(entry_data: dict) -> str:
+    """Crear palabra en diccionario"""
+    return await db.create_dictionary_entry(entry_data)
 
-async def get_user_dictionary(user_id: str) -> List[dict]:
-    """Obtiene diccionario completo del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    return [d for d in dictionary if d.get("user_id") == user_id]
+async def get_user_dictionary(user_id: str, language: str = None) -> list:
+    """Obtener diccionario del usuario"""
+    return await db.get_user_dictionary(user_id, language)
 
-async def get_word_from_dictionary(user_id: str, word: str) -> Optional[dict]:
-    """Busca una palabra en diccionario del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    return next((d for d in dictionary if d.get("user_id") == user_id and d.get("word").lower() == word.lower()), None)
+async def delete_dictionary_entry(entry_id: str) -> bool:
+    """Eliminar palabra del diccionario"""
+    return await db.delete_dictionary_entry(entry_id)
 
-# ===============================================================================
+# ================================================================
 # SESIONES
-# ===============================================================================
+# ================================================================
 
-async def create_song_session(user_id: str, song_id: str) -> dict:
-    """Crea una sesión de estudio con una canción"""
-    db = get_database()
-    sessions = db.get("song_sessions", [])
-    
-    new_session = {
-        "id": str(datetime.now().timestamp()),
-        "user_id": user_id,
-        "song_id": song_id,
-        "started_at": datetime.now().isoformat(),
-        "words_learned": 0,
-        "score": 0
-    }
-    
-    sessions.append(new_session)
-    db["song_sessions"] = sessions
-    
-    return new_session
+async def create_session(session_data: dict) -> str:
+    """Crear sesión de estudio"""
+    return await db.create_session(session_data)
+
+async def get_user_sessions(user_id: str) -> list:
+    """Obtener sesiones del usuario"""
+    return await db.get_user_sessions(user_id)
+
+# ================================================================
+# PROGRESO
+# ================================================================
+
+async def get_user_progress(user_id: str) -> dict:
+    """Obtener progreso del usuario"""
+    return await db.get_user_progress(user_id)
+
+async def update_user_progress(user_id: str, progress_data: dict) -> bool:
+    """Actualizar progreso del usuario"""
+    return await db.update_user_progress(user_id, progress_data)

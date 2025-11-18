@@ -5,14 +5,12 @@ plugins {
 
 android {
     namespace = "com.example.diccionario_hiphop"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36  // ✅ ACTUALIZADO de 34 a 36
 
     defaultConfig {
         applicationId = "com.example.diccionario_hiphop"
         minSdk = 21
-        targetSdk = 36
+        targetSdk = 36  // ✅ ACTUALIZADO de 34 a 36
         versionCode = 1
         versionName = "1.0"
 
@@ -38,17 +36,22 @@ android {
 }
 
 dependencies {
+    // TUS LIBRERÍAS ACTUALES (version catalog)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
+    // DEPENDENCIAS PARA BACKEND
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    // TESTS
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
-    implementation("androidx.recyclerview:recyclerview:1.3.0")
 }
