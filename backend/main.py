@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+"""
+ARCHIVO: main.py
+PROPÓSITO: Archivo principal de la aplicación FastAPI
+CONTIENE: Configuración, eventos, endpoints básicos
+"""
+
+import logging
 import asyncio
-<<<<<<< HEAD
-from spotify import get_top10_playlist
-from lyrics import get_lyrics
-=======
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,64 +16,99 @@ from fastapi.openapi.utils import get_openapi
 # ===============================================================================
 from config import settings
 from database import db, USE_MOCK
->>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
 from cache import top10_cache
-import logging
+from utils.genius_client import is_genius_configured
 
-app = FastAPI()
+# ===============================================================================
+# IMPORTS DE ROUTERS
+# ===============================================================================
 
-# Endpoint raíz para comprobar que el servidor funciona
-@app.get("/")
-def root():
-    return {"message": "Servidor funcionando"}
+from routers import auth_router, songs_router, lyrics_router
 
-# Endpoint para obtener letra y traducción de una canción
-@app.get("/api/songs/{song}/lyrics")
-def lyrics_endpoint(song: str, level: str = "default"):
-    return get_lyrics(song, level)
+# ===============================================================================
+# CONFIGURAR LOGGING
+# ===============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Endpoint para obtener top10 de canciones
-@app.get("/api/songs/top10")
-def top10_endpoint(language: str = "en"):
+# ===============================================================================
+# CREAR APLICACIÓN FASTAPI
+# ===============================================================================
+app = FastAPI(
+    title="Music TransIAtor API",
+    description="API para aprender idiomas a través de canciones con IA",
+    version="1.0.0",
+    docs_url="/docs",           
+    redoc_url="/redoc",         
+    openapi_url="/openapi.json" 
+)
+
+# ===============================================================================
+# ✅ CONFIGURAR SEGURIDAD PARA SWAGGER
+# ===============================================================================
+
+def custom_openapi():
     """
-    Devuelve el top10 de canciones por idioma.
-    Usa el cache que se llena al iniciar la app y se actualiza cada hora.
+    Configura el esquema OpenAPI para que Swagger entienda Bearer tokens
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
     
-    Args:
-        language (str): Código del idioma ('en', 'es', 'fr', etc.)
-        
-    Returns:
-        dict: Top 10 de canciones del idioma especificado
-    """
-    # Obtener canciones del cache, retornar lista vacía si no existen
-    songs = top10_cache.get(language, [])
+    openapi_schema = get_openapi(
+        title="Music TransIAtor API",
+        version="1.0.0",
+        description="API para aprender idiomas a través de canciones con IA",
+        routes=app.routes,
+    )
     
-    if not songs:
-        logging.warning(f"No hay canciones en cache para idioma: {language}")
-    
-    return {"language": language, "top10": songs}
-
-# Endpoint para obtener top10 de canciones según el idioma
-@app.get("/api/songs/top10/{language}")
-def top10_by_language(language: str):
-    """
-    Devuelve el top10 de canciones según el idioma especificado.
-    """
-    songs = top10_cache.get(language)
-    if not songs:
-        # Opcional: devolver un error 404
-        return {"error": "Language not supported or cache not ready"}, 404
-    return {
-        "language": language,
-        "top10": songs
+    # ✅ Agregar SecurityScheme para Bearer Token
+    openapi_schema["components"]["securitySchemes"] = {
+        "HTTPBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Introduce tu JWT token"
+        }
     }
+    
+    # ✅ Aplicar seguridad a todos los endpoints
+    for path in openapi_schema["paths"].values():
+        for operation in path.values():
+            if isinstance(operation, dict) and "responses" in operation:
+                operation["security"] = [{"HTTPBearer": []}]
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
-# Evento al iniciar la app: llenamos cache y lanzamos actualización cada hora
+app.openapi = custom_openapi
+
+# ===============================================================================
+# CONFIGURAR CORS
+# ===============================================================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+        "*"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    max_age=600,
+)
+
+# ===============================================================================
+# EVENTOS DE CICLO DE VIDA
+# ===============================================================================
+
 @app.on_event("startup")
 async def startup_event():
-<<<<<<< HEAD
-    # Lista de idiomas que soportas
-=======
     """Se ejecuta cuando INICIA la aplicación"""
     
     logger.info("=" * 80)
@@ -93,26 +130,50 @@ async def startup_event():
     
     # ========== LLENAR CACHE DE TOP 10 ==========
     logger.info("📊 Actualizando cache de Top 10 canciones...")
->>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
     SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "jp"]
-
+    
     def update_full_cache():
-        logging.info("Actualizando todo el cache de Top 10...")
-        for lang in SUPPORTED_LANGUAGES:
-            top10_cache[lang] = get_top10_playlist(lang)
-
-    # Llenamos el cache inicialmente
+        """Actualiza el cache con Top 10 de cada idioma"""
+        logger.info("🔄 Iniciando actualización del cache...")
+        
+        try:
+            from spotify import get_top10_playlist
+            
+            for lang in SUPPORTED_LANGUAGES:
+                try:
+                    logger.info(f"  📥 Obteniendo Top 10 para: {lang}")
+                    top10_cache[lang] = get_top10_playlist(lang)
+                    logger.info(f"  ✅ Cache actualizado para: {lang} ({len(top10_cache[lang])} canciones)")
+                except Exception as e:
+                    logger.error(f"  ❌ Error obteniendo Top 10 para {lang}: {e}")
+                    top10_cache[lang] = []
+        except ImportError:
+            logger.warning("⚠️  Spotify module no disponible, usando cache vacío")
+            for lang in SUPPORTED_LANGUAGES:
+                top10_cache[lang] = []
+    
+    # Ejecutar actualización inicial
     update_full_cache()
-
-    # Función que actualiza el cache cada hora en segundo plano
-    async def actualizar_top10():
+    logger.info(f"✅ Cache poblado: {len(top10_cache)} idiomas, {sum(len(s) for s in top10_cache.values())} canciones")
+    
+    # ========== ACTUALIZACIÓN AUTOMÁTICA CADA HORA ==========
+    async def actualizar_top10_periodicamente():
+        """Actualiza el cache cada hora en segundo plano"""
         while True:
-            await asyncio.sleep(3600)
-            update_full_cache()
+            try:
+                await asyncio.sleep(3600)  # Esperar 1 hora
+                logger.info("⏰ Actualizando cache (actualización periódica)...")
+                update_full_cache()
+            except Exception as e:
+                logger.error(f"❌ Error en actualización periódica: {e}")
+    
+    # Crear tarea asincrónica que corra en background
+    asyncio.create_task(actualizar_top10_periodicamente())
+    
+    logger.info("=" * 80)
+    logger.info("✅ APLICACIÓN INICIADA CORRECTAMENTE")
+    logger.info("=" * 80)
 
-<<<<<<< HEAD
-    asyncio.create_task(actualizar_top10())
-=======
 @app.on_event("shutdown")
 async def shutdown_event():
     """Se ejecuta cuando TERMINA la aplicación"""
@@ -242,4 +303,3 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.DEBUG
     )
->>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
