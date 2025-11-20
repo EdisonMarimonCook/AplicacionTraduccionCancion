@@ -264,8 +264,7 @@ def get_supported_languages():
     
     return {
         "total": len(supported),
-        "languages": supported,
-        "cached": list(top10_cache.keys())
+        "languages": supported
     }
 
 # ===============================================================================

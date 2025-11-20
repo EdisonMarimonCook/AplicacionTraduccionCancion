@@ -26,6 +26,7 @@ from utils.genius_client import (
 )
 from cache import get_cached_songs
 from services.openai_client import analyze_lyrics
+from utils.lyrics_fragmenter import fragment_lyrics, get_fragment_by_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/lyrics", tags=["Lyrics"])
@@ -471,3 +472,39 @@ async def analyze_song_lyrics_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error analyzing lyrics: {str(e)}"
         )
+
+# ===============================================================================
+# ENDPOINTS - NUEVAS RUTAS
+# ===============================================================================
+
+@router.get("/{song_id}/fragments")
+async def get_song_fragments(song_id: str):
+    """Obtiene fragmentos de una canción"""
+    
+    # 1. Obtener letra
+    lyrics = await get_song_lyrics(...)
+    
+    # 2. Fragmentar
+    fragments = fragment_lyrics(lyrics["lyrics"])
+    
+    # 3. Retornar
+    return {
+        "song_id": song_id,
+        "total_fragments": len(fragments),
+        "fragments": fragments
+    }
+
+
+@router.get("/{song_id}/fragment/{fragment_id}")
+async def get_specific_fragment(song_id: str, fragment_id: str):
+    """Obtiene un fragmento específico"""
+    
+    lyrics = await get_song_lyrics(...)
+    fragments = fragment_lyrics(lyrics["lyrics"])
+    
+    fragment = get_fragment_by_id(fragments, fragment_id)
+    
+    if not fragment:
+        raise HTTPException(status_code=404, detail="Fragment not found")
+    
+    return fragment

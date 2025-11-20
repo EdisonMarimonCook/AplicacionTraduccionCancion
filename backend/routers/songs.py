@@ -202,3 +202,147 @@ async def get_song_preview(
         )
 
 # ===============================================================================
+# TOP 10 - CANCIONES POPULARES POR IDIOMA
+# ===============================================================================
+
+@router.get("/top10", response_model=dict)
+async def get_top10_all_languages(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🏆 TOP 10 de TODAS las canciones populares
+    
+    RETORNA:
+    {
+        "en": [10 canciones],
+        "es": [10 canciones],
+        "fr": [10 canciones],
+        ...
+    }
+    """
+    try:
+        logger.info(f"🏆 Obteniendo Top 10 para todos los idiomas")
+        
+        from cache import top10_cache
+        
+        if not top10_cache:
+            logger.warning("⚠️  Cache de Top 10 vacío")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Top 10 cache not available yet"
+            )
+        
+        # Simplificar cada canción
+        simplified_cache = {}
+        for lang, songs in top10_cache.items():
+            simplified_cache[lang] = []
+            for song in songs:
+                try:
+                    simplified = {
+                        "id": song.get("id") or song.get("uri", "").split(":")[-1],
+                        "name": song.get("name", "Unknown"),
+                        "artist": song.get("artist", "Unknown"),
+                        "preview_url": song.get("preview_url"),
+                        "image_url": song.get("image_url"),
+                        "language": lang
+                    }
+                    simplified_cache[lang].append(simplified)
+                except Exception as e:
+                    logger.warning(f"⚠️  Error procesando canción: {e}")
+                    continue
+        
+        logger.info(f"✅ Top 10 retornado para {len(simplified_cache)} idiomas")
+        
+        return {
+            "total_languages": len(simplified_cache),
+            "data": simplified_cache,
+            "status": "success"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Top 10: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching Top 10"
+        )
+
+# ===============================================================================
+
+@router.get("/top10/{language}", response_model=dict)
+async def get_top10_by_language(
+    language: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🏆 TOP 10 de canciones en un idioma ESPECÍFICO
+    
+    PARÁMETROS:
+    - language: Código de idioma (jp, es, fr, de, it, pt, en)
+    
+    EJEMPLO:
+    GET /api/v1/songs/top10/jp
+    
+    RETORNA:
+    {
+        "language": "jp",
+        "total": 10,
+        "songs": [...]
+    }
+    """
+    try:
+        logger.info(f"🏆 Obteniendo Top 10 para: {language}")
+        
+        from cache import top10_cache
+        
+        if language not in top10_cache:
+            logger.warning(f"⚠️  Idioma no disponible: {language}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Language '{language}' not found. Supported: en, es, fr, de, it, pt, jp"
+            )
+        
+        songs = top10_cache[language]
+        
+        if not songs:
+            logger.warning(f"⚠️  No hay canciones para {language}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"No songs available for language '{language}' yet"
+            )
+        
+        # Simplificar canciones
+        simplified_songs = []
+        for song in songs:
+            try:
+                simplified = {
+                    "id": song.get("id") or song.get("uri", "").split(":")[-1],
+                    "name": song.get("name", "Unknown"),
+                    "artist": song.get("artist", "Unknown"),
+                    "preview_url": song.get("preview_url"),
+                    "image_url": song.get("image_url"),
+                    "language": language
+                }
+                simplified_songs.append(simplified)
+            except Exception as e:
+                logger.warning(f"⚠️  Error procesando canción: {e}")
+                continue
+        
+        logger.info(f"✅ Top 10 retornado para {language}: {len(simplified_songs)} canciones")
+        
+        return {
+            "language": language,
+            "total": len(simplified_songs),
+            "songs": simplified_songs,
+            "status": "success"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo Top 10 para {language}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching Top 10 for language '{language}'"
+        )
