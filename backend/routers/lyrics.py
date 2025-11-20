@@ -25,6 +25,7 @@ from utils.genius_client import (
     is_genius_configured
 )
 from cache import get_cached_songs
+from services.openai_client import analyze_lyrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/lyrics", tags=["Lyrics"])
@@ -356,3 +357,117 @@ async def get_song_lines_endpoint(
         )
 
 # ===============================================================================
+
+@router.post("/{song_id}/analyze", response_model=dict)
+async def analyze_song_lyrics_endpoint(
+    song_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🤖 Analiza letra según nivel de usuario con IA
+    
+    FLUJO:
+    1. Obtiene canción del cache
+    2. Extrae letra completa de Genius
+    3. OpenAI analiza según nivel del usuario principal
+    4. Retorna explicaciones, vocabulario, ejemplos
+    
+    ¿POR QUÉ?
+    └─ Proporciona aprendizaje personalizado por nivel
+    └─ Explica vocabulario útil para ese nivel específico
+    └─ Genera ejemplos contextualizados
+    
+    PARÁMETROS:
+    - song_id: ID de la canción
+    - current_user: Usuario autenticado (trae su nivel de idioma)
+    
+    RETORNA:
+    - dict con:
+        * "song_id": ID de la canción
+        * "title": Título
+        * "artist": Artista
+        * "user_level": Nivel del usuario
+        * "analysis": Análisis de OpenAI
+        * "status": "success"
+    
+    EJEMPLO de request:
+    POST /api/v1/lyrics/spotify-123/analyze
+    
+    EJEMPLO de respuesta:
+    {
+      "song_id": "spotify-123",
+      "title": "Blinding Lights",
+      "artist": "The Weeknd",
+      "user_level": "B1",
+      "analysis": "Para tu nivel B1, palabras clave: 'touch' (tocar), 'reach' (alcanzar)...",
+      "status": "success"
+    }
+    """
+    
+    try:
+        if not is_genius_configured():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Lyrics service not available"
+            )
+        
+        logger.info(f"🤖 Analizando canción: {song_id} para usuario: {current_user.email}")
+        
+        # ===== 1. Obtener canción del cache =====
+        song_data = get_song_from_cache(song_id)
+        
+        if not song_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Song {song_id} not found"
+            )
+        
+        song_title = song_data.get("name")
+        artist_name = song_data.get("artist")
+        
+        # ===== 2. Obtener letra completa =====
+        lyrics_data = await get_song_lyrics(song_title, artist_name)
+        
+        if not lyrics_data or not lyrics_data.get("lyrics"):
+            logger.warning(f"⚠️  No se pudo obtener letra para: {song_title}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Could not fetch lyrics for {song_title}"
+            )
+        
+        full_lyrics = lyrics_data.get("lyrics")
+        
+        # ===== 3. Obtener nivel del usuario =====
+        # Asumiendo que current_user.learning_languages es una lista con dicts que tienen "level"
+        user_level = "A1"  # Por defecto
+        
+        if hasattr(current_user, "learning_languages") and current_user.learning_languages:
+            # El primer idioma es el principal
+            user_level = current_user.learning_languages[0].get("level", "A1")
+        
+        logger.info(f"👤 Nivel del usuario: {user_level}")
+        
+        # ===== 4. Analizar con OpenAI =====
+        logger.info(f"🔄 Enviando a OpenAI para análisis...")
+        
+        analysis = await analyze_lyrics(full_lyrics, user_level)
+        
+        logger.info(f"✅ Análisis completado")
+        
+        return {
+            "song_id": song_id,
+            "title": song_data.get("name"),
+            "artist": song_data.get("artist"),
+            "user_level": user_level,
+            "analysis": analysis,
+            "status": "success"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error analizando letra: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error analyzing lyrics: {str(e)}"
+        )

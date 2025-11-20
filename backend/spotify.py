@@ -157,6 +157,8 @@ def process_tracks(tracks: List[Dict], from_search: bool = False) -> List[Dict[s
             artist_name = artists[0]["name"] if artists and len(artists) > 0 else "Unknown"
 
             top10.append({
+                "id": track.get("id"),                    # ✅ AÑADIDO
+                "spotify_id": track.get("id"),            # ✅ TAMBIÉN AQUÍ
                 "rank": idx + 1,
                 "name": track.get("name", "Unknown"),
                 "artist": artist_name,
@@ -258,7 +260,8 @@ def process_search_results(tracks: List[Dict]) -> List[Dict[str, str]]:
             artist_name = artists[0]["name"] if artists else "Unknown"
             
             results.append({
-                "id": track.get("id", ""),
+                "id": track.get("id", ""),                # ✅ AÑADIDO
+                "spotify_id": track.get("id", ""),        # ✅ TAMBIÉN AQUÍ
                 "name": track.get("name", "Unknown"),
                 "artist": artist_name,
                 "album": track.get("album", {}).get("name", "Unknown"),

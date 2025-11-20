@@ -9,8 +9,8 @@ import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.text.buildSpannedString
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -29,9 +29,9 @@ class SongLearningActivity : AppCompatActivity() {
     private lateinit var addToDictButton: Button
     private lateinit var createCardButton: Button
     private lateinit var statsButton: Button
+    private lateinit var loadingProgress: ProgressBar
 
     // Data
-    private lateinit var songRepository: SongRepository
     private var currentAnalysis: AnalysisResponse? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,52 +56,30 @@ class SongLearningActivity : AppCompatActivity() {
         addToDictButton = findViewById(R.id.addToDictButton)
         createCardButton = findViewById(R.id.createCardButton)
         statsButton = findViewById(R.id.statsButton)
-
-        songRepository = SongRepository() // Aquí pasarías el token si lo tienes
+        loadingProgress = findViewById(R.id.loadingProgress)
     }
 
     private fun setupClickListeners() {
         backButton.setOnClickListener { finish() }
-
         favoriteButton.setOnClickListener { toggleFavorite() }
-
-        addToDictButton.setOnClickListener {
-            // Implementar añadir al diccionario
-            showWordSelectionDialog()
-        }
-
-        createCardButton.setOnClickListener {
-            // Implementar creación de flashcards
-            showCreateFlashcardDialog()
-        }
-
-        statsButton.setOnClickListener {
-            // Mostrar estadísticas de la canción
-            showSongStatistics()
-        }
+        addToDictButton.setOnClickListener { showWordSelectionDialog() }
+        createCardButton.setOnClickListener { showCreateFlashcardDialog() }
+        statsButton.setOnClickListener { showSongStatistics() }
     }
 
     private fun loadSongData() {
-        val songTitleText = intent.getStringExtra("song_title") ?: "Endless Possibility"
-        val songArtistText = intent.getStringExtra("song_artist") ?: "Sonic"
-        val userLevel = "B1" // Esto debería venir del perfil del usuario
+        val titleText = intent.getStringExtra("song_title") ?: "Unknown Title"
+        val artistText = intent.getStringExtra("song_artist") ?: "Unknown Artist"
 
         lifecycleScope.launch {
             showLoading(true)
 
-            // Cargar datos mock para probar (mientras la API está en desarrollo)
-            val mockAnalysis = createMockAnalysis(songTitleText, songArtistText)
-            displaySongData(mockAnalysis)
+            // ⚠️ IMPORTANTE: Aquí usamos datos MOCK para probar la UI.
+            // Cuando tu backend esté listo, cambia esta línea por la llamada real a Retrofit:
+            // val response = RetrofitService.getInstance(this@SongLearningActivity).analyzeLyrics(titleText, artistText, "B1")
 
-            // Cuando la API esté lista, descomenta esto:
-            /*
-            val analysis = songRepository.getAnalyzedLyrics(songTitleText, songArtistText, userLevel)
-            if (analysis != null) {
-                displaySongData(analysis)
-            } else {
-                showError("No se pudo cargar el análisis de la canción")
-            }
-            */
+            val mockAnalysis = createMockAnalysis(titleText, artistText)
+            displaySongData(mockAnalysis)
 
             showLoading(false)
         }
@@ -110,28 +88,22 @@ class SongLearningActivity : AppCompatActivity() {
     private fun displaySongData(analysis: AnalysisResponse) {
         currentAnalysis = analysis
 
+        // ✅ CORRECCIÓN: Accedemos directamente a las propiedades en la raíz del objeto AnalysisResponse
         songTitle.text = analysis.title
         songArtist.text = analysis.artist
         songLanguage.text = "🇬🇧 ${analysis.language.uppercase()}"
-        songLevel.text = "Nivel: ${analysis.estimated_song_level}"
+        songLevel.text = "Nivel: ${analysis.estimatedSongLevel}"
 
-        // Configurar barra de dificultad (ejemplo simplificado)
-        val difficulty = when (analysis.estimated_song_level) {
-            "A1" -> 20
-            "A2" -> 40
-            "B1" -> 60
-            "B2" -> 75
-            "C1" -> 90
-            "C2" -> 100
+        // Configurar barra de dificultad
+        val difficulty = when (analysis.estimatedSongLevel) {
+            "A1" -> 20; "A2" -> 40; "B1" -> 60
+            "B2" -> 75; "C1" -> 90; "C2" -> 100
             else -> 50
         }
         difficultyBar.progress = difficulty
 
-        // Cargar imagen del álbum (usar Glide/Picasso en producción)
-        // Glide.with(this).load(analysis.image_url).into(albumCover)
-
         // Mostrar letra analizada
-        displayAnalyzedLyrics(analysis.analyzed_lyrics)
+        displayAnalyzedLyrics(analysis.analyzedLyrics)
     }
 
     private fun displayAnalyzedLyrics(analyzedLines: List<AnalyzedLine>) {
@@ -140,12 +112,11 @@ class SongLearningActivity : AppCompatActivity() {
         analyzedLines.forEach { line ->
             val lineView = TextView(this).apply {
                 text = createColoredText(line)
-                movementMethod = LinkMovementMethod.getInstance()
-                setPadding(0, 8.dpToPx(), 0, 8.dpToPx())
-                setOnClickListener {
-                    // Click en línea completa
-                    onLineClick(line)
-                }
+                movementMethod = LinkMovementMethod.getInstance() // Habilita clics en spans si los hubiera
+                textSize = 16f
+                setTextColor(Color.DKGRAY)
+                setPadding(0, 16, 0, 16)
+                setOnClickListener { onLineClick(line) }
             }
             lyricsContainer.addView(lineView)
         }
@@ -155,13 +126,15 @@ class SongLearningActivity : AppCompatActivity() {
         val spannable = SpannableString(line.original)
         var currentPosition = 0
 
-        line.highlighted_words.forEach { word ->
+        // Iteramos sobre las palabras destacadas de la línea
+        line.highlightedWords.forEach { word ->
             val startIndex = line.original.indexOf(word.word, currentPosition)
             if (startIndex != -1) {
                 val endIndex = startIndex + word.word.length
 
-                // Aplicar color según el nivel
                 val color = getColorForLevel(word.level)
+
+                // 1. Color del texto (letra)
                 spannable.setSpan(
                     ForegroundColorSpan(color),
                     startIndex,
@@ -169,9 +142,9 @@ class SongLearningActivity : AppCompatActivity() {
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
 
-                // Aplicar fondo ligeramente diferente para destacar
+                // 2. Color de fondo (transparente para resaltar suavemente)
                 spannable.setSpan(
-                    BackgroundColorSpan(color and 0x80FFFFFF.toInt()), // Color con alpha
+                    BackgroundColorSpan(Color.argb(40, Color.red(color), Color.green(color), Color.blue(color))),
                     startIndex,
                     endIndex,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -180,157 +153,81 @@ class SongLearningActivity : AppCompatActivity() {
                 currentPosition = endIndex
             }
         }
-
         return spannable
     }
 
     private fun getColorForLevel(level: String): Int {
         return when (level) {
-            "A1" -> Color.GREEN
-            "A2" -> Color.YELLOW
-            "B1" -> Color.parseColor("#FF9800") // Naranja
-            "B2" -> Color.parseColor("#F57C00") // Naranja oscuro
-            "C1" -> Color.RED
-            "C2" -> Color.parseColor("#B71C1C") // Rojo oscuro
+            "A1" -> Color.parseColor("#4CAF50") // Verde
+            "A2" -> Color.parseColor("#8BC34A") // Verde Claro
+            "B1" -> Color.parseColor("#FFC107") // Ambar
+            "B2" -> Color.parseColor("#FF9800") // Naranja
+            "C1" -> Color.parseColor("#F44336") // Rojo
+            "C2" -> Color.parseColor("#B71C1C") // Rojo Oscuro
             else -> Color.BLACK
         }
     }
 
     private fun onLineClick(line: AnalyzedLine) {
-        // Mostrar opciones para la línea completa
-        showLineOptionsDialog(line)
-    }
-
-    private fun onWordClick(word: HighlightedWord) {
-        // Mostrar definición de palabra
-        showWordDefinitionDialog(word)
+        // Si la línea tiene palabras difíciles, mostramos la primera al hacer clic en la línea
+        if (line.highlightedWords.isNotEmpty()) {
+            showWordDefinitionDialog(line.highlightedWords[0])
+        } else {
+            // Feedback simple si no hay palabras destacadas
+            Toast.makeText(this, line.original, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showWordDefinitionDialog(word: HighlightedWord) {
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+        AlertDialog.Builder(this)
             .setTitle(word.word)
-            .setMessage("""
-                Traducción: ${word.translation}
-                Definición: ${word.definition}
-                Nivel: ${word.level}
-            """.trimIndent())
-            .setPositiveButton("Añadir al diccionario") { _, _ ->
-                addWordToDictionary(word)
-            }
+            .setMessage("Nivel: ${word.level}\nTraducción: ${word.translation}\n\n${word.definition}")
+            .setPositiveButton("Guardar en Diccionario") { _, _ -> addWordToDictionary(word) }
             .setNegativeButton("Cerrar", null)
-            .create()
-        dialog.show()
+            .show()
     }
 
     private fun addWordToDictionary(word: HighlightedWord) {
-        // Implementar guardado en diccionario personal
-        Toast.makeText(this, "Palabra '${word.word}' añadida al diccionario", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "${word.word} guardada", Toast.LENGTH_SHORT).show()
+        // Aquí llamarías a tu ViewModel o Repository para guardar en la BD o API
     }
 
     private fun toggleFavorite() {
-        val isFavorite = favoriteButton.tag as? Boolean ?: false
-        favoriteButton.tag = !isFavorite
-
-        // Cambiar icono de favorito
-        val iconRes = if (!isFavorite) R.drawable.ic_favorite_filled else R.drawable.ic_favorite_border
-        favoriteButton.setImageResource(iconRes)
-
-        Toast.makeText(this, if (!isFavorite) "Añadido a favoritos" else "Removido de favoritos", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Favorito clickeado", Toast.LENGTH_SHORT).show()
     }
 
     private fun showLoading(show: Boolean) {
-        findViewById<ProgressBar>(R.id.loadingProgress).visibility =
-            if (show) View.VISIBLE else View.GONE
+        loadingProgress.visibility = if (show) View.VISIBLE else View.GONE
         lyricsContainer.visibility = if (show) View.GONE else View.VISIBLE
     }
 
-    private fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    private fun showWordSelectionDialog() {
+        Toast.makeText(this, "Función: Selección Manual", Toast.LENGTH_SHORT).show()
     }
 
-    // Extension para convertir dp a px
-    private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
+    private fun showCreateFlashcardDialog() {
+        Toast.makeText(this, "Función: Crear Flashcard", Toast.LENGTH_SHORT).show()
+    }
 
-    // Datos mock para probar la UI
+    private fun showSongStatistics() {
+        Toast.makeText(this, "Función: Estadísticas", Toast.LENGTH_SHORT).show()
+    }
+
+    // ✅ MOCK DATA: Simula la respuesta del servidor con la estructura correcta
     private fun createMockAnalysis(title: String, artist: String): AnalysisResponse {
         return AnalysisResponse(
             title = title,
             artist = artist,
-            user_level = "B1",
-            estimated_song_level = "B1",
+            userLevel = "B1",
+            estimatedSongLevel = "B1",
             language = "en",
-            image_url = "",
-            analyzed_lyrics = listOf(
-                AnalyzedLine(
-                    id = 0,
-                    original = "This is my escape",
-                    highlighted_words = listOf(
-                        HighlightedWord(
-                            word = "escape",
-                            level = "A2",
-                            translation = "escapada",
-                            definition = "Way out or refuge from something",
-                            color = "yellow"
-                        )
-                    ),
-                    line_number = 1
-                ),
-                AnalyzedLine(
-                    id = 1,
-                    original = "I'm running through this world",
-                    highlighted_words = listOf(
-                        HighlightedWord(
-                            word = "running",
-                            level = "A1",
-                            translation = "corriendo",
-                            definition = "Moving fast on foot",
-                            color = "green"
-                        )
-                    ),
-                    line_number = 2
-                ),
-                AnalyzedLine(
-                    id = 2,
-                    original = "And I'm not looking back",
-                    highlighted_words = listOf(
-                        HighlightedWord(
-                            word = "looking",
-                            level = "A2",
-                            translation = "mirando",
-                            definition = "Directing one's gaze toward something",
-                            color = "yellow"
-                        )
-                    ),
-                    line_number = 3
-                )
+            imageUrl = null,
+            analyzedLyrics = listOf(
+                AnalyzedLine(0, "This is my escape", listOf(HighlightedWord("escape", "A2", "escapada", "Way out", null)), 1),
+                AnalyzedLine(1, "I'm running through this world", listOf(HighlightedWord("running", "A1", "corriendo", "Moving fast", null)), 2)
             ),
-            word_stats = WordStats(
-                total_words = 150,
-                a1_words = 45,
-                a2_words = 35,
-                b1_words = 40,
-                b2_words = 20,
-                c1_words = 10,
-                c2_words = 0
-            ),
+            wordStats = WordStats(150, 45, 35, 40, 20, 10, 0),
             status = "success"
         )
-    }
-
-    // Métodos pendientes de implementar
-    private fun showWordSelectionDialog() {
-        Toast.makeText(this, "Selecciona una palabra para añadir al diccionario", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showCreateFlashcardDialog() {
-        Toast.makeText(this, "Crear flashcard para palabra seleccionada", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showSongStatistics() {
-        Toast.makeText(this, "Mostrar estadísticas de la canción", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showLineOptionsDialog(line: AnalyzedLine) {
-        Toast.makeText(this, "Opciones para línea: ${line.original}", Toast.LENGTH_SHORT).show()
     }
 }
