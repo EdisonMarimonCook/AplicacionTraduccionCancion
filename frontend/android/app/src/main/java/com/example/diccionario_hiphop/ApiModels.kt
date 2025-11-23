@@ -8,8 +8,10 @@ import java.io.Serializable
 // ===========================================================
 data class LoginRequest(val email: String, val password: String)
 
+// Actualizado para incluir refresh_token
 data class LoginResponse(
     @SerializedName("access_token") val accessToken: String,
+    @SerializedName("refresh_token") val refreshToken: String, // 🔥 NUEVO
     @SerializedName("token_type") val tokenType: String,
     @SerializedName("expires_in") val expiresIn: Int,
     val user: UserDTO
@@ -21,11 +23,23 @@ data class UserDTO(
     val username: String
 )
 
+// Nuevo modelo para pedir refresco
+data class RefreshTokenRequest(
+    @SerializedName("refresh_token") val refreshToken: String
+)
+
 data class RegisterRequest(
-    val username: String,
     val email: String,
+    val username: String,
+    @SerializedName("full_name") val fullName: String,
     val password: String,
-    val language: String = "es"
+    @SerializedName("learning_languages") val learningLanguages: List<LearningLanguage>
+)
+
+data class LearningLanguage(
+    val language: String,
+    val level: String,
+    @SerializedName("started_at") val startedAt: String
 )
 
 data class RegisterResponse(
@@ -42,26 +56,19 @@ data class VerifyTokenResponse(
 )
 
 // ===========================================================
-// 2️⃣ MODELO DE CANCIÓN (Unificado para Search y Top)
+// 2️⃣ MODELO DE CANCIÓN
 // ===========================================================
 data class SongItem(
     val id: String,
-
-    // Mapea tanto "title" (búsqueda) como "name" (top songs) a esta variable
-    @SerializedName("title", alternate = ["name"])
-    val title: String,
-
+    @SerializedName("title", alternate = ["name"]) val title: String,
     val artist: String,
-
-    @SerializedName("image_url")
-    val imageUrl: String?,
-
+    @SerializedName("image_url") val imageUrl: String?,
     val language: String? = "en",
-
-    // Campos específicos
     @SerializedName("genius_id") val geniusId: String? = null,
     val url: String? = null,
     @SerializedName("preview_url") val previewUrl: String? = null,
+    @SerializedName("spotify_url") val spotifyUrl: String? = null,
+    @SerializedName("has_preview") val hasPreview: Boolean = false,
     val position: Int? = null
 ) : Serializable
 
@@ -83,10 +90,8 @@ data class TopSongsResponse(
 )
 
 // ===========================================================
-// 4️⃣ LETRAS, ANÁLISIS Y FRAGMENTOS
+// 4️⃣ LETRAS Y ANÁLISIS
 // ===========================================================
-
-// GET /api/v1/lyrics/ (Texto plano)
 data class LyricsResponse(
     val title: String,
     val artist: String,
@@ -96,7 +101,6 @@ data class LyricsResponse(
     val status: String
 )
 
-// GET /api/v1/lyrics/analyze (Interactivo)
 data class AnalysisResponse(
     val title: String,
     val artist: String,
@@ -104,13 +108,8 @@ data class AnalysisResponse(
     @SerializedName("estimated_song_level") val estimatedSongLevel: String,
     val language: String,
     @SerializedName("image_url") val imageUrl: String?,
-
-    @SerializedName("analyzed_lyrics")
-    val analyzedLyrics: List<AnalyzedLine>,
-
-    @SerializedName("word_stats")
-    val wordStats: WordStats,
-
+    @SerializedName("analyzed_lyrics") val analyzedLyrics: List<AnalyzedLine>,
+    @SerializedName("word_stats") val wordStats: WordStats,
     val status: String
 )
 
@@ -139,7 +138,6 @@ data class WordStats(
     @SerializedName("c2_words") val c2Words: Int
 )
 
-// GET /api/v1/lyrics/with-fragments (Audio segmentado)
 data class FragmentsResponse(
     val title: String,
     val artist: String,
@@ -217,10 +215,10 @@ data class FlashcardReviewResponse(
     val status: String
 )
 
-data class ReviewRequest(val result: String) // "correct" o "incorrect"
+data class ReviewRequest(val result: String)
 
 // ===========================================================
-// 7️⃣ SESIONES DE ESTUDIO
+// 7️⃣ SESIONES
 // ===========================================================
 data class CreateSessionRequest(
     @SerializedName("song_id") val songId: String,

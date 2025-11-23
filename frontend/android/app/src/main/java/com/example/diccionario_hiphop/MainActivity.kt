@@ -4,10 +4,8 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
@@ -16,7 +14,7 @@ import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
-    // UI Elements
+    // Elementos de la UI
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
     private lateinit var passwordLayout: TextInputLayout
@@ -24,11 +22,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnLogin: Button
     private lateinit var tvForgotPassword: TextView
     private lateinit var tvRegister: TextView
-    private lateinit var layoutLevelSelection: LinearLayout
-    private lateinit var spinnerLevel: Spinner
-    private lateinit var progressBar: ProgressBar // Asegúrate de tener esto en tu XML o usa una existente
 
-    // Lógica
+    // Gestor de Sesión
     private lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,32 +32,27 @@ class MainActivity : AppCompatActivity() {
         // 1. Inicializar TokenManager
         tokenManager = TokenManager(this)
 
-        // 2. Auto-Login: Si ya tenemos token, saltamos directo
+        // 2. Auto-Login: Si ya hay un token guardado, saltamos el login
         if (tokenManager.getToken() != null) {
             navigateToSongSelection()
-            return // Importante para no cargar la UI de login
+            return
         }
 
         setContentView(R.layout.activity_main)
         initViews()
         setupValidations()
         setupClickListeners()
-        setupSpinner()
     }
 
     private fun initViews() {
         etEmail = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
-        passwordLayout = findViewById(R.id.passwordLayout)
+        // Asegúrate de que el ID en tu XML sea 'tilPassword' para el layout de contraseña
+        passwordLayout = findViewById(R.id.tilPassword)
         cbRememberMe = findViewById(R.id.cbRememberMe)
         btnLogin = findViewById(R.id.btnLogin)
         tvForgotPassword = findViewById(R.id.tvForgotPassword)
         tvRegister = findViewById(R.id.tvRegister)
-        layoutLevelSelection = findViewById(R.id.layoutLevelSelection)
-        spinnerLevel = findViewById(R.id.spinnerLevel)
-
-        // Si no tienes ProgressBar en tu XML, puedes ignorar esto o añadirla
-        // progressBar = findViewById(R.id.progressBar)
     }
 
     private fun setupValidations() {
@@ -82,13 +72,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         btnLogin.setOnClickListener {
             if (validateForm()) {
-                // Si el spinner de nivel está visible, hacemos el login final
-                if (layoutLevelSelection.isVisible) {
-                    performRealLogin()
-                } else {
-                    // Primer paso: mostrar selección de nivel
-                    showLevelSelection()
-                }
+                performLogin()
             }
         }
 
@@ -96,61 +80,52 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
         }
 
+        // Navegar a la pantalla de Registro
         tvRegister.setOnClickListener {
-            // Aquí iríamos a la RegisterActivity real
-            // val intent = Intent(this, RegisterActivity::class.java)
-            // startActivity(intent)
-            Toast.makeText(this, "Crea RegisterActivity primero", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, RegisterActivity::class.java)
+            startActivity(intent)
         }
     }
 
-    // ---------------------------------------------------
-    // 🔥 AQUÍ ESTÁ LA INTEGRACIÓN CON RETROFIT
-    // ---------------------------------------------------
-    private fun performRealLogin() {
-        // Verificar que eligió nivel
-        if (spinnerLevel.selectedItemPosition == 0) {
-            Toast.makeText(this, "Select your level of English", Toast.LENGTH_SHORT).show()
-            return
-        }
-
+    private fun performLogin() {
         val email = etEmail.text.toString().trim()
         val password = etPassword.text.toString().trim()
-        val selectedLevel = getSelectedLevelCode()
 
         setLoading(true)
 
         lifecycleScope.launch {
             try {
-                // 1. Instancia del servicio
                 val apiService = RetrofitService.getInstance(this@MainActivity)
-
-                // 2. Petición de Login
                 val request = LoginRequest(email, password)
+
+                // Llamada al servidor
                 val response = apiService.login(request)
 
                 if (response.isSuccessful && response.body() != null) {
                     val loginData = response.body()!!
 
-                    // 3. Guardar Token
-                    tokenManager.saveToken(loginData.accessToken)
+                    // 🔥 CORRECCIÓN AQUÍ: Usamos saveTokens (plural) con ambos valores
+                    // El modelo LoginResponse ahora tiene accessToken Y refreshToken
+                    tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
 
-                    // 4. Guardar Nivel del usuario
+                    // Guardar nombre de usuario en preferencias para el perfil
                     getSharedPreferences("user_prefs", MODE_PRIVATE).edit()
-                        .putString("USER_LEVEL", selectedLevel)
+                        .putString("username", loginData.user.username)
                         .apply()
 
-                    // ✅ CORRECCIÓN: Accedemos a .user.username
+                    // Mensaje de éxito
                     Toast.makeText(this@MainActivity, "¡Bienvenido ${loginData.user.username}!", Toast.LENGTH_LONG).show()
+
+                    // Entrar a la app
                     navigateToSongSelection()
 
                 } else {
-                    // Error: 401 (Contraseña mal) o 404 (Usuario no existe)
+                    // Error 401 o 404
                     Toast.makeText(this@MainActivity, "Login fallido: Credenciales incorrectas", Toast.LENGTH_SHORT).show()
                 }
 
             } catch (e: IOException) {
-                Toast.makeText(this@MainActivity, "Error de conexión: ¿Servidor encendido?", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Error de conexión. Verifica que el servidor esté activo.", Toast.LENGTH_SHORT).show()
             } catch (e: HttpException) {
                 Toast.makeText(this@MainActivity, "Error del servidor: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
@@ -160,65 +135,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun navigateToSongSelection() {
-        // Recuperamos el nivel guardado
-        val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
-        val level = prefs.getString("USER_LEVEL", "B1") ?: "B1"
-
         val intent = Intent(this, SongSelectionActivity::class.java)
-        intent.putExtra("USER_LEVEL", level)
-        // Limpiar backstack para que no vuelva al login al dar atrás
+
+        // Limpiar historial para que al dar "Atrás" no vuelva al login
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
         startActivity(intent)
         finish()
-    }
-
-    // ---------------------------------------------------
-    // UTILIDADES
-    // ---------------------------------------------------
-
-    private fun showLevelSelection() {
-        layoutLevelSelection.visibility = View.VISIBLE
-        btnLogin.text = "🎵 Start Learning"
-    }
-
-    private fun getSelectedLevelCode(): String {
-        return when (spinnerLevel.selectedItemPosition) {
-            1 -> "A1"
-            2 -> "A2"
-            3 -> "B1"
-            4 -> "B2"
-            5 -> "C1"
-            6 -> "C2"
-            else -> "B1"
-        }
     }
 
     private fun setLoading(isLoading: Boolean) {
         btnLogin.isEnabled = !isLoading
         etEmail.isEnabled = !isLoading
         etPassword.isEnabled = !isLoading
-        btnLogin.text = if (isLoading) "Conectando..." else "🎵 Start Learning"
+        btnLogin.text = if (isLoading) "Conectando..." else "ENTRAR"
     }
 
-    // Configuración del Spinner (igual que tenías)
-    private fun setupSpinner() {
-        val levels = arrayOf("Select your level", "A1 - Beginner", "A2 - Elementary", "B1 - Intermediate", "B2 - Upper Intermediate", "C1 - Advanced", "C2 - Proficient")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, levels)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerLevel.adapter = adapter
-    }
-
-    // Validaciones (igual que tenías)
     private fun validateEmail(): Boolean {
         val email = etEmail.text.toString()
-        if (email.isEmpty()) { etEmail.error = "El email es obligatorio"; return false }
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) { etEmail.error = "Email no válido"; return false }
+        if (email.isEmpty()) { etEmail.error = "Requerido"; return false }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            etEmail.error = "Email no válido"
+            return false
+        }
         return true
     }
 
     private fun validatePassword(): Boolean {
         val password = etPassword.text.toString()
-        if (password.isEmpty()) { passwordLayout.error = "Contraseña obligatoria"; return false }
+        if (password.isEmpty()) {
+            passwordLayout.error = "Requerido"
+            return false
+        } else {
+            passwordLayout.error = null
+        }
         return true
     }
 

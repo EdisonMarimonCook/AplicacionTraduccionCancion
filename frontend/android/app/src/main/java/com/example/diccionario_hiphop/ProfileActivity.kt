@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -14,18 +15,22 @@ import kotlinx.coroutines.launch
 
 class ProfileActivity : AppCompatActivity() {
 
+    // UI Elements
+    private lateinit var btnBack: ImageButton
     private lateinit var tvUsername: TextView
-    private lateinit var tvEmail: TextView
+    private lateinit var tvUserLevel: TextView
+
+    // Stats Cards
     private lateinit var tvWordsCount: TextView
     private lateinit var tvStreak: TextView
-    private lateinit var tvLevel: TextView
-    private lateinit var btnLogout: Button
-    private lateinit var btnBack: ImageButton
-    private lateinit var progressBar: ProgressBar
+    private lateinit var tvFlashcardsDone: TextView
 
-    // 1️⃣ Declaramos el botón nuevo
+    // Menu Buttons
+    private lateinit var btnMyDictionary: Button
     private lateinit var btnFlashcards: Button
+    private lateinit var btnLogout: Button
 
+    private lateinit var progressBar: ProgressBar
     private lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,65 +40,84 @@ class ProfileActivity : AppCompatActivity() {
         tokenManager = TokenManager(this)
 
         initViews()
-        loadUserProfile()
         setupListeners()
+
+        // Cargar datos del usuario
+        loadUserData()
+        // Cargar estadísticas del servidor
+        loadUserProgress()
     }
 
     private fun initViews() {
+        btnBack = findViewById(R.id.btnBack)
         tvUsername = findViewById(R.id.tvUsername)
-        tvEmail = findViewById(R.id.tvEmail)
+        tvUserLevel = findViewById(R.id.tvUserLevel)
+
         tvWordsCount = findViewById(R.id.tvWordsCount)
         tvStreak = findViewById(R.id.tvStreak)
-        tvLevel = findViewById(R.id.tvLevel)
-        btnLogout = findViewById(R.id.btnLogout)
-        btnBack = findViewById(R.id.btnBack)
-        progressBar = findViewById(R.id.progressBar)
+        tvFlashcardsDone = findViewById(R.id.tvFlashcardsDone)
 
-        // 2️⃣ Inicializamos el botón
+        btnMyDictionary = findViewById(R.id.btnMyDictionary)
         btnFlashcards = findViewById(R.id.btnFlashcards)
+        btnLogout = findViewById(R.id.btnLogout)
+
+        progressBar = findViewById(R.id.progressBar)
     }
 
     private fun setupListeners() {
         btnBack.setOnClickListener { finish() }
-        btnLogout.setOnClickListener { performLogout() }
 
-        // 3️⃣ Lógica para abrir Flashcards
-        btnFlashcards.setOnClickListener {
-            val intent = Intent(this, FlashcardsActivity::class.java)
-            startActivity(intent)
+        btnMyDictionary.setOnClickListener {
+            startActivity(Intent(this, DictionaryActivity::class.java))
         }
+
+        btnFlashcards.setOnClickListener {
+            startActivity(Intent(this, FlashcardsActivity::class.java))
+        }
+
+        btnLogout.setOnClickListener { performLogout() }
     }
 
-    private fun loadUserProfile() {
+    private fun loadUserData() {
+        // Recuperar nombre guardado en Login (si lo guardaste en prefs)
+        // Si no, usamos un valor por defecto
+        val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
+        val username = prefs.getString("username", "MC Learner")
+        tvUsername.text = username
+    }
+
+    private fun loadUserProgress() {
         setLoading(true)
         lifecycleScope.launch {
             try {
-                val apiService = RetrofitService.getInstance(this@ProfileActivity)
+                val api = RetrofitService.getInstance(this@ProfileActivity)
 
                 // Llamada al endpoint de progreso
-                val response = apiService.getUserProgress()
+                val response = api.getUserProgress()
 
                 if (response.isSuccessful && response.body() != null) {
-                    val progress = response.body()!!
+                    val data = response.body()!!
 
-                    // Actualizar UI con datos del servidor
-                    tvWordsCount.text = progress.totalWordsLearned.toString()
-                    tvStreak.text = "🔥 ${progress.currentStreak}"
+                    // 1. Total Palabras Aprendidas
+                    tvWordsCount.text = data.totalWordsLearned.toString()
 
-                    // Obtener nivel de inglés
-                    val englishStats = progress.statsByLanguage["en"]
-                    tvLevel.text = englishStats?.estimatedLevel ?: "A1"
+                    // 2. Racha Actual (Días seguidos)
+                    tvStreak.text = "🔥 ${data.currentStreak}"
 
-                    // Datos básicos (placeholder o de prefs)
-                    tvUsername.text = "MC Learner"
+                    // 3. Flashcards (Usamos placeholder si la API no lo devuelve aún)
+                    // Si tu backend devuelve este dato, úsalo aquí.
+                    tvFlashcardsDone.text = "0"
+
+                    // 4. Nivel estimado de inglés (del mapa stats_by_language)
+                    val enStats = data.statsByLanguage["en"]
+                    val level = enStats?.estimatedLevel ?: "A1"
+                    tvUserLevel.text = "Nivel $level"
 
                 } else {
-                    // Si falla la carga de datos, mostramos 0 pero no bloqueamos la app
-                    tvWordsCount.text = "0"
-                    tvStreak.text = "🔥 0"
+                    Toast.makeText(this@ProfileActivity, "No se pudieron actualizar las estadísticas", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@ProfileActivity, "Sin conexión: mostrando datos locales", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ProfileActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
             } finally {
                 setLoading(false)
             }
@@ -101,19 +125,7 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun performLogout() {
-        // 1. Borrar token
-        tokenManager.clearSession()
-
-        // 2. Borrar preferencias
-        getSharedPreferences("user_prefs", MODE_PRIVATE).edit().clear().apply()
-
-        Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
-
-        // 3. Ir al Login y limpiar historial
-        val intent = Intent(this, MainActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
+        tokenManager.forceLogout()
     }
 
     private fun setLoading(isLoading: Boolean) {

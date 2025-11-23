@@ -8,7 +8,7 @@
     android:background="@android:color/white"
     tools:context=".SongSelectionActivity">
 
-    <!-- Botón Perfil (Arriba Derecha) -->
+    <!-- Botón Perfil -->
     <ImageButton
         android:id="@+id/btnProfile"
         android:layout_width="48dp"
@@ -23,6 +23,7 @@
         android:contentDescription="Mi Perfil" />
 
     <!-- Barra de Búsqueda -->
+    <!-- CORRECCIÓN: Aseguramos que queryHint funcione y añadimos iconifiedByDefault -->
     <androidx.appcompat.widget.SearchView
         android:id="@+id/searchView"
         android:layout_width="0dp"
@@ -77,7 +78,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Botón Flotante Diccionario (Abajo Derecha) -->
+    <!-- Botón Flotante Diccionario -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/btnOpenDict"
         android:layout_width="wrap_content"

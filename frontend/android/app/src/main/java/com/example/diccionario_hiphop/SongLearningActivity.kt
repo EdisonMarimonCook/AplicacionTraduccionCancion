@@ -1,6 +1,10 @@
 package com.example.diccionario_hiphop
 
+import android.content.Intent
 import android.graphics.Color
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
@@ -12,188 +16,308 @@ import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class SongLearningActivity : AppCompatActivity() {
 
-    // Views
+    // --- VISTAS (UI) ---
     private lateinit var backButton: ImageButton
     private lateinit var favoriteButton: ImageButton
+    private lateinit var headerTitle: TextView
     private lateinit var songTitle: TextView
     private lateinit var songArtist: TextView
     private lateinit var songLanguage: TextView
     private lateinit var songLevel: TextView
     private lateinit var difficultyBar: ProgressBar
     private lateinit var albumCover: ImageView
+
+    // Reproductor
+    private lateinit var btnPlayPause: ImageButton
+    private lateinit var btnPrevFragment: Button
+    private lateinit var btnNextFragment: Button
+    private lateinit var seekBar: SeekBar
+    private lateinit var tvDuration: TextView
+
+    // Contenido y Carga
     private lateinit var lyricsContainer: LinearLayout
-    private lateinit var addToDictButton: Button
-    private lateinit var createCardButton: Button
-    private lateinit var statsButton: Button
     private lateinit var loadingProgress: ProgressBar
 
-    // Data
+    // Botones de Acción (Footer)
+    private lateinit var btnAddToDict: Button
+    private lateinit var btnCreateCard: Button
+    private lateinit var btnFavAction: Button
+    private lateinit var btnStats: Button
+
+    // --- DATOS Y ESTADO ---
     private var currentAnalysis: AnalysisResponse? = null
+    private var mediaPlayer: MediaPlayer? = null
+
+    // Variable para controlar si la música suena (var, no val)
+    private var isMusicPlaying = false
+
+    // Datos de la canción recibidos
+    private var songId: String = ""
+    private var previewUrl: String? = null
+    private var spotifyUrl: String? = null
+    private var hasPreview: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_learning)
 
+        // 1. Recoger datos del Intent (desde la lista)
+        songId = intent.getStringExtra("song_id") ?: ""
+        val titleText = intent.getStringExtra("song_title") ?: "Unknown"
+        val artistText = intent.getStringExtra("song_artist") ?: "Unknown"
+        val imageUrl = intent.getStringExtra("song_image")
+
+        // Datos de audio
+        previewUrl = intent.getStringExtra("song_preview")
+        spotifyUrl = intent.getStringExtra("song_spotify_url")
+        hasPreview = intent.getBooleanExtra("song_has_preview", false)
+
         initializeViews()
+
+        // 2. Pintar info básica
+        headerTitle.text = titleText
+        songTitle.text = titleText
+        songArtist.text = artistText
+
+        if (imageUrl != null) {
+            Glide.with(this).load(imageUrl).into(albumCover)
+        }
+
         setupClickListeners()
-        loadSongData()
+        setupAudioLogic() // Decide si usar MediaPlayer o abrir Spotify
+
+        // 3. Cargar la letra analizada desde el Backend
+        loadSongAnalysis(titleText, artistText)
     }
 
     private fun initializeViews() {
         backButton = findViewById(R.id.backButton)
         favoriteButton = findViewById(R.id.favoriteButton)
+        headerTitle = findViewById(R.id.headerTitle)
         songTitle = findViewById(R.id.songTitle)
         songArtist = findViewById(R.id.songArtist)
         songLanguage = findViewById(R.id.songLanguage)
         songLevel = findViewById(R.id.songLevel)
         difficultyBar = findViewById(R.id.difficultyBar)
         albumCover = findViewById(R.id.albumCover)
+        btnPlayPause = findViewById(R.id.btnPlayPause)
+        btnPrevFragment = findViewById(R.id.btnPrevFragment)
+        btnNextFragment = findViewById(R.id.btnNextFragment)
+        seekBar = findViewById(R.id.seekBar)
+        tvDuration = findViewById(R.id.tvDuration)
         lyricsContainer = findViewById(R.id.lyricsContainer)
-        addToDictButton = findViewById(R.id.addToDictButton)
-        createCardButton = findViewById(R.id.createCardButton)
-        statsButton = findViewById(R.id.statsButton)
         loadingProgress = findViewById(R.id.loadingProgress)
+        btnAddToDict = findViewById(R.id.btnAddToDict)
+        btnCreateCard = findViewById(R.id.btnCreateCard)
+        btnFavAction = findViewById(R.id.btnFavAction)
+        btnStats = findViewById(R.id.btnStats)
     }
+
+    // --- LÓGICA DE AUDIO INTELIGENTE ---
+    private fun setupAudioLogic() {
+        if (hasPreview && !previewUrl.isNullOrEmpty()) {
+            // Opción A: Reproductor Nativo (Loop de 30s)
+            setupMediaPlayer()
+            tvDuration.text = "Preview (Loop)"
+        } else if (!spotifyUrl.isNullOrEmpty()) {
+            // Opción B: Abrir en Spotify (App Externa)
+            btnPlayPause.setImageResource(android.R.drawable.ic_menu_search)
+            tvDuration.text = "Abrir Spotify"
+            btnPlayPause.setOnClickListener { openSpotify(spotifyUrl!!) }
+        } else {
+            // Opción C: Sin audio
+            btnPlayPause.isEnabled = false
+            btnPlayPause.alpha = 0.5f
+            tvDuration.text = "No Audio"
+        }
+    }
+
+    private fun setupMediaPlayer() {
+        mediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            try {
+                setDataSource(previewUrl)
+                isLooping = true // Bucle para estudiar
+                prepareAsync()
+                setOnPreparedListener { btnPlayPause.isEnabled = true }
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        btnPlayPause.setOnClickListener { toggleAudio() }
+    }
+
+    private fun toggleAudio() {
+        mediaPlayer?.let { player ->
+            if (isMusicPlaying) player.pause() else player.start()
+            isMusicPlaying = !isMusicPlaying
+
+            val iconRes = if (isMusicPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+            btnPlayPause.setImageResource(iconRes)
+        }
+    }
+
+    private fun openSpotify(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            intent.setPackage("com.spotify.music") // Intentar abrir App oficial
+            startActivity(intent)
+        } catch (e: Exception) {
+            // Fallback: Navegador web
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(browserIntent)
+        }
+    }
+
+    // --- CARGA DE DATOS Y UI ---
 
     private fun setupClickListeners() {
         backButton.setOnClickListener { finish() }
-        favoriteButton.setOnClickListener { toggleFavorite() }
-        addToDictButton.setOnClickListener { showWordSelectionDialog() }
-        createCardButton.setOnClickListener { showCreateFlashcardDialog() }
-        statsButton.setOnClickListener { showSongStatistics() }
+        favoriteButton.setOnClickListener { toggleFav() }
+        btnFavAction.setOnClickListener { toggleFav() }
+
+        btnAddToDict.setOnClickListener { Toast.makeText(this, "Toca una frase para guardar", Toast.LENGTH_SHORT).show() }
+        // Botones WIP (Work In Progress)
+        btnPrevFragment.setOnClickListener { Toast.makeText(this, "Anterior (WIP)", Toast.LENGTH_SHORT).show() }
+        btnNextFragment.setOnClickListener { Toast.makeText(this, "Siguiente (WIP)", Toast.LENGTH_SHORT).show() }
     }
 
-    private fun loadSongData() {
-        val titleText = intent.getStringExtra("song_title") ?: "Unknown Title"
-        val artistText = intent.getStringExtra("song_artist") ?: "Unknown Artist"
+    private fun toggleFav() {
+        Toast.makeText(this, "♥ Favorito guardado", Toast.LENGTH_SHORT).show()
+    }
 
+    private fun loadSongAnalysis(title: String, artist: String) {
         lifecycleScope.launch {
             showLoading(true)
+            try {
+                val api = RetrofitService.getInstance(this@SongLearningActivity)
+                // Llamada al endpoint /analyze
+                val response = api.analyzeLyrics(title, artist, "B1")
 
-            // ⚠️ IMPORTANTE: Aquí usamos datos MOCK para probar la UI.
-            // Cuando tu backend esté listo, cambia esta línea por la llamada real a Retrofit:
-            // val response = RetrofitService.getInstance(this@SongLearningActivity).analyzeLyrics(titleText, artistText, "B1")
-
-            val mockAnalysis = createMockAnalysis(titleText, artistText)
-            displaySongData(mockAnalysis)
-
-            showLoading(false)
+                if (response.isSuccessful && response.body() != null) {
+                    displaySongData(response.body()!!)
+                } else {
+                    Toast.makeText(this@SongLearningActivity, "Error analizando letra", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@SongLearningActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
+            } finally { showLoading(false) }
         }
     }
 
     private fun displaySongData(analysis: AnalysisResponse) {
         currentAnalysis = analysis
-
-        // ✅ CORRECCIÓN: Accedemos directamente a las propiedades en la raíz del objeto AnalysisResponse
-        songTitle.text = analysis.title
-        songArtist.text = analysis.artist
         songLanguage.text = "🇬🇧 ${analysis.language.uppercase()}"
         songLevel.text = "Nivel: ${analysis.estimatedSongLevel}"
 
-        // Configurar barra de dificultad
-        val difficulty = when (analysis.estimatedSongLevel) {
-            "A1" -> 20; "A2" -> 40; "B1" -> 60
-            "B2" -> 75; "C1" -> 90; "C2" -> 100
-            else -> 50
+        val diff = when(analysis.estimatedSongLevel) {
+            "A1" -> 20; "A2" -> 40; "B1" -> 60; "B2" -> 80; else -> 100
         }
-        difficultyBar.progress = difficulty
+        difficultyBar.progress = diff
 
-        // Mostrar letra analizada
-        displayAnalyzedLyrics(analysis.analyzedLyrics)
-    }
-
-    private fun displayAnalyzedLyrics(analyzedLines: List<AnalyzedLine>) {
+        // Pintar la letra línea por línea
         lyricsContainer.removeAllViews()
-
-        analyzedLines.forEach { line ->
+        analysis.analyzedLyrics.forEach { line ->
             val lineView = TextView(this).apply {
                 text = createColoredText(line)
-                movementMethod = LinkMovementMethod.getInstance() // Habilita clics en spans si los hubiera
-                textSize = 16f
+                movementMethod = LinkMovementMethod.getInstance()
+                textSize = 18f
                 setTextColor(Color.DKGRAY)
-                setPadding(0, 16, 0, 16)
+                setPadding(0, 12, 0, 12)
                 setOnClickListener { onLineClick(line) }
             }
             lyricsContainer.addView(lineView)
         }
     }
 
+    // Pinta las palabras difíciles con colores
     private fun createColoredText(line: AnalyzedLine): SpannableString {
         val spannable = SpannableString(line.original)
         var currentPosition = 0
-
-        // Iteramos sobre las palabras destacadas de la línea
         line.highlightedWords.forEach { word ->
             val startIndex = line.original.indexOf(word.word, currentPosition)
             if (startIndex != -1) {
                 val endIndex = startIndex + word.word.length
-
                 val color = getColorForLevel(word.level)
-
-                // 1. Color del texto (letra)
-                spannable.setSpan(
-                    ForegroundColorSpan(color),
-                    startIndex,
-                    endIndex,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
-                // 2. Color de fondo (transparente para resaltar suavemente)
-                spannable.setSpan(
-                    BackgroundColorSpan(Color.argb(40, Color.red(color), Color.green(color), Color.blue(color))),
-                    startIndex,
-                    endIndex,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-
+                spannable.setSpan(ForegroundColorSpan(color), startIndex, endIndex, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                spannable.setSpan(BackgroundColorSpan(Color.argb(40, Color.red(color), Color.green(color), Color.blue(color))), startIndex, endIndex, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 currentPosition = endIndex
             }
         }
         return spannable
     }
 
-    private fun getColorForLevel(level: String): Int {
-        return when (level) {
-            "A1" -> Color.parseColor("#4CAF50") // Verde
-            "A2" -> Color.parseColor("#8BC34A") // Verde Claro
-            "B1" -> Color.parseColor("#FFC107") // Ambar
-            "B2" -> Color.parseColor("#FF9800") // Naranja
-            "C1" -> Color.parseColor("#F44336") // Rojo
-            "C2" -> Color.parseColor("#B71C1C") // Rojo Oscuro
-            else -> Color.BLACK
-        }
-    }
-
     private fun onLineClick(line: AnalyzedLine) {
-        // Si la línea tiene palabras difíciles, mostramos la primera al hacer clic en la línea
         if (line.highlightedWords.isNotEmpty()) {
-            showWordDefinitionDialog(line.highlightedWords[0])
+            showWordDialog(line.highlightedWords[0], line.original)
         } else {
-            // Feedback simple si no hay palabras destacadas
-            Toast.makeText(this, line.original, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Frase sin palabras complejas", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun showWordDefinitionDialog(word: HighlightedWord) {
+    // --- DIÁLOGO DE GUARDADO ---
+    private fun showWordDialog(word: HighlightedWord, context: String) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_word, null)
+        val etTranslation = dialogView.findViewById<TextInputEditText>(R.id.etTranslation)
+        val etContext = dialogView.findViewById<TextInputEditText>(R.id.etContext)
+
+        etTranslation.setText(word.translation)
+        etContext.setText(context)
+
         AlertDialog.Builder(this)
-            .setTitle(word.word)
-            .setMessage("Nivel: ${word.level}\nTraducción: ${word.translation}\n\n${word.definition}")
-            .setPositiveButton("Guardar en Diccionario") { _, _ -> addWordToDictionary(word) }
-            .setNegativeButton("Cerrar", null)
+            .setTitle("Guardar: ${word.word}")
+            .setView(dialogView)
+            .setPositiveButton("Guardar") { _, _ ->
+                val finalTranslation = etTranslation.text.toString()
+                val finalContext = etContext.text.toString()
+                saveWordToApi(word.word, finalTranslation, finalContext)
+            }
+            .setNegativeButton("Cancelar", null)
             .show()
     }
 
-    private fun addWordToDictionary(word: HighlightedWord) {
-        Toast.makeText(this, "${word.word} guardada", Toast.LENGTH_SHORT).show()
-        // Aquí llamarías a tu ViewModel o Repository para guardar en la BD o API
+    private fun saveWordToApi(word: String, translation: String, context: String) {
+        lifecycleScope.launch {
+            try {
+                val api = RetrofitService.getInstance(this@SongLearningActivity)
+                val request = AddWordRequest(
+                    word = word,
+                    translation = translation,
+                    context = context,
+                    sourceSongId = songId,
+                    sourceSongTitle = songTitle.text.toString(),
+                    sourceArtist = songArtist.text.toString(),
+                    language = "en"
+                )
+                val response = api.addWord(request)
+                if (response.isSuccessful) Toast.makeText(this@SongLearningActivity, "✅ Guardado", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(this@SongLearningActivity, "Error al guardar", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@SongLearningActivity, "Error de red", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
-    private fun toggleFavorite() {
-        Toast.makeText(this, "Favorito clickeado", Toast.LENGTH_SHORT).show()
+    private fun getColorForLevel(level: String): Int {
+        return when (level) {
+            "A1" -> Color.parseColor("#4CAF50") // Verde
+            "A2" -> Color.parseColor("#8BC34A")
+            "B1" -> Color.parseColor("#FFC107") // Amarillo
+            "B2" -> Color.parseColor("#FF9800") // Naranja
+            "C1" -> Color.parseColor("#F44336") // Rojo
+            else -> Color.BLACK
+        }
     }
 
     private fun showLoading(show: Boolean) {
@@ -201,33 +325,9 @@ class SongLearningActivity : AppCompatActivity() {
         lyricsContainer.visibility = if (show) View.GONE else View.VISIBLE
     }
 
-    private fun showWordSelectionDialog() {
-        Toast.makeText(this, "Función: Selección Manual", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showCreateFlashcardDialog() {
-        Toast.makeText(this, "Función: Crear Flashcard", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun showSongStatistics() {
-        Toast.makeText(this, "Función: Estadísticas", Toast.LENGTH_SHORT).show()
-    }
-
-    // ✅ MOCK DATA: Simula la respuesta del servidor con la estructura correcta
-    private fun createMockAnalysis(title: String, artist: String): AnalysisResponse {
-        return AnalysisResponse(
-            title = title,
-            artist = artist,
-            userLevel = "B1",
-            estimatedSongLevel = "B1",
-            language = "en",
-            imageUrl = null,
-            analyzedLyrics = listOf(
-                AnalyzedLine(0, "This is my escape", listOf(HighlightedWord("escape", "A2", "escapada", "Way out", null)), 1),
-                AnalyzedLine(1, "I'm running through this world", listOf(HighlightedWord("running", "A1", "corriendo", "Moving fast", null)), 2)
-            ),
-            wordStats = WordStats(150, 45, 35, 40, 20, 10, 0),
-            status = "success"
-        )
+    override fun onDestroy() {
+        super.onDestroy()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 }
