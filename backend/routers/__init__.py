@@ -16,7 +16,8 @@ VENTAJA: Centraliza todos los routers para importarlos fácilmente en main.py
 # Importar todos los routers
 from routers.auth import router as auth_router
 from routers.songs import router as songs_router
-from routers.lyrics import router as lyrics_router  
+from routers.lyrics import router as lyrics_router
+from routers.openai import router as openai_router
 
 # Nota: Importaremos los demás conforme los creemos
 # from routers.dictionary import router as dictionary_router
@@ -28,8 +29,6 @@ from routers.lyrics import router as lyrics_router
 __all__ = [
     "auth_router",
     "songs_router",
-    "lyrics_router",  # ← NUEVO
-    # "dictionary_router",
-    # "progress_router",
-    # "users_router",
+    "lyrics_router",
+    "openai_router",
 ]
