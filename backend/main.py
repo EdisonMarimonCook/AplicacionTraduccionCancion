@@ -196,6 +196,7 @@ async def shutdown_event():
 app.include_router(auth_router)
 app.include_router(songs_router)
 app.include_router(lyrics_router)
+app.include_router(openai_router)  # <-- añadir para exponer /api/v1/openai
 
 # ===============================================================================
 # ENDPOINTS BÁSICOS
