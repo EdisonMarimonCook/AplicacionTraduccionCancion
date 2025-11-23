@@ -5,32 +5,44 @@ from datetime import datetime
 # ---------- Dictionary item schemas ----------
 
 class DictItemCreate(BaseModel):
-    word: str
+    """Schema para crear entrada diccionario"""
+    word: str = Field(..., min_length=1, max_length=100)
     translation: Optional[str] = None
-    source_lang: str = "en"
-    target_lang: str = "es"
-    type: str = "word"
-    level: Optional[str] = None
-    example: Optional[str] = None
-    notes: Optional[str] = None
-    tags: List[str] = []
+    source_lang: str = Field(default="en", description="en, es, fr, ja, zh, etc")
+    target_lang: str = Field(default="es", description="Idioma nativo para traducción")
+    type: str = Field(default="word", description="word, phrase, idiom")
+    level_system: str = Field(default="CEFR", description="CEFR, JLPT, HSK, TOPIK")
+    difficulty_level: str = Field(default="A1", description="A1, B1, N3, 3, etc")
+    example: Optional[str] = Field(None, max_length=300)
+    notes: Optional[str] = Field(None, max_length=500)
+    tags: List[str] = Field(default=[])
+    is_hiphop_term: bool = Field(default=False)
+    song_id: Optional[str] = None
+
 
 class DictItemOut(BaseModel):
+    """Schema para respuesta diccionario"""
     id: str
     word: str
     translation: Optional[str] = None
-    source_lang: str = "en"
-    target_lang: str = "es"
-    type: str = "word"
-    level: str = "A1"
+    source_lang: str
+    target_lang: str
+    type: str
+    level_system: str = Field(description="CEFR, JLPT, HSK, TOPIK")
+    difficulty_level: str = Field(description="Nivel en ese sistema")
     example: Optional[str] = None
     notes: Optional[str] = None
     tags: List[str] = []
+    is_hiphop_term: bool = False
+    song_id: Optional[str] = None
     created_at: datetime
-    is_learned: bool = False  # ← NUEVO
-    song_id: Optional[str] = None  # ← De qué canción viene
-    times_reviewed: int = 0  # ← Cuántas veces revisada
-    
+    last_reviewed: Optional[datetime] = None
+    is_learned: bool = False
+    times_reviewed: int = 0
+
+    class Config:
+        from_attributes = True
+
 # ---------- OpenAI request/response schemas ----------
     
 class AnalyzeRequest(BaseModel):
