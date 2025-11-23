@@ -76,6 +76,62 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
 
 # ===============================================================================
 
+def create_refresh_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    🔄 CREA UN REFRESH TOKEN (válido 7 días)
+    """
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    to_encode.update({"exp": expire, "type": "refresh"})
+    
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )
+    
+    logger.info(f"✅ Refresh token creado para: {data.get('sub')}")
+    
+    return encoded_jwt
+
+# ✅ AGREGAR ESTA FUNCIÓN:
+
+def verify_refresh_token(token: str) -> Optional[Dict]:
+    """
+    ✅ VERIFICA UN REFRESH TOKEN
+    
+    Solo acepta tokens con type: "refresh"
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        
+        # Verificar que es un refresh token
+        if payload.get("type") != "refresh":
+            logger.warning("⚠️  Token no es de tipo refresh")
+            return None
+        
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+        
+        logger.info(f"✅ Refresh token verificado para: {email}")
+        return {"email": email}
+    
+    except JWTError:
+        logger.warning("⚠️  Refresh token inválido o expirado")
+        return None
+
+# ===============================================================================
+
 def verify_token(token: str) -> Optional[Dict]:
     """
     ✅ VERIFICA UN TOKEN JWT

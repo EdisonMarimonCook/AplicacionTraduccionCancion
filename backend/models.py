@@ -7,17 +7,7 @@ USADO POR: Todos los endpoints
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
-
-# ================================================================
-# LEARNING LANGUAGE (NUEVO)
-# ================================================================
-
-class LearningLanguage(BaseModel):
-    """Schema para idioma que está aprendiendo"""
-    language: str = Field(..., description="es, en, fr, de, it, pt, ja, ko, zh")
-    level: str = Field(default="A1", description="A1, A2, B1, B2, C1, C2")
-    started_at: datetime = Field(default_factory=datetime.now)
-    last_tested: Optional[datetime] = None
+from routers.schemas import LearningLanguage
 
 # ================================================================
 # USUARIO
@@ -29,9 +19,13 @@ class UserBase(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     full_name: Optional[str] = None
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
     """Schema para crear usuario (incluye password)"""
-    password: str = Field(..., min_length=8)
+    email: str
+    username: str
+    full_name: Optional[str] = None
+    password: str
+    native_language: str = "en"  # ✅ AGREGAR ESTO
     learning_languages: List[LearningLanguage] = Field(
         default=[LearningLanguage(language="es", level="A1")],
         description="Idiomas que quiere aprender"
@@ -54,10 +48,6 @@ class User(UserBase):
         default=[LearningLanguage(language="es", level="A1")]
     )
     native_language: str = "en"
-    
-    # ❌ ELIMINADOS (ya no necesarios)
-    # language_level: str = "A1"
-    # learning_language: str = "es"
     
     class Config:
         populate_by_name = True

@@ -241,6 +241,96 @@ class MockDatabase:
             return False
     
     # ================================================================
+    # USUARIOS - VALIDACIONES
+    # ================================================================
+    
+    async def username_exists(self, username: str, exclude_email: Optional[str] = None) -> bool:
+        """Verificar si username ya está cogido"""
+        for user in self.users.values():
+            if user.get("username") == username:
+                # Si estamos editando usuario, permitir su propio username
+                if exclude_email and user.get("email") == exclude_email:
+                    continue
+                return True
+        return False
+    
+    async def email_exists(self, email: str) -> bool:
+        """Verificar si email ya está cogido"""
+        return email in self.users
+    
+    # ================================================================
+    # USUARIOS - ACTUALIZAR
+    # ================================================================
+    
+    async def update_user(self, email: str, update_data: dict) -> Optional[dict]:
+        """
+        Actualizar datos del usuario
+        
+        Campos permitidos:
+        - username
+        - full_name
+        - native_language
+        - learning_languages
+        - password_hash (internamente)
+        """
+        try:
+            user = self.users.get(email)
+            
+            if not user:
+                logger.warning(f"⚠️  MOCK: Usuario no encontrado - {email}")
+                return None
+            
+            # Actualizar campos
+            if "username" in update_data and update_data["username"]:
+                user["username"] = update_data["username"]
+                logger.info(f"✅ MOCK: Username actualizado - {update_data['username']}")
+            
+            if "full_name" in update_data:
+                user["full_name"] = update_data["full_name"]
+                logger.info(f"✅ MOCK: Nombre actualizado")
+            
+            if "native_language" in update_data:
+                user["native_language"] = update_data["native_language"]
+                logger.info(f"✅ MOCK: Idioma nativo actualizado")
+            
+            if "learning_languages" in update_data and update_data["learning_languages"]:
+                user["learning_languages"] = update_data["learning_languages"]
+                langs = ", ".join([f"{l.get('language')}({l.get('level')})" for l in update_data["learning_languages"]])
+                logger.info(f"✅ MOCK: Idiomas actualizados - {langs}")
+            
+            if "password_hash" in update_data:
+                user["password_hash"] = update_data["password_hash"]
+                logger.info(f"✅ MOCK: Contraseña actualizada")
+            
+            user["updated_at"] = datetime.now().isoformat()
+            
+            return user
+        
+        except Exception as e:
+            logger.error(f"❌ MOCK: Error actualizando usuario - {str(e)}")
+            return None
+    
+    async def change_email(self, old_email: str, new_email: str) -> bool:
+        """Cambiar email del usuario (mover en diccionario)"""
+        try:
+            if new_email in self.users:
+                logger.warning(f"⚠️  MOCK: Email ya existe - {new_email}")
+                return False
+            
+            user = self.users.pop(old_email)
+            user["email"] = new_email
+            user["updated_at"] = datetime.now().isoformat()
+            
+            self.users[new_email] = user
+            
+            logger.info(f"✅ MOCK: Email cambiado de {old_email} a {new_email}")
+            return True
+        
+        except Exception as e:
+            logger.error(f"❌ MOCK: Error cambiando email - {str(e)}")
+            return False
+    
+    # ================================================================
     # UTILIDADES
     # ================================================================
     

@@ -7,9 +7,9 @@ CONTIENE: Configuración, eventos, endpoints básicos
 import logging
 import asyncio
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
+from fastapi.middleware.cors import CORSMiddleware
 
 # ===============================================================================
 # IMPORTS INTERNOS
@@ -24,6 +24,7 @@ from utils.genius_client import is_genius_configured
 # ===============================================================================
 
 from routers import auth_router, songs_router, lyrics_router, openai_router
+from routers.users import router as users_router 
 
 # ===============================================================================
 # CONFIGURAR LOGGING
@@ -90,7 +91,7 @@ app.openapi = custom_openapi
 # ===============================================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
+    allow_origins=[  # En producción: ["http://frontend.com"]
         "http://localhost:3000",
         "http://localhost:8080",
         "http://127.0.0.1:3000",
@@ -130,31 +131,70 @@ async def startup_event():
     
     # ========== LLENAR CACHE DE TOP 10 ==========
     logger.info("📊 Actualizando cache de Top 10 canciones...")
-    SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "jp"]
     
-    def update_full_cache():
-        """Actualiza el cache con Top 10 de cada idioma"""
-        logger.info("🔄 Iniciando actualización del cache...")
+    async def load_top10_cache():
+        """
+        📥 Carga el cache de Top 10 al iniciar la app
+        
+        ESTRATEGIA:
+        1. Intentar cargar desde Spotify (dinámico)
+        2. Si falla, usar datos hardcodeados (fallback)
+        """
+        logger.info("📥 Inicializando cache de Top 10...")
         
         try:
-            from spotify import get_top10_playlist
+            from utils.spotify import search_on_spotify
             
-            for lang in SUPPORTED_LANGUAGES:
+            # Mapeo: idioma → query de búsqueda
+            language_queries = {
+                "en": "popular English songs trending",
+                "es": "canciones populares español",
+                "fr": "musique française populaire",
+                "de": "deutsche Musik beliebt",
+                "it": "musica italiana popolare",
+                "pt": "música portuguesa popular",
+                "jp": "日本語の人気曲"
+            }
+            
+            for lang, query in language_queries.items():
                 try:
-                    logger.info(f"  📥 Obteniendo Top 10 para: {lang}")
-                    top10_cache[lang] = get_top10_playlist(lang)
-                    logger.info(f"  ✅ Cache actualizado para: {lang} ({len(top10_cache[lang])} canciones)")
+                    logger.info(f"🔍 Buscando Top 10 para {lang}...")
+                    
+                    # Buscar en Spotify
+                    results = search_on_spotify(query, limit=10)
+                    
+                    if results and len(results) > 0:
+                        # Ordenar por popularidad (descendente)
+                        enriched_sorted = sorted(
+                            results,
+                            key=lambda x: x.get("popularity", 0),
+                            reverse=True
+                        )
+                        
+                        # Guardar en cache
+                        top10_cache[lang] = enriched_sorted
+                        logger.info(f"✅ Top 10 cargado para {lang}: {len(enriched_sorted)} canciones")
+                    
+                    else:
+                        logger.warning(f"⚠️  No se encontraron resultados para {lang}, usando fallback")
+                        top10_cache[lang] = _get_fallback_top10(lang)
+                
                 except Exception as e:
-                    logger.error(f"  ❌ Error obteniendo Top 10 para {lang}: {e}")
-                    top10_cache[lang] = []
-        except ImportError:
-            logger.warning("⚠️  Spotify module no disponible, usando cache vacío")
-            for lang in SUPPORTED_LANGUAGES:
-                top10_cache[lang] = []
+                    logger.warning(f"⚠️  Error cargando {lang}, usando fallback: {str(e)}")
+                    top10_cache[lang] = _get_fallback_top10(lang)
+            
+            logger.info("✅ Cache de Top 10 inicializado completamente")
+        
+        except Exception as e:
+            logger.error(f"❌ Error crítico inicializando cache: {str(e)}")
+            logger.info("🔄 Usando fallback para todos los idiomas...")
+            
+            # Fallback total
+            for lang in ["en", "es", "fr", "de", "it", "pt", "jp"]:
+                top10_cache[lang] = _get_fallback_top10(lang)
     
     # Ejecutar actualización inicial
-    update_full_cache()
-    logger.info(f"✅ Cache poblado: {len(top10_cache)} idiomas, {sum(len(s) for s in top10_cache.values())} canciones")
+    await load_top10_cache()
     
     # ========== ACTUALIZACIÓN AUTOMÁTICA CADA HORA ==========
     async def actualizar_top10_periodicamente():
@@ -163,7 +203,7 @@ async def startup_event():
             try:
                 await asyncio.sleep(3600)  # Esperar 1 hora
                 logger.info("⏰ Actualizando cache (actualización periódica)...")
-                update_full_cache()
+                await load_top10_cache()
             except Exception as e:
                 logger.error(f"❌ Error en actualización periódica: {e}")
     
@@ -173,6 +213,72 @@ async def startup_event():
     logger.info("=" * 80)
     logger.info("✅ APLICACIÓN INICIADA CORRECTAMENTE")
     logger.info("=" * 80)
+
+
+def _get_fallback_top10(language: str):
+    """
+    📦 FALLBACK - Datos hardcodeados si Spotify falla
+    
+    Estos son datos reales de canciones populares
+    Se usan si la búsqueda en Spotify no funciona
+    """
+    
+    fallback_data = {
+        "en": [
+            {
+                "id": "11dFghVXANMlKmJXsNCQvb",
+                "name": "Blinding Lights",
+                "artist": "The Weeknd",
+                "preview_url": "https://p.scdn.co/mp3-preview/...",
+                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
+                "popularity": 96,
+                "spotify_url": "https://open.spotify.com/track/11dFghVXANMlKmJXsNCQvb",
+                "duration_ms": 200040,
+                "has_preview": True,
+                "language": "en"
+            },
+            {
+                "id": "3n3Ppam7vgaVa1iaRUc9Lp",
+                "name": "Shape of You",
+                "artist": "Ed Sheeran",
+                "preview_url": "https://p.scdn.co/mp3-preview/...",
+                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
+                "popularity": 95,
+                "spotify_url": "https://open.spotify.com/track/3n3Ppam7vgaVa1iaRUc9Lp",
+                "duration_ms": 236973,
+                "has_preview": True,
+                "language": "en"
+            },
+        ],
+        "es": [
+            {
+                "id": "2takcwFFpFEt1K3w8LLKkR",
+                "name": "Despacito",
+                "artist": "Luis Fonsi",
+                "preview_url": "https://p.scdn.co/mp3-preview/...",
+                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
+                "popularity": 93,
+                "spotify_url": "https://open.spotify.com/track/2takcwFFpFEt1K3w8LLKkR",
+                "duration_ms": 228973,
+                "has_preview": True,
+                "language": "es"
+            },
+        ],
+        "fr": [],
+        "de": [],
+        "it": [],
+        "pt": [],
+        "jp": [],
+    }
+    
+    result = fallback_data.get(language, [])
+    
+    if result:
+        logger.info(f"📦 Usando fallback para {language}: {len(result)} canciones")
+    else:
+        logger.warning(f"⚠️  Fallback vacío para {language}")
+    
+    return result
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -192,6 +298,7 @@ app.include_router(auth_router)
 app.include_router(songs_router)
 app.include_router(lyrics_router)
 app.include_router(openai_router)
+app.include_router(users_router)  # ← AGREGAR ESTO
 
 # ===============================================================================
 # ENDPOINTS BÁSICOS
