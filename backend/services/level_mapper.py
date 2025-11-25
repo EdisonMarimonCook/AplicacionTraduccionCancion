@@ -3,17 +3,20 @@ ARCHIVO: services/level_mapper.py
 PROPÓSITO: Mapear niveles entre sistemas diferentes (CEFR, JLPT, HSK, TOPIK)
 """
 
-# Sistemas de niveles por idioma
+# Sistemas de niveles por idioma (SOLO LOS SOPORTADOS POR GEMINI)
 LEVEL_SYSTEMS = {
+    # ✅ CEFR (Europeos)
     "en": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
     "es": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
     "fr": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
     "de": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
     "it": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
     "pt": {"system": "CEFR", "levels": ["A1", "A2", "B1", "B2", "C1", "C2"]},
-    "ja": {"system": "JLPT", "levels": ["N5", "N4", "N3", "N2", "N1"]},
-    "zh": {"system": "HSK", "levels": ["1", "2", "3", "4", "5", "6"]},
-    "ko": {"system": "TOPIK", "levels": ["1", "2", "3", "4", "5", "6"]},
+    
+    # 🔜 PRÓXIMOS (después del MVP)
+    # "ja": {"system": "JLPT", "levels": ["N5", "N4", "N3", "N2", "N1"]},
+    # "zh": {"system": "HSK", "levels": ["1", "2", "3", "4", "5", "6"]},
+    # "ko": {"system": "TOPIK", "levels": ["1", "2", "3", "4", "5", "6"]},
 }
 
 

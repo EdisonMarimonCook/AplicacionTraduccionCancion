@@ -20,6 +20,7 @@ from utils.genius_client import (
     is_genius_configured,
     search_genius_songs
 )
+from utils.spotify import search_song_spotify  # ✅ AGREGAR
 from services.openai_client import highlight_by_level
 
 logger = logging.getLogger(__name__)
@@ -132,33 +133,21 @@ async def analyze_lyrics_endpoint(
     title: str,
     artist: str,
     user_level: str = "B1",
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)  # ✅ Obtenemos usuario
 ):
-    """
-    🤖 Analiza letra y resalta palabras por NIVEL con IA (OpenAI real)
-    
-    FLUJO:
-    1. Obtiene letra de Genius
-    2. OpenAI resalta palabras según nivel del usuario
-    3. Asigna colores: verde (fácil), naranja (medio), rojo (difícil)
-    4. Proporciona traducciones y explicaciones
-    
-    Args:
-        title: Título de la canción
-        artist: Artista
-        user_level: Nivel del usuario (A1-C2)
-        current_user: Usuario autenticado
-    
-    Returns:
-        Letra con palabras resaltadas y colores
-    
-    Example:
-        GET /analyze?title=Blinding%20Lights&artist=The%20Weeknd&user_level=B1
-    """
+    """Analiza una canción con IA."""
     try:
-        logger.info(f"🤖 Analizando: {title} por {artist} (nivel {user_level})")
+        native_lang = getattr(current_user, 'native_language', 'es')
         
-        # 1. Obtener letra
+        logger.info(f"🤖 Analizando: {title} por {artist} (nivel {user_level}, idioma: {native_lang})")
+        
+        # ✅ PRIMERO: Buscar en Spotify para obtener imagen
+        logger.info(f"🎵 Buscando en Spotify...")
+        spotify_data = await search_song_spotify(title, artist)
+        image_url = spotify_data.get("image_url") if spotify_data else None
+        
+        # ✅ SEGUNDO: Buscar letra en Genius
+        logger.info(f"📝 Buscando letra en Genius...")
         lyrics_data = await get_song_lyrics(title, artist)
         
         if not lyrics_data or not lyrics_data.get("lyrics"):
@@ -169,13 +158,12 @@ async def analyze_lyrics_endpoint(
         
         raw_lyrics = lyrics_data.get("lyrics")
         
-        # 2. Usar OpenAI para resaltar
         logger.info(f"🔄 Procesando con IA...")
         
-        analysis_result = highlight_by_level(
+        analysis_result = await highlight_by_level(
             lyrics=raw_lyrics,
             user_level=user_level,
-            language="en"
+            native_lang=native_lang
         )
         
         logger.info(f"✅ Análisis completado")
@@ -184,11 +172,13 @@ async def analyze_lyrics_endpoint(
             "title": lyrics_data.get("title"),
             "artist": lyrics_data.get("artist"),
             "user_level": user_level,
-            "language": "en",
-            "image_url": lyrics_data.get("image_url"),
-            "highlighted_words": analysis_result.get("highlighted_words", []),
-            "words_by_level": analysis_result.get("words_by_level", {}),
-            "total_highlighted": len(analysis_result.get("highlighted_words", [])),
+            "language": analysis_result.get("detected_language", "en"),
+            "user_native_language": native_lang,
+            "image_url": image_url or lyrics_data.get("image_url"),  # ✅ PRIORIZA SPOTIFY
+            "highlighted_words": analysis_result.get("words", []),
+            "words_by_level": {user_level: len(analysis_result.get("words", []))},
+            "expressions": analysis_result.get("expressions", []),
+            "expressions_by_level": {user_level: len(analysis_result.get("expressions", []))},
             "suggestions": analysis_result.get("suggestions", []),
             "status": "success"
         }

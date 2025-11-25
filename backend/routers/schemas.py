@@ -145,3 +145,32 @@ class UserProfileResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_active: bool
+
+# ✅ AGREGAR ESTO
+class AnalyzeLyricsRequest(BaseModel):
+    """Request para analizar letras"""
+    title: str
+    artist: str
+    lyrics: str
+    user_level: str = "B1"
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "title": "Knight of the Wind",
+                "artist": "Crush 40",
+                "lyrics": "Woah-oh! Woah-oh-oh!...",
+                "user_level": "B1"
+            }
+        }
+
+class UserResponse(BaseModel):
+    """Respuesta del usuario autenticado"""
+    id: str
+    email: str
+    username: str
+    native_language: str = "es"  # ✅ NUEVO: idioma nativo
+    learning_languages: list  # Ej: ["en", "fr", "ja"]
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool

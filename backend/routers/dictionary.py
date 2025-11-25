@@ -16,10 +16,10 @@ from models import User  # Pydantic model del usuario
 from routers.auth import get_current_user
 from crud import (
     create_dictionary_entry,
-    list_user_dictionary,
+    list_user_dictionary,  # ✅ AHORA EXISTE
     delete_dictionary_entry
 )
-from schemas import DictItemCreate, DictItemOut
+from routers.schemas import DictItemCreate, DictItemOut
 from services.level_mapper import get_level_system, validate_level_for_system
 
 logger = logging.getLogger(__name__)

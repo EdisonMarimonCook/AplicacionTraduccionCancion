@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from services.openai_client import analyze_lyrics, highlight_by_level, identify_hiphop_terms
 from routers.schemas import (
     AnalyzeRequest,
@@ -10,6 +10,9 @@ from routers.schemas import (
     HipHopTerm
 )
 from routers.auth import get_current_user  
+from routers.schemas import AnalyzeLyricsRequest
+from models import User
+from fastapi.logger import logger
 
 router = APIRouter(prefix="/api/v1/openai", tags=["OpenAI"])
 
@@ -17,26 +20,42 @@ router = APIRouter(prefix="/api/v1/openai", tags=["OpenAI"])
 # ENDPOINT 1: Analizar letra completa (EXISTENTE - MANTENER)
 # ===============================================================================
 
-@router.post("/analyze-lyrics")
-async def analyze(req: AnalyzeRequest, current_user: dict = Depends(get_current_user)):
-    """
-    Analiza una letra completa y proporciona explicaciones adaptadas al nivel.
-    
-    Args:
-        lyrics: Texto de la letra
-        level: Nivel del usuario (A1, A2, B1, B2, C1, C2)
-    
-    Returns:
-        Análisis detallado de la letra
-    """
-    if not req.lyrics.strip():
-        raise HTTPException(status_code=400, detail="lyrics required")
-    
+@router.post("/analyze-lyrics", response_model=dict)
+async def analyze_lyrics_openai(
+    request: AnalyzeLyricsRequest,
+    current_user: User = Depends(get_current_user)  # ✅ Usuario autenticado
+):
+    """Analiza letra con IA."""
     try:
-        analysis = await analyze_lyrics(req.lyrics, req.level)
-        return {"analysis": analysis}
+        # ✅ SACAMOS native_lang del usuario
+        native_lang = getattr(current_user, 'native_language', 'es')
+        
+        logger.info(f"🤖 Analizando OpenAI: {request.title} (idioma usuario: {native_lang})")
+        
+        result = await highlight_by_level(
+            lyrics=request.lyrics,
+            user_level=request.user_level,
+            native_lang=native_lang  # ← Del usuario
+        )
+        
+        return {
+            "title": request.title,
+            "artist": request.artist,
+            "user_level": request.user_level,
+            "user_native_language": native_lang,
+            "language": result.get("detected_language", "en"),
+            "highlighted_words": result.get("words", []),
+            "expressions": result.get("expressions", []),
+            "suggestions": result.get("suggestions", []),
+            "status": "success"
+        }
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing lyrics: {str(e)}")
+        logger.error(f"❌ Error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 # ===============================================================================
@@ -46,7 +65,7 @@ async def analyze(req: AnalyzeRequest, current_user: dict = Depends(get_current_
 @router.post("/highlight-words", response_model=HighlightWordsResponse)
 async def highlight_words(
     request: HighlightWordsRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Resalta palabras difíciles en la letra según el nivel del usuario.

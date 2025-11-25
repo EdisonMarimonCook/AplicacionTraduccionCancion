@@ -1,442 +1,225 @@
 """
-MÓDULO: Cliente IA para análisis de letras
-USANDO: Google Gemini (gratis, sin error 429)
-FALLBACK: MOCK si Gemini no funciona
-PLAN B: Ollama/Llama2 si Gemini tiene problemas
+MÓDULO: Cliente Gemini IA (MusicTransIAtor v3.0)
+PROPÓSITO: Análisis contextual, multilingüe y soporte nativo para el usuario.
 """
 
+import asyncio
 import logging
+import json
 from typing import Dict, Optional
+from google.genai import Client
+from google.genai import types 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-# ================================================================================
-# IMPORTAR GEMINI (NUEVO PAQUETE)
-# ================================================================================
+# ===== CONFIGURACIÓN =====
+# Usamos gemini-2.0-flash: Balance perfecto entre velocidad, coste y razonamiento contextual
+MODEL_NAME = "gemini-2.0-flash" 
+SUPPORTED_LANGUAGES = "English, Spanish, French, Japanese, German, Portuguese"
 
-try:
-    import google.genai as genai  # ← NUEVO (en lugar de google.generativeai)
-    GEMINI_AVAILABLE = True
-    logger.info("✅ Gemini (google-genai) importado correctamente")
-except ImportError:
-    GEMINI_AVAILABLE = False
-    logger.warning("⚠️ Gemini no instalado - usar: pip install google-genai")
+_client: Optional[Client] = None
 
-# ================================================================================
-# INICIALIZAR GEMINI
-# ================================================================================
+def get_gemini_client() -> Client:
+    """Obtiene cliente Gemini (singleton)."""
+    global _client
+    if _client is None:
+        _client = Client(api_key=settings.GEMINI_API_KEY)
+        logger.info(f"✅ Cliente Gemini inicializado. Modelo: {MODEL_NAME}")
+    return _client
 
-_gemini_model = None
+# ===============================================================================
+# UTILIDAD: Generador Robusto con Retry y JSON Nativo
+# ===============================================================================
 
-def get_gemini_model():
+async def _generate_content_with_retry(
+    prompt: str, 
+    require_json: bool = False,
+    max_retries: int = 3
+) -> str:
     """
-    Obtiene modelo Gemini (singleton)
-    Si falla, intenta MOCK como fallback
+    Envía prompt a Gemini con lógica de reintento, espera exponencial y soporte JSON.
     """
-    global _gemini_model
+    client = get_gemini_client()
     
-    if _gemini_model is not None:
-        return _gemini_model
-    
-    if not GEMINI_AVAILABLE:
-        logger.error("❌ Gemini no disponible - usando MOCK")
-        return None
-    
-    try:
-        # Configurar API key
-        if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "tu_gemini_api_key_aqui":
-            logger.error("❌ GEMINI_API_KEY no configurada en .env")
-            return None
-        
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        
-        # Usar modelo recomendado por Google
-        _gemini_model = genai.GenerativeModel('gemini-pro')
-        
-        logger.info("✅ Gemini modelo 'gemini-pro' inicializado")
-        return _gemini_model
-        
-    except Exception as e:
-        logger.error(f"❌ Error inicializando Gemini: {str(e)}")
-        return None
+    # Configuración: Forzamos JSON si es necesario
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json" if require_json else "text/plain",
+        temperature=0.2 if require_json else 0.7  # Baja temp para JSON preciso, alta para chat
+    )
 
+    base_delay = 1.0 # Segundos de espera inicial
 
-# ================================================================================
-# MOCK DATA - Fallback si Gemini falla
-# ================================================================================
+    for attempt in range(max_retries):
+        try:
+            # ✅ Llamada asíncrona nativa
+            response = await client.aio.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt,
+                config=config
+            )
+            return response.text
 
-HIPHOP_SLANG_DB = {
-    "drops": {
-        "meaning": "Momento donde cae la beat",
-        "level": "B1",
-        "explanation": "En HipHop, cuando baja la música principal con fuerza",
-        "example": "When the beat drops, everyone jumps"
-    },
-    "flow": {
-        "meaning": "Manera de rimar y cantar",
-        "level": "B1",
-        "explanation": "Estilo y ritmo único de cada rapero",
-        "example": "Your flow is incredible"
-    },
-    "bars": {
-        "meaning": "Líneas o versos de rap",
-        "level": "B1",
-        "explanation": "Cada verso o sección del rap",
-        "example": "These bars are fire"
-    },
-    "beat": {
-        "meaning": "La música instrumental",
-        "level": "A2",
-        "explanation": "La base musical sobre la que rapean",
-        "example": "The beat is sick"
-    },
-    "hype": {
-        "meaning": "Entusiasmo, emoción",
-        "level": "A2",
-        "explanation": "Cuando algo emociona o entusiasma mucho",
-        "example": "The hype is real"
-    },
-    "vibe": {
-        "meaning": "Sensación, atmósfera",
-        "level": "B1",
-        "explanation": "El sentimiento o emoción que transmite",
-        "example": "I love the vibe of this song"
-    },
-    "freestyle": {
-        "meaning": "Rapear sin preparación previa",
-        "level": "B2",
-        "explanation": "Improvisar rimas sobre la marcha",
-        "example": "He can freestyle really well"
-    },
-    "cypher": {
-        "meaning": "Círculo donde rapean turnándose",
-        "level": "B2",
-        "explanation": "Tradición HipHop donde artistas rapean en ronda",
-        "example": "Let's start a cypher"
-    },
-    "diss": {
-        "meaning": "Insultar o criticar verbalmente",
-        "level": "B1",
-        "explanation": "Atacar verbalmente a otro artista",
-        "example": "He dissed his rival in a song"
-    },
-    "beef": {
-        "meaning": "Conflicto o rivalidad entre artistas",
-        "level": "B1",
-        "explanation": "Disputa entre dos raperos",
-        "example": "There's beef between them"
-    }
-}
-
-CEFR_LEVELS = {
-    "A1": {"difficulty": 1, "color": "#008000", "description": "Principiante"},
-    "A2": {"difficulty": 2, "color": "#008000", "description": "Elemental"},
-    "B1": {"difficulty": 3, "color": "#FFA500", "description": "Intermedio"},
-    "B2": {"difficulty": 4, "color": "#FFA500", "description": "Intermedio Alto"},
-    "C1": {"difficulty": 5, "color": "#FF0000", "description": "Avanzado"},
-    "C2": {"difficulty": 6, "color": "#FF0000", "description": "Maestría"}
-}
-
-# ================================================================================
-# FUNCIONES PRINCIPALES - GEMINI CON FALLBACK A MOCK
-# ================================================================================
-
-async def highlight_by_level(lyrics: str, user_level: str, language: str = "en") -> Dict:
-    """
-    📊 RESALTA PALABRAS SEGÚN NIVEL DEL USUARIO
-    
-    INTENTA:
-    1. Gemini (IA real)
-    2. MOCK (fallback si Gemini falla)
-    """
-    
-    try:
-        logger.info(f"📊 Analizando letra - Nivel: {user_level}, Gemini: {GEMINI_AVAILABLE}")
-        
-        # Intentar con Gemini
-        model = get_gemini_model()
-        if model:
-            try:
-                prompt = f"""
-Analiza esta letra de canción y resalta palabras según el nivel CEFR del usuario: {user_level}
-
-LETRA:
-{lyrics}
-
-TAREAS:
-1. Identifica palabras difíciles para nivel {user_level}
-2. Identifica jerga/slang de HipHop
-3. Clasifica cada palabra por nivel CEFR (A1, A2, B1, B2, C1, C2)
-4. Proporciona explicaciones breves en español
-
-RESPONDE EN JSON:
-{{
-    "highlighted_words": [
-        {{
-            "word": "palabra",
-            "level": "B1",
-            "color": "#FFA500",
-            "translation": "traducción",
-            "explanation": "explicación breve",
-            "is_hiphop_term": true/false
-        }}
-    ],
-    "words_by_level": {{"A1": 0, "A2": 0, "B1": 2, "B2": 0, "C1": 0, "C2": 0}},
-    "suggestions": ["sugerencia 1", "sugerencia 2"]
-}}
-"""
-                
-                response = model.generate_content(prompt)
-                
-                # Intentar parsear JSON de la respuesta
-                import json
-                import re
-                
-                # Extraer JSON de la respuesta
-                json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    logger.info("✅ Análisis Gemini completado")
-                    result["source"] = "GEMINI"
-                    return result
-                else:
-                    logger.warning("⚠️ No se pudo parsear respuesta Gemini - usando MOCK")
-                    
-            except Exception as e:
-                logger.warning(f"⚠️ Error con Gemini: {str(e)} - usando MOCK")
-        
-        # Fallback a MOCK
-        logger.info("📦 Usando análisis MOCK")
-        return _mock_highlight_by_level(lyrics, user_level)
-        
-    except Exception as e:
-        logger.error(f"❌ Error en highlight_by_level: {str(e)}")
-        return {
-            "highlighted_words": [],
-            "words_by_level": {},
-            "suggestions": ["Error en análisis"],
-            "error": str(e),
-            "source": "ERROR"
-        }
-
-
-async def identify_hiphop_terms(lyrics: str, language: str = "en") -> Dict:
-    """
-    🎤 IDENTIFICA JERGA HIPHOP EN LA LETRA
-    
-    INTENTA:
-    1. Gemini (IA real)
-    2. MOCK (fallback si Gemini falla)
-    """
-    
-    try:
-        logger.info("🎤 Identificando términos HipHop")
-        
-        # Intentar con Gemini
-        model = get_gemini_model()
-        if model:
-            try:
-                prompt = f"""
-Identifica términos de jerga/slang de HipHop en esta letra:
-
-LETRA:
-{lyrics}
-
-Para cada término encontrado proporciona:
-- Término original
-- Significado en español
-- Contexto donde aparece
-- Referencia cultural
-
-RESPONDE EN JSON:
-{{
-    "terms": [
-        {{
-            "term": "palabra",
-            "meaning": "significado en español",
-            "context": "contexto",
-            "cultural_reference": "referencia cultural",
-            "example": "ejemplo de uso"
-        }}
-    ],
-    "total_terms": 0
-}}
-"""
-                
-                response = model.generate_content(prompt)
-                
-                # Intentar parsear JSON
-                import json
-                import re
-                
-                json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
-                if json_match:
-                    result = json.loads(json_match.group())
-                    logger.info(f"✅ Se encontraron {result.get('total_terms', 0)} términos con Gemini")
-                    result["source"] = "GEMINI"
-                    return result
-                else:
-                    logger.warning("⚠️ No se pudo parsear respuesta Gemini - usando MOCK")
-                    
-            except Exception as e:
-                logger.warning(f"⚠️ Error con Gemini: {str(e)} - usando MOCK")
-        
-        # Fallback a MOCK
-        logger.info("📦 Usando identificación MOCK")
-        return _mock_identify_hiphop_terms(lyrics)
-        
-    except Exception as e:
-        logger.error(f"❌ Error en identify_hiphop_terms: {str(e)}")
-        return {
-            "terms": [],
-            "total_terms": 0,
-            "error": str(e),
-            "source": "ERROR"
-        }
-
-
-async def analyze_lyrics(lyrics: str, level: str) -> str:
-    """
-    📖 ANALIZA LETRA Y PROPORCIONA EXPLICACIONES
-    
-    INTENTA:
-    1. Gemini (IA real)
-    2. MOCK (fallback si Gemini falla)
-    """
-    
-    try:
-        logger.info(f"📖 Analizando letra - Nivel: {level}")
-        
-        # Intentar con Gemini
-        model = get_gemini_model()
-        if model:
-            try:
-                prompt = f"""
-Analiza esta letra de canción para un estudiante de inglés nivel {level} (CEFR):
-
-LETRA:
-{lyrics}
-
-Proporciona:
-1. Explicación general del tema
-2. Palabras clave y su significado
-3. Expresiones idiomáticas identificadas
-4. Contexto cultural/histórico
-5. Consejos para aprender inglés con esta canción
-
-Responde en español, de forma clara y educativa.
-"""
-                
-                response = model.generate_content(prompt)
-                
-                analysis = response.text
-                logger.info("✅ Análisis Gemini completado")
-                return f"{analysis}\n\n[Fuente: Gemini AI]"
-                
-            except Exception as e:
-                logger.warning(f"⚠️ Error con Gemini: {str(e)} - usando MOCK")
-        
-        # Fallback a MOCK
-        logger.info("📦 Usando análisis MOCK")
-        return _mock_analyze_lyrics(lyrics, level)
-        
-    except Exception as e:
-        logger.error(f"❌ Error en analyze_lyrics: {str(e)}")
-        return f"Error: {str(e)}"
-
-
-# ================================================================================
-# FUNCIONES MOCK - Fallback
-# ================================================================================
-
-def _mock_highlight_by_level(lyrics: str, user_level: str) -> Dict:
-    """MOCK: Resalta palabras"""
-    highlighted_words = []
-    words_by_level = {k: 0 for k in ["A1", "A2", "B1", "B2", "C1", "C2"]}
-    
-    words = [w.strip(',.!?;:"').lower() for w in lyrics.split()]
-    
-    for word in set(words):
-        if word in HIPHOP_SLANG_DB:
-            term = HIPHOP_SLANG_DB[word]
-            level = term.get("level", "B1")
+        except Exception as e:
+            error_str = str(e).lower()
+            # Manejo de Rate Limits (429) o sobrecarga
+            if "429" in error_str or "resource exhausted" in error_str or "quota" in error_str:
+                if attempt < max_retries - 1:
+                    wait_time = base_delay * (2 ** attempt) # Backoff: 1s, 2s, 4s...
+                    logger.warning(f"⚠️ Gemini Rate Limit. Reintentando en {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
             
-            highlighted_words.append({
-                "word": word,
-                "level": level,
-                "color": CEFR_LEVELS[level]["color"],
-                "translation": term.get("meaning", ""),
-                "explanation": f"[HipHop] {term.get('explanation', '')}",
-                "example_in_context": term.get("example", ""),
-                "is_hiphop_term": True
-            })
+            logger.error(f"❌ Error crítico Gemini (Intento {attempt+1}): {str(e)}")
+            raise e 
+
+# ===============================================================================
+# FUNCIÓN 1: Analizar letra completa (Explicación General)
+# ===============================================================================
+
+async def analyze_lyrics(lyrics: str, user_level: str, native_lang: str = "es") -> str:
+    """
+    Provee una visión general de la canción adaptada al idioma del usuario.
+    """
+    try:
+        prompt = (
+            f"Actúa como un profesor de música e idiomas experto.\n"
+            f"Tu alumno tiene un nivel {user_level} y su idioma nativo es '{native_lang}'.\n\n"
+            f"TAREA:\n"
+            f"1. Detecta el idioma de la canción automáticamente.\n"
+            f"2. Explica brevemente de qué trata la canción (el tema principal).\n"
+            f"3. Menciona 2-3 puntos clave de vocabulario o gramática interesantes.\n"
+            f"IMPORTANTE: Toda tu respuesta debe estar escrita en '{native_lang}'.\n\n"
+            f"LETRA:\n{lyrics}\n"
+        )
+        
+        logger.info(f"🤖 Analizando letra (General) para hablante de {native_lang}...")
+        result = await _generate_content_with_retry(prompt, require_json=False)
+        return result
+
+    except Exception as e:
+        logger.error(f"❌ Fallback analyze: {e}")
+        return _get_analysis_fallback(lyrics, user_level, native_lang)
+
+# ===============================================================================
+# FUNCIÓN 2: Resaltar palabras (JSON Contextual + Nativo) - LA JOYITA 💎
+# ===============================================================================
+
+async def highlight_by_level(
+    lyrics: str, 
+    user_level: str, 
+    native_lang: str = "es"
+) -> Dict:
+    """
+    Extrae palabras y expresiones basándose en el CONTEXTO de la canción.
+    Las explicaciones se dan en el idioma nativo del usuario.
+    """
+    try:
+        logger.info(f"🎨 Resaltando (Contextual) para nivel {user_level} en {native_lang}")
+        
+        prompt = (
+            f"Eres un analista lingüístico experto en música.\n"
+            f"Tu alumno tiene nivel {user_level} (CEFR) y habla '{native_lang}'.\n\n"
+            f"INSTRUCCIONES CRÍTICAS:\n"
+            f"1. Analiza la letra y detecta el idioma origen.\n"
+            f"2. Extrae palabras ('words') y expresiones ('expressions') para este nivel.\n"
+            f"3. ⚠️ REGLA DE ORO (CONTEXTO): No uses definiciones de diccionario genéricas.\n"
+            f"   - La 'translation' y 'explanation' deben reflejar el significado EXACTO en esta canción.\n"
+            f"   - Si es slang o metáfora, explica ese sentido figurado.\n"
+            f"4. IDIOMA DE SALIDA: 'translation' y 'explanation' deben estar en '{native_lang}'.\n"
+            f"5. DICCIONARIO: Marca 'recommended': true si la palabra es muy útil para aprender.\n\n"
+            f"LETRA:\n{lyrics}\n\n"
+            f"Responde SOLO JSON con esta estructura exacta:\n"
+            f"{{\n"
+            f"  \"detected_language\": \"código (en, es, fr, etc)\",\n"
+            f"  \"words\": [\n"
+            f"    {{\n"
+            f"      \"word\": \"término original\",\n"
+            f"      \"type\": \"noun/verb/adj\",\n"
+            f"      \"translation\": \"traducción en {native_lang}\",\n"
+            f"      \"explanation\": \"explicación contextual en {native_lang}\",\n"
+            f"      \"difficulty\": \"{user_level}\",\n"
+            f"      \"color\": \"orange\",\n"
+            f"      \"recommended\": true\n"
+            f"    }}\n"
+            f"  ],\n"
+            f"  \"expressions\": [\n"
+            f"    {{\n"
+            f"      \"expression\": \"frase completa\",\n"
+            f"      \"type\": \"idiom/phrasal/slang\",\n"
+            f"      \"translation\": \"traducción en {native_lang}\",\n"
+            f"      \"explanation\": \"significado figurado en {native_lang}\",\n"
+            f"      \"difficulty\": \"{user_level}\",\n"
+            f"      \"color\": \"orange\",\n"
+            f"      \"recommended\": true\n"
+            f"    }}\n"
+            f"  ],\n"
+            f"  \"suggestions\": [\"Consejo breve en {native_lang}\"]\n"
+            f"}}"
+        )
+        
+        json_str = await _generate_content_with_retry(prompt, require_json=True)
+        return json.loads(json_str)
             
-            words_by_level[level] += 1
-    
+    except Exception as e:
+        logger.error(f"❌ Fallback highlight: {e}")
+        return _get_highlight_fallback(lyrics, user_level, native_lang)
+
+# ===============================================================================
+# FUNCIÓN 3: Identificar HipHop Terms (Contexto Cultural)
+# ===============================================================================
+
+async def identify_hiphop_terms(lyrics: str, native_lang: str = "es") -> Dict:
+    """
+    Identifica slang de HipHop y lo explica en el idioma del usuario.
+    """
+    try:
+        logger.info(f"🎤 Identificando Slang HipHop (Explicación en {native_lang})")
+        
+        prompt = (
+            f"Analiza esta letra buscando jerga (slang), referencias culturales de HipHop o doble sentido.\n"
+            f"Explica los significados en '{native_lang}'.\n"
+            f"LETRA:\n{lyrics}\n\n"
+            f"Responde SOLO JSON:\n"
+            f"{{\n"
+            f"  \"language_detected\": \"code\",\n"
+            f"  \"terms\": [\n"
+            f"    {{\n"
+            f"      \"term\": \"palabra/frase\",\n"
+            f"      \"meaning\": \"significado en {native_lang}\",\n"
+            f"      \"context\": \"ejemplo o matiz de uso en {native_lang}\",\n"
+            f"      \"cultural_reference\": \"referencia (si aplica) explicada en {native_lang}\"\n"
+            f"    }}\n"
+            f"  ],\n"
+            f"  \"total_terms\": int\n"
+            f"}}"
+        )
+        
+        json_str = await _generate_content_with_retry(prompt, require_json=True)
+        return json.loads(json_str)
+
+    except Exception as e:
+        logger.error(f"❌ Fallback HipHop: {e}")
+        return _get_hiphop_fallback(lyrics)
+
+# ===============================================================================
+# FALLBACKS (Mocks de seguridad para la UI)
+# ===============================================================================
+
+def _get_analysis_fallback(lyrics: str, level: str, lang: str) -> str:
+    msg = "Análisis no disponible en este momento."
+    if lang == "en": msg = "Analysis currently unavailable."
+    return f"{msg} ({len(lyrics.split())} words detected)."
+
+def _get_highlight_fallback(lyrics: str, user_level: str, lang: str) -> Dict:
+    # Retorna estructura vacía para no romper el frontend
+    msg = "Servicio ocupado." if lang == "es" else "Service busy."
     return {
-        "highlighted_words": highlighted_words,
-        "words_by_level": words_by_level,
-        "suggestions": ["Basado en análisis MOCK"],
-        "source": "MOCK_AI"
+        "detected_language": "unknown",
+        "words": [], 
+        "expressions": [], 
+        "suggestions": [msg]
     }
 
-
-def _mock_identify_hiphop_terms(lyrics: str) -> Dict:
-    """MOCK: Identifica términos HipHop"""
-    terms = []
-    words = [w.strip(',.!?;:"').lower() for w in lyrics.split()]
-    
-    for word in set(words):
-        if word in HIPHOP_SLANG_DB:
-            term_data = HIPHOP_SLANG_DB[word]
-            terms.append({
-                "term": word,
-                "meaning": term_data.get("meaning", ""),
-                "context": f"Aparece en la canción",
-                "cultural_reference": f"Término típico de HipHop",
-                "example": term_data.get("example", "")
-            })
-    
-    return {
-        "terms": terms,
-        "total_terms": len(terms),
-        "source": "MOCK_AI"
-    }
-
-
-def _mock_analyze_lyrics(lyrics: str, level: str) -> str:
-    """MOCK: Analiza letra"""
-    return f"""
-ANÁLISIS DE LETRA - Nivel {level}
-
-Este fragmento de letra contiene vocabulario variado para tu nivel.
-
-PALABRAS CLAVE IDENTIFICADAS:
-- Se han detectado términos de HipHop
-- El idioma es accesible para nivel {level}
-
-RECOMENDACIÓN DE ESTUDIO:
-1. Aprende los términos clave de HipHop
-2. Escucha la canción varias veces
-3. Lee la letra mientras escuchas
-
-[Fuente: MOCK AI - Análisis simulado]
-"""
-
-
-# ================================================================================
-# FUNCIONES AUXILIARES
-# ================================================================================
-
-def is_gemini_available() -> bool:
-    """Indica si Gemini está disponible"""
-    model = get_gemini_model()
-    return model is not None
-
-def get_ai_provider() -> str:
-    """Retorna qué IA está en uso"""
-    if is_gemini_available():
-        return "GEMINI"
-    else:
-        return "MOCK_AI"
+def _get_hiphop_fallback(lyrics: str) -> Dict:
+    return {"language_detected": "unknown", "terms": [], "total_terms": 0}

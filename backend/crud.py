@@ -40,8 +40,62 @@ async def get_user_dictionary(user_id: str, language: str = None) -> list:
     """Obtener diccionario del usuario"""
     return await db.get_user_dictionary(user_id, language)
 
-async def delete_dictionary_entry(entry_id: str) -> bool:
-    """Eliminar palabra del diccionario"""
+# ✅ AÑADE ESTA FUNCIÓN (es lo que dictionary.py necesita)
+async def list_user_dictionary(
+    user_id: str,
+    q: str = None,
+    language: str = None,
+    level_system: str = None,
+    difficulty_level: str = None,
+    is_hiphop_term: bool = None,
+    page: int = 1,
+    page_size: int = 50
+) -> list:
+    """
+    Lista diccionario con filtros y paginación
+    Wrapper que llama a get_user_dictionary y luego filtra
+    """
+    # Obtener todo el diccionario
+    entries = await db.get_user_dictionary(user_id, language)
+    
+    if not entries:
+        return []
+    
+    # Filtrar por búsqueda (q)
+    if q:
+        q_lower = q.lower()
+        entries = [e for e in entries if q_lower in e.get("word", "").lower()]
+    
+    # Filtrar por level_system
+    if level_system:
+        entries = [e for e in entries if e.get("level_system") == level_system]
+    
+    # Filtrar por difficulty_level
+    if difficulty_level:
+        entries = [e for e in entries if e.get("difficulty_level") == difficulty_level]
+    
+    # Filtrar por is_hiphop_term
+    if is_hiphop_term is not None:
+        entries = [e for e in entries if e.get("is_hiphop_term") == is_hiphop_term]
+    
+    # Paginación
+    start = (page - 1) * page_size
+    end = start + page_size
+    
+    return entries[start:end]
+
+async def delete_dictionary_entry(user_id: str, entry_id: str) -> bool:
+    """Eliminar palabra del diccionario (verifica ownership)"""
+    # Obtener entrada
+    entries = await db.get_user_dictionary(user_id)
+    
+    # Verificar que pertenece al usuario
+    entry = next((e for e in entries if e.get("_id") == entry_id or e.get("id") == entry_id), None)
+    
+    if not entry:
+        return False  # No encontrada o no pertenece al usuario
+    
+    # Eliminar
     return await db.delete_dictionary_entry(entry_id)
 
 # ================================================================

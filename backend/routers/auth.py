@@ -254,31 +254,13 @@ async def refresh_access_token(
 ):
     """
     🔄 REFRESCA EL ACCESS TOKEN USANDO REFRESH TOKEN
-    
-    Cuando el access_token expire (15 minutos),
-    usa el refresh_token (7 días) para obtener uno nuevo.
-    
-    PARÁMETROS:
-    - Authorization header con refresh_token
-    
-    EJEMPLO:
-    POST /api/v1/auth/refresh
-    Headers: Authorization: Bearer {refresh_token}
-    
-    RESPUESTA:
-    {
-      "access_token": "eyJhbGc... (nuevo)",
-      "token_type": "bearer",
-      "expires_in": 900,
-      "status": "success"
-    }
     """
     
     try:
         logger.info(f"🔄 Intentando refrescar token...")
         
-        # Verificar que es un refresh_token válido
-        token_data = await verify_refresh_token(credentials.credentials)
+        
+        token_data = verify_refresh_token(credentials.credentials)  # ← SIN await
         
         if not token_data:
             logger.warning("⚠️  Refresh token inválido o expirado")

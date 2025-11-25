@@ -287,3 +287,55 @@ def test_spotify_connection() -> bool:
     except Exception as e:
         logger.error(f"❌ Error probando conexión a Spotify: {str(e)}")
         return False
+
+# ===============================================================================
+# BUSCAR UNA CANCIÓN EN SPOTIFY
+# ===============================================================================
+
+async def search_song_spotify(title: str, artist: str) -> Optional[Dict]:
+    """
+    🎵 Busca UNA canción en Spotify y retorna su metadata + imagen
+    
+    PARÁMETROS:
+    - title: Título de la canción
+    - artist: Artista
+    
+    RETORNA:
+    {
+        "id": "...",
+        "name": "...",
+        "artist": "...",
+        "image_url": "...",  ← ESTO ES LO QUE NECESITAS
+        "preview_url": "...",
+        "popularity": 85,
+        "spotify_url": "..."
+    }
+    """
+    try:
+        if not title:
+            logger.warning("⚠️  Title vacío")
+            return None
+        
+        # Construir query
+        query = f"{title}"
+        if artist:
+            query = f"{title} {artist}"
+        
+        logger.info(f"🔍 Buscando en Spotify: {query}")
+        
+        # Buscar en Spotify
+        results = search_on_spotify(query, search_type="track", limit=1)
+        
+        if not results or len(results) == 0:
+            logger.warning(f"⚠️  No encontrado en Spotify: {query}")
+            return None
+        
+        # Retornar el primer resultado (mejor match)
+        song = results[0]
+        logger.info(f"✅ Encontrado en Spotify: {song.get('name')} - Image: {song.get('image_url') is not None}")
+        
+        return song
+    
+    except Exception as e:
+        logger.error(f"❌ Error buscando en Spotify: {str(e)}")
+        return None

@@ -25,7 +25,7 @@ class UserCreate(BaseModel):
     username: str
     full_name: Optional[str] = None
     password: str
-    native_language: str = "en"  # ✅ AGREGAR ESTO
+    native_language: str = "es"  # ✅ AGREGAR ESTO
     learning_languages: List[LearningLanguage] = Field(
         default=[LearningLanguage(language="es", level="A1")],
         description="Idiomas que quiere aprender"
@@ -47,7 +47,7 @@ class User(UserBase):
     learning_languages: List[LearningLanguage] = Field(
         default=[LearningLanguage(language="es", level="A1")]
     )
-    native_language: str = "en"
+    native_language: str = "es"
     
     class Config:
         populate_by_name = True

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 # DETECTAR SI USAR MOCK O REAL
 # ================================================================
 
+# ✅ AHORA LEE DEL .env
 USE_MOCK = getattr(settings, 'USE_MOCK_DB', True)
 
 if USE_MOCK:
@@ -18,13 +19,14 @@ if USE_MOCK:
     from database_mock import mock_db as db
 else:
     logger.info("✅ Conectando a MongoDB real...")
-    # Aquí va la conexión real a MongoDB cuando esté lista
+    # TODO: Implementar conexión real con motor
     # from motor.motor_asyncio import AsyncClient
-    # ...
+    # client = AsyncClient(settings.MONGODB_URL)
+    # db = client[settings.MONGODB_DB_NAME]
     pass
 
 # ================================================================
 # EXPORTS
 # ================================================================
 
-__all__ = ['db']
+__all__ = ['db', 'USE_MOCK']
