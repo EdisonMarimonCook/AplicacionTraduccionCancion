@@ -22,6 +22,9 @@ class MockDatabase:
         self.dictionary_entries: Dict[str, dict] = {}
         self.sessions: Dict[str, dict] = {}
         self.progress: Dict[str, dict] = {}
+        self.flashcards: Dict[str, dict] = {}
+        self.songs: Dict[str, dict] = {}
+        self.song_analyses: Dict[str, dict] = {}
         
         # Contadores para IDs
         self.user_counter = 0
@@ -204,25 +207,37 @@ class MockDatabase:
     # ================================================================
     
     async def get_user_progress(self, user_id: str) -> dict:
-        """Obtener progreso del usuario"""
-        try:
-            progress = self.progress.get(user_id, {
-                "user_id": user_id,
-                "total_words_learned": 0,
-                "total_songs_completed": 0,
-                "total_study_hours": 0,
-                "current_streak": 0,
-                "longest_streak": 0,
-                "stats_by_language": {},
-                "created_at": datetime.now().isoformat()
-            })
-            
-            logger.info("✅ MOCK: Progreso obtenido")
-            return progress
-        
-        except Exception as e:
-            logger.error(f"❌ MOCK: Error obteniendo progreso - {str(e)}")
-            return {}
+        """Obtener progreso del usuario - MEJORADO"""
+        progress = self.progress.get(user_id, {
+            "user_id": user_id,
+            "total_words_learned": 0,
+            "total_songs_completed": 0,
+            "total_study_hours": 0,
+            "current_streak": 0,
+            "longest_streak": 0,
+            "last_study_date": None,
+            "words_learned_today": 0,
+            "words_learned_this_week": 0,
+            "words_learned_this_month": 0,
+            "songs_this_week": 0,
+            "daily_goals": {
+                "target_words": 10,
+                "target_minutes": 30,
+                "completed_today": False
+            },
+            "stats_by_language": {
+                "en": {
+                    "words_learned": 0,
+                    "songs_completed": 0,
+                    "estimated_level": "A1",
+                    "time_studied": 0,
+                    "last_activity_date": None
+                }
+            },
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        })
+        return progress
     
     async def update_user_progress(self, user_id: str, progress_data: dict) -> bool:
         """Actualizar progreso del usuario"""
@@ -331,6 +346,91 @@ class MockDatabase:
             return False
     
     # ================================================================
+    # FLASHCARDS
+    # ================================================================
+    
+    async def create_flashcard(self, flashcard_data: dict) -> str:
+        """Crear flashcard"""
+        flashcard_id = f"mock_flashcard_{len(self.flashcards)}"
+        flashcard = {
+            "_id": flashcard_id,
+            **flashcard_data,
+            "created_at": datetime.now().isoformat()
+        }
+        self.flashcards[flashcard_id] = flashcard
+        return flashcard_id
+
+    async def get_user_flashcards(self, user_id: str) -> list:
+        """Obtener flashcards del usuario"""
+        return [f for f in self.flashcards.values() if f.get("user_id") == user_id]
+
+    async def update_flashcard_review(self, user_id: str, flashcard_id: str, correct: bool) -> dict:
+        """Actualizar resultado review"""
+        flashcard = self.flashcards.get(flashcard_id)
+        if not flashcard or flashcard.get("user_id") != user_id:
+            return None
+        
+        if correct:
+            flashcard["correct_count"] = flashcard.get("correct_count", 0) + 1
+        else:
+            flashcard["incorrect_count"] = flashcard.get("incorrect_count", 0) + 1
+        
+        flashcard["last_reviewed"] = datetime.now().isoformat()
+        return flashcard
+    
+    # ================================================================
+    # CANCIONES
+    # ================================================================
+    
+    async def create_song(self, song_data: dict) -> str:
+        """Guardar canción"""
+        song_id = f"mock_song_{len(self.songs)}"
+        song = {
+            "_id": song_id,
+            **song_data,
+            "cached_at": datetime.now().isoformat()
+        }
+        self.songs[song_id] = song
+        return song_id
+
+    async def get_song_by_genius_id(self, genius_id: str) -> dict:
+        """Obtener canción por Genius ID (para evitar duplicados)"""
+        for song in self.songs.values():
+            if song.get("genius_id") == genius_id:
+                return song
+        return None
+
+    async def get_song(self, song_id: str) -> dict:
+        """Obtener canción por ID"""
+        return self.songs.get(song_id)
+
+    async def get_songs_by_language(self, language: str) -> list:
+        """Obtener canciones por idioma"""
+        return [s for s in self.songs.values() if s.get("language") == language]
+    
+    # ================================================================
+    # ANALISIS DE CANCIONES
+    # ================================================================
+    
+    async def create_song_analysis(self, analysis_data: dict) -> str:
+        """Guardar análisis de canción"""
+        analysis_id = f"mock_analysis_{len(self.song_analyses)}"
+        analysis = {
+            "_id": analysis_id,
+            **analysis_data,
+            "created_at": datetime.now().isoformat()
+        }
+        self.song_analyses[analysis_id] = analysis
+        return analysis_id
+
+    async def get_song_analysis(self, song_id: str) -> dict:
+        """Obtener análisis de una canción"""
+        for analysis in self.song_analyses.values():
+            if analysis.get("song_id") == song_id:
+                return analysis
+        return None
+
+    # ================================================================
     # UTILIDADES
     # ================================================================
     
@@ -340,6 +440,9 @@ class MockDatabase:
         self.dictionary_entries.clear()
         self.sessions.clear()
         self.progress.clear()
+        self.flashcards.clear()
+        self.songs.clear()
+        self.song_analyses.clear()
         logger.info("🗑️  MOCK: Base de datos limpiada")
     
     def get_stats(self) -> dict:

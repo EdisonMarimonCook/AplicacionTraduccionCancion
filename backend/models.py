@@ -25,7 +25,7 @@ class UserCreate(BaseModel):
     username: str
     full_name: Optional[str] = None
     password: str
-    native_language: str = "es"  # ✅ AGREGAR ESTO
+    native_language: str = "es"
     learning_languages: List[LearningLanguage] = Field(
         default=[LearningLanguage(language="es", level="A1")],
         description="Idiomas que quiere aprender"
@@ -43,7 +43,6 @@ class User(UserBase):
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
     
-    # 🆕 NUEVOS CAMPOS
     learning_languages: List[LearningLanguage] = Field(
         default=[LearningLanguage(language="es", level="A1")]
     )
@@ -58,9 +57,9 @@ class Token(BaseModel):
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int  # segundos
-    user_id: Optional[str] = None  # 🆕
-    email: Optional[str] = None  # 🆕
-    learning_languages: Optional[List[LearningLanguage]] = None  # 🆕
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    learning_languages: Optional[List[LearningLanguage]] = None
 
 class TokenData(BaseModel):
     """Data dentro del JWT"""
@@ -79,9 +78,14 @@ class DictionaryEntry(BaseModel):
     language: str
     translation: Optional[str] = None
     definition: Optional[str] = None
+    original_context: Optional[str] = None # ✅ Contexto de la canción
     example: Optional[str] = None
-    category: str = Field(default="palabra", description="palabra o expresión")  # 🆕
+    category: str = Field(default="palabra", description="palabra o expresión")
     difficulty_level: str = "A1"
+    
+    # ✅ NUEVO: Recomendado por IA
+    is_recommended: bool = Field(default=False)
+    
     created_at: datetime = Field(default_factory=datetime.now)
     last_reviewed: Optional[datetime] = None
     review_count: int = 0

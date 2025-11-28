@@ -1,8 +1,15 @@
-from typing import List, Optional
-from pydantic import BaseModel, Field
+"""
+ARCHIVO: routers/schemas.py
+PROPÓSITO: Definir los esquemas Pydantic para Request/Response de la API
+"""
+
+from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 
-# ---------- Dictionary item schemas ----------
+# ===============================================================================
+# SCHEMAS DE DICCIONARIO
+# ===============================================================================
 
 class DictItemCreate(BaseModel):
     """Schema para crear entrada diccionario"""
@@ -18,6 +25,8 @@ class DictItemCreate(BaseModel):
     tags: List[str] = Field(default=[])
     is_hiphop_term: bool = Field(default=False)
     song_id: Optional[str] = None
+    # ✅ NUEVO: Soporte para recomendación
+    is_recommended: bool = Field(default=False)
 
 
 class DictItemOut(BaseModel):
@@ -35,6 +44,7 @@ class DictItemOut(BaseModel):
     tags: List[str] = []
     is_hiphop_term: bool = False
     song_id: Optional[str] = None
+    is_recommended: bool = False  # ✅ NUEVO
     created_at: datetime
     last_reviewed: Optional[datetime] = None
     is_learned: bool = False
@@ -43,77 +53,15 @@ class DictItemOut(BaseModel):
     class Config:
         from_attributes = True
 
-# ---------- OpenAI request/response schemas ----------
-    
-class AnalyzeRequest(BaseModel):
-    lyrics: str
-    level: str
-    
-class TranslateWordRequest(BaseModel):
-    word: str
-    source_lang: str = "en"
-    target_lang: str = "es"
+# ===============================================================================
+# SCHEMAS DE USUARIO Y PERFIL
+# ===============================================================================
 
-class WordHighlight(BaseModel):
-    """Palabra resaltada con su información"""
-    word: str
-    level: str = Field(..., description="A1, A2, B1, B2, C1, C2")
-    color: str = Field(..., description="hexColor - #FF0000, #FFA500, #008000")
-    translation: Optional[str] = None
-    explanation: Optional[str] = None
-    example_in_context: Optional[str] = None
-
-class HighlightWordsRequest(BaseModel):
-    """Request para resaltar palabras en letra"""
-    lyrics: str = Field(..., description="Letra completa de la canción")
-    user_level: str = Field(..., description="Nivel del usuario: A1, A2, B1, B2, C1, C2")
-    language: str = Field(default="en", description="Idioma de la letra")
-
-class HighlightWordsResponse(BaseModel):
-    """Response con palabras resaltadas"""
-    highlighted_words: List[WordHighlight]
-    total_words: int
-    words_by_level: dict = Field(default_factory=dict, description="Conteo por nivel")
-    suggestions: List[str] = Field(default_factory=list, description="Sugerencias de estudio")
-
-class HipHopTermRequest(BaseModel):
-    """Request para identificar términos de HipHop"""
-    lyrics: str
-    language: str = "en"
-
-class HipHopTerm(BaseModel):
-    """Término de HipHop identificado"""
-    term: str
-    meaning: str
-    context: Optional[str] = None
-    cultural_reference: Optional[str] = None
-
-class HipHopTermResponse(BaseModel):
-    """Response con términos de HipHop"""
-    terms: List[HipHopTerm]
-    total_terms: int
-
-# ✅ YA ESTÁ AQUÍ
 class LearningLanguage(BaseModel):
     language: str = Field(..., description="es, en, fr, de, it, pt, ja, ko, zh")
     level: str = Field(default="A1", description="A1, A2, B1, B2, C1, C2")
     started_at: datetime = Field(default_factory=datetime.now)
     last_tested: Optional[datetime] = None
-
-# ✅ AGREGAR ESTO AL FINAL
-
-class SaveHighlightedWordsRequest(BaseModel):
-    """Guardar palabras resaltadas en diccionario"""
-    song_id: str
-    highlighted_words: List[WordHighlight]
-    language: str
-
-class ProgressSummary(BaseModel):
-    """Resumen de progreso"""
-    total_words_learned: int
-    words_by_level: dict
-    songs_completed: int
-    current_streak: int
 
 class UserProfileUpdate(BaseModel):
     """Request para actualizar perfil del usuario"""
@@ -146,7 +94,21 @@ class UserProfileResponse(BaseModel):
     updated_at: datetime
     is_active: bool
 
-# ✅ AGREGAR ESTO
+class UserResponse(BaseModel):
+    """Respuesta del usuario autenticado"""
+    id: str
+    email: str
+    username: str
+    native_language: str = "es"
+    learning_languages: list
+    created_at: datetime
+    updated_at: datetime
+    is_active: bool
+
+# ===============================================================================
+# SCHEMAS DE IA (GEMINI V3) - ✅ LO QUE FALTABA
+# ===============================================================================
+
 class AnalyzeLyricsRequest(BaseModel):
     """Request para analizar letras"""
     title: str
@@ -164,13 +126,37 @@ class AnalyzeLyricsRequest(BaseModel):
             }
         }
 
-class UserResponse(BaseModel):
-    """Respuesta del usuario autenticado"""
-    id: str
-    email: str
-    username: str
-    native_language: str = "es"  # ✅ NUEVO: idioma nativo
-    learning_languages: list  # Ej: ["en", "fr", "ja"]
-    created_at: datetime
-    updated_at: datetime
-    is_active: bool
+class WordHighlight(BaseModel):
+    word: str
+    type: str  # noun, verb, adj
+    translation: str  # Traducción contextual
+    explanation: str  # Explicación contextual
+    difficulty: str   # A1-C2
+    color: str        # orange, red, green
+    recommended: bool = False  # ⭐ La estrellita
+
+class ExpressionHighlight(BaseModel):
+    expression: str
+    type: str
+    translation: str
+    explanation: str
+    difficulty: str
+    color: str
+    recommended: bool = False
+
+class HighlightWordsResponse(BaseModel):
+    detected_language: str
+    words: List[WordHighlight]
+    expressions: List[ExpressionHighlight]
+    suggestions: List[str]
+
+# Schemas legacy (por si acaso se usan en algún lado, no molestan)
+class HipHopTerm(BaseModel):
+    term: str
+    meaning: str
+    context: Optional[str] = None
+    cultural_reference: Optional[str] = None
+
+class HipHopTermResponse(BaseModel):
+    terms: List[HipHopTerm]
+    total_terms: int
