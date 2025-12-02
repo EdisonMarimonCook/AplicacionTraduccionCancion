@@ -40,7 +40,7 @@ async def get_user_dictionary(user_id: str, language: str = None) -> list:
     """Obtener diccionario del usuario"""
     return await db.get_user_dictionary(user_id, language)
 
-# ✅ AÑADE ESTA FUNCIÓN (es lo que dictionary.py necesita)
+# ✅ FUNCIÓN CLAVE PARA dictionary.py
 async def list_user_dictionary(
     user_id: str,
     q: str = None,
@@ -78,7 +78,7 @@ async def list_user_dictionary(
     if is_hiphop_term is not None:
         entries = [e for e in entries if e.get("is_hiphop_term") == is_hiphop_term]
     
-    # Paginación
+    # Paginación manual (ya que la Mock DB no pagina nativamente)
     start = (page - 1) * page_size
     end = start + page_size
     
@@ -86,7 +86,7 @@ async def list_user_dictionary(
 
 async def delete_dictionary_entry(user_id: str, entry_id: str) -> bool:
     """Eliminar palabra del diccionario (verifica ownership)"""
-    # Obtener entrada
+    # Obtener entrada para verificar
     entries = await db.get_user_dictionary(user_id)
     
     # Verificar que pertenece al usuario
@@ -123,7 +123,7 @@ async def update_user_progress(user_id: str, progress_data: dict) -> bool:
     return await db.update_user_progress(user_id, progress_data)
 
 # ================================================================
-# USUARIOS - VALIDACIONES
+# USUARIOS - VALIDACIONES Y UPDATES
 # ================================================================
 
 async def username_exists(username: str, exclude_email: str = None) -> bool:
@@ -134,10 +134,6 @@ async def email_exists(email: str) -> bool:
     """Verificar si email está disponible"""
     return await db.email_exists(email)
 
-# ================================================================
-# USUARIOS - ACTUALIZACIÓN
-# ================================================================
-
 async def update_user_profile(
     email: str,
     username: str = None,
@@ -145,29 +141,12 @@ async def update_user_profile(
     native_language: str = None,
     learning_languages: list = None
 ) -> dict:
-    """
-    Actualizar perfil del usuario
-    
-    Args:
-        email: Email del usuario
-        username: Nuevo username (opcional)
-        full_name: Nuevo nombre completo (opcional)
-        native_language: Nuevo idioma nativo (opcional)
-        learning_languages: Nuevos idiomas de aprendizaje (opcional)
-    
-    Returns:
-        Usuario actualizado o None
-    """
+    """Actualizar perfil del usuario"""
     update_data = {}
     
-    if username is not None:
-        update_data["username"] = username
-    
-    if full_name is not None:
-        update_data["full_name"] = full_name
-    
-    if native_language is not None:
-        update_data["native_language"] = native_language
+    if username is not None: update_data["username"] = username
+    if full_name is not None: update_data["full_name"] = full_name
+    if native_language is not None: update_data["native_language"] = native_language
     
     if learning_languages is not None:
         update_data["learning_languages"] = [

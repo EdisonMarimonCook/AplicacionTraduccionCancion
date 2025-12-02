@@ -18,7 +18,7 @@ from routers.auth import router as auth_router
 from routers.auth import get_current_user
 from routers.songs import router as songs_router
 from routers.lyrics import router as lyrics_router
-from routers.openai import router as openai_router
+from routers.ai_analysis import router as ai_router
 
 # Nota: Importaremos los demás conforme los creemos
 # from routers.dictionary import router as dictionary_router
@@ -31,7 +31,7 @@ __all__ = [
     "auth_router",
     "songs_router",
     "lyrics_router",
-    "openai_router",
+    "ai_router", 
 ]
 
 

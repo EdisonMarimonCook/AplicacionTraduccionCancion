@@ -1,5 +1,5 @@
 """
-MÓDULO: Cliente Gemini IA (MusicTransIAtor v3.0)
+MÓDULO: Cliente Gemini IA (MusicTransIAtor v3.0 MVP)
 PROPÓSITO: Análisis contextual, multilingüe y soporte nativo para el usuario.
 """
 
@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 # ===== CONFIGURACIÓN =====
 # Usamos gemini-2.0-flash: Balance perfecto entre velocidad, coste y razonamiento contextual
 MODEL_NAME = "gemini-2.0-flash" 
-SUPPORTED_LANGUAGES = "English, Spanish, French, Japanese, German, Portuguese"
 
 _client: Optional[Client] = None
 
@@ -45,7 +44,7 @@ async def _generate_content_with_retry(
     # Configuración: Forzamos JSON si es necesario
     config = types.GenerateContentConfig(
         response_mime_type="application/json" if require_json else "text/plain",
-        temperature=0.2 if require_json else 0.7  # Baja temp para JSON preciso, alta para chat
+        temperature=0.2 if require_json else 0.7
     )
 
     base_delay = 1.0 # Segundos de espera inicial
@@ -74,35 +73,7 @@ async def _generate_content_with_retry(
             raise e 
 
 # ===============================================================================
-# FUNCIÓN 1: Analizar letra completa (Explicación General)
-# ===============================================================================
-
-async def analyze_lyrics(lyrics: str, user_level: str, native_lang: str = "es") -> str:
-    """
-    Provee una visión general de la canción adaptada al idioma del usuario.
-    """
-    try:
-        prompt = (
-            f"Actúa como un profesor de música e idiomas experto.\n"
-            f"Tu alumno tiene un nivel {user_level} y su idioma nativo es '{native_lang}'.\n\n"
-            f"TAREA:\n"
-            f"1. Detecta el idioma de la canción automáticamente.\n"
-            f"2. Explica brevemente de qué trata la canción (el tema principal).\n"
-            f"3. Menciona 2-3 puntos clave de vocabulario o gramática interesantes.\n"
-            f"IMPORTANTE: Toda tu respuesta debe estar escrita en '{native_lang}'.\n\n"
-            f"LETRA:\n{lyrics}\n"
-        )
-        
-        logger.info(f"🤖 Analizando letra (General) para hablante de {native_lang}...")
-        result = await _generate_content_with_retry(prompt, require_json=False)
-        return result
-
-    except Exception as e:
-        logger.error(f"❌ Fallback analyze: {e}")
-        return _get_analysis_fallback(lyrics, user_level, native_lang)
-
-# ===============================================================================
-# FUNCIÓN 2: Resaltar palabras (JSON Contextual + Nativo) - LA JOYITA 💎
+# FUNCIÓN PRINCIPAL: Resaltar palabras (JSON Contextual + Nativo)
 # ===============================================================================
 
 async def highlight_by_level(
@@ -163,10 +134,15 @@ async def highlight_by_level(
             
     except Exception as e:
         logger.error(f"❌ Fallback highlight: {e}")
-        return _get_highlight_fallback(lyrics, user_level, native_lang)
+        return {
+            "detected_language": "unknown",
+            "words": [], 
+            "expressions": [], 
+            "suggestions": ["Service momentarily unavailable."]
+        }
 
 # ===============================================================================
-# FUNCIÓN 3: Identificar HipHop Terms (Contexto Cultural)
+# FUNCIÓN SECUNDARIA: Identificar HipHop Terms
 # ===============================================================================
 
 async def identify_hiphop_terms(lyrics: str, native_lang: str = "es") -> Dict:
@@ -200,26 +176,4 @@ async def identify_hiphop_terms(lyrics: str, native_lang: str = "es") -> Dict:
 
     except Exception as e:
         logger.error(f"❌ Fallback HipHop: {e}")
-        return _get_hiphop_fallback(lyrics)
-
-# ===============================================================================
-# FALLBACKS (Mocks de seguridad para la UI)
-# ===============================================================================
-
-def _get_analysis_fallback(lyrics: str, level: str, lang: str) -> str:
-    msg = "Análisis no disponible en este momento."
-    if lang == "en": msg = "Analysis currently unavailable."
-    return f"{msg} ({len(lyrics.split())} words detected)."
-
-def _get_highlight_fallback(lyrics: str, user_level: str, lang: str) -> Dict:
-    # Retorna estructura vacía para no romper el frontend
-    msg = "Servicio ocupado." if lang == "es" else "Service busy."
-    return {
-        "detected_language": "unknown",
-        "words": [], 
-        "expressions": [], 
-        "suggestions": [msg]
-    }
-
-def _get_hiphop_fallback(lyrics: str) -> Dict:
-    return {"language_detected": "unknown", "terms": [], "total_terms": 0}
+        return {"language_detected": "unknown", "terms": [], "total_terms": 0}

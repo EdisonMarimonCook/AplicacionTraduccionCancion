@@ -1,7 +1,7 @@
 """
 ARCHIVO: main.py
 PROPÓSITO: Archivo principal de la aplicación FastAPI
-CONTIENE: Configuración, eventos, endpoints básicos
+CONTIENE: Configuración, eventos, endpoints básicos y Registro de Routers
 """
 
 import logging
@@ -23,9 +23,15 @@ from utils.genius_client import is_genius_configured
 # IMPORTS DE ROUTERS
 # ===============================================================================
 
-from routers import auth_router, songs_router, lyrics_router, openai_router
+# 1. Routers básicos
+from routers import auth_router, songs_router, lyrics_router
+
+# 2. Router de IA (Gemini V3) - ✅ SUSTITUYE A OPENAI
+from routers.ai_analysis import router as ai_router 
+
+# 3. Routers de usuario y datos
 from routers.users import router as users_router
-from routers.dictionary import router as dictionary_router  # ← AGREGAR
+from routers.dictionary import router as dictionary_router
 
 # ===============================================================================
 # CONFIGURAR LOGGING
@@ -41,7 +47,7 @@ logger = logging.getLogger(__name__)
 # ===============================================================================
 app = FastAPI(
     title="Music TransIAtor API",
-    description="API para aprender idiomas a través de canciones con IA",
+    description="API para aprender idiomas a través de canciones con IA (Gemini Powered)",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -92,13 +98,7 @@ app.openapi = custom_openapi
 # ===============================================================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[  # En producción: ["http://frontend.com"]
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "*"
-    ],
+    allow_origins=["*"], # En producción cambiar por dominios reales
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -121,6 +121,7 @@ async def startup_event():
     logger.info(f"📍 Entorno: {settings.ENVIRONMENT}")
     logger.info(f"🔧 Debug: {settings.DEBUG}")
     logger.info(f"🎵 Genius API: {'✅ Configurado' if is_genius_configured() else '❌ No configurado'}")
+    logger.info(f"🧠 IA Model: Gemini 2.0 Flash")
 
     # ========== BASE DE DATOS ==========
     if USE_MOCK:
@@ -136,46 +137,35 @@ async def startup_event():
     async def load_top10_cache():
         """
         📥 Carga el cache de Top 10 al iniciar la app
-
-        ESTRATEGIA:
-        1. Intentar cargar desde Spotify (dinámico)
-        2. Si falla, usar datos hardcodeados (fallback)
         """
         logger.info("📥 Inicializando cache de Top 10...")
 
         try:
-            from utils.spotify import search_on_spotify
+            from utils.spotify import search_songs_spotify
 
             # Mapeo: idioma → query de búsqueda
+            # Usamos términos genéricos para llenar el home
             language_queries = {
-                "en": "popular English songs trending",
-                "es": "canciones populares español",
-                "fr": "musique française populaire",
-                "de": "deutsche Musik beliebt",
-                "it": "musica italiana popolare",
-                "pt": "música portuguesa popular",
-                "jp": "日本語の人気曲"
+                "en": "Top Hits USA",
+                "es": "Exitos España",
+                "fr": "Top France",
+                "de": "Top Germany",
+                "it": "Top Italy",
+                "pt": "Top Brasil",
+                "jp": "Top Japan"
             }
 
             for lang, query in language_queries.items():
                 try:
                     logger.info(f"🔍 Buscando Top 10 para {lang}...")
-
-                    # Buscar en Spotify
-                    results = search_on_spotify(query, limit=10)
+                    
+                    # Usamos la función search_songs_spotify que ya tiene fallback a iTunes integrado
+                    results = search_songs_spotify(query, limit=10)
 
                     if results and len(results) > 0:
-                        # Ordenar por popularidad (descendente)
-                        enriched_sorted = sorted(
-                            results,
-                            key=lambda x: x.get("popularity", 0),
-                            reverse=True
-                        )
-
                         # Guardar en cache
-                        top10_cache[lang] = enriched_sorted
-                        logger.info(f"✅ Top 10 cargado para {lang}: {len(enriched_sorted)} canciones")
-
+                        top10_cache[lang] = results
+                        logger.info(f"✅ Top 10 cargado para {lang}: {len(results)} canciones")
                     else:
                         logger.warning(f"⚠️  No se encontraron resultados para {lang}, usando fallback")
                         top10_cache[lang] = _get_fallback_top10(lang)
@@ -189,8 +179,6 @@ async def startup_event():
         except Exception as e:
             logger.error(f"❌ Error crítico inicializando cache: {str(e)}")
             logger.info("🔄 Usando fallback para todos los idiomas...")
-
-            # Fallback total
             for lang in ["en", "es", "fr", "de", "it", "pt", "jp"]:
                 top10_cache[lang] = _get_fallback_top10(lang)
 
@@ -218,77 +206,45 @@ async def startup_event():
 
 def _get_fallback_top10(language: str):
     """
-    📦 FALLBACK - Datos hardcodeados si Spotify falla
-
-    Estos son datos reales de canciones populares
-    Se usan si la búsqueda en Spotify no funciona
+    📦 FALLBACK - Datos hardcodeados si Spotify/Internet falla
     """
-
     fallback_data = {
         "en": [
             {
                 "id": "11dFghVXANMlKmJXsNCQvb",
                 "name": "Blinding Lights",
                 "artist": "The Weeknd",
-                "preview_url": "https://p.scdn.co/mp3-preview/...",
-                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
+                "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/99/3a/03/993a03c3-6111-9252-4752-97210927c365/mzaf_6454799014631336630.plus.aac.p.m4a",
+                "image_url": "https://i.scdn.co/image/ab67616d0000b2738863bc11d2aa12b54f5aeb36",
                 "popularity": 96,
-                "spotify_url": "https://open.spotify.com/track/11dFghVXANMlKmJXsNCQvb",
+                "spotify_url": "https://open.spotify.com/track/0VjIjW4GlUZAMYd2vXMi3b",
                 "duration_ms": 200040,
                 "has_preview": True,
                 "language": "en"
-            },
-            {
-                "id": "3n3Ppam7vgaVa1iaRUc9Lp",
-                "name": "Shape of You",
-                "artist": "Ed Sheeran",
-                "preview_url": "https://p.scdn.co/mp3-preview/...",
-                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
-                "popularity": 95,
-                "spotify_url": "https://open.spotify.com/track/3n3Ppam7vgaVa1iaRUc9Lp",
-                "duration_ms": 236973,
-                "has_preview": True,
-                "language": "en"
-            },
+            }
         ],
         "es": [
             {
                 "id": "2takcwFFpFEt1K3w8LLKkR",
                 "name": "Despacito",
                 "artist": "Luis Fonsi",
-                "preview_url": "https://p.scdn.co/mp3-preview/...",
-                "image_url": "https://i.scdn.co/image/ab67616d0000b273...",
+                "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/5e/52/63/5e52636a-2003-8874-82d8-2b874452e35a/mzaf_4399727443851506456.plus.aac.p.m4a",
+                "image_url": "https://i.scdn.co/image/ab67616d0000b2730109968a3563914561244302",
                 "popularity": 93,
-                "spotify_url": "https://open.spotify.com/track/2takcwFFpFEt1K3w8LLKkR",
+                "spotify_url": "https://open.spotify.com/track/6habFhsOp2Nvsh92N61nCp",
                 "duration_ms": 228973,
                 "has_preview": True,
                 "language": "es"
-            },
-        ],
-        "fr": [],
-        "de": [],
-        "it": [],
-        "pt": [],
-        "jp": [],
+            }
+        ]
     }
-
-    result = fallback_data.get(language, [])
-
-    if result:
-        logger.info(f"📦 Usando fallback para {language}: {len(result)} canciones")
-    else:
-        logger.warning(f"⚠️  Fallback vacío para {language}")
-
-    return result
+    return fallback_data.get(language, [])
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Se ejecuta cuando TERMINA la aplicación"""
     logger.info("=" * 80)
     logger.info("🛑 CERRANDO MUSIC TRANSIATOR API")
-    logger.info("=" * 80)
-
-    logger.info("✅ Aplicación cerrada correctamente")
     logger.info("=" * 80)
 
 # ===============================================================================
@@ -298,9 +254,9 @@ async def shutdown_event():
 app.include_router(auth_router)
 app.include_router(songs_router)
 app.include_router(lyrics_router)
-app.include_router(openai_router)
+app.include_router(ai_router)       # ✅ NUEVO: Gemini AI
 app.include_router(users_router)
-app.include_router(dictionary_router)  # ← AGREGAR
+app.include_router(dictionary_router)
 
 # ===============================================================================
 # ENDPOINTS BÁSICOS
@@ -316,6 +272,7 @@ def root():
         "version": "1.0.0",
         "status": "online",
         "database": db_status,
+        "ai_model": "Gemini 2.0 Flash",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG
     }
@@ -348,14 +305,14 @@ def status_detailed():
         "database": {
             "type": "MongoDB Real" if not USE_MOCK else "Mock DB",
             "name": settings.MONGODB_DB_NAME if hasattr(settings, 'MONGODB_DB_NAME') else "transiaditor",
-            "url": settings.MONGODB_URL if (settings.ENVIRONMENT == "development" and hasattr(settings, 'MONGODB_URL')) else "***"
         },
         "cache": {
             "languages": len(top10_cache),
             "total_songs": sum(len(songs) for songs in top10_cache.values())
         },
         "integrations": {
-            "genius": "✅ Configured" if is_genius_configured() else "❌ Not configured"
+            "genius": "✅ Configured" if is_genius_configured() else "❌ Not configured",
+            "gemini": "✅ Configured"
         }
     }
 
@@ -383,7 +340,6 @@ def get_supported_languages():
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    """Manejo personalizado de excepciones HTTP"""
     logger.error(f"❌ HTTP Exception: {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
@@ -392,7 +348,6 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """Manejo personalizado de excepciones generales"""
     logger.error(f"❌ General Exception: {str(exc)}")
     return JSONResponse(
         status_code=500,
