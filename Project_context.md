@@ -1,142 +1,91 @@
-🎵 MusicTransIAtor - Contexto del Proyecto
-
-Versión: 3.0 (Post-Refactorización Backend)
-
-Rol: Arquitecto de Software / Lead Developer
-
-Estado: MVP Avanzado (Backend 100% - Frontend en Integración)
-
-Próxima Entrega: 16/12/2025 (MVP)
-
-📌 VISIÓN DEL PROYECTO
-
-App Android "F2P" (Free to Play) para aprender idiomas con música.
-
-Filosofía: Máxima funcionalidad con coste cero (APIs públicas, IAs gratuitas).
-
-Innovación: Análisis contextual de la letra (no diccionario estático) y estrategia de audio híbrida.
-
-📅 CALENDARIO Y ALCANCE
-
-FASE FECHA OBJETIVO PRINCIPAL MVP
-16 Dic 2025
-Flujo completo: Buscar → Escuchar (30s) → Analizar (IA) → Guardar.
-
-FINAL Enero 2026Retención (Flashcards/SRS) + Experiencia Avanzada (Audio Completo).🎯 ESTADO TÉCNICO ACTUAL (v3.0)
-
-Plaintext
-
-BACKEND (FastAPI): 100% (MVP Ready) ✅
-
-├─ 🧠 IA: Gemini 2.0 Flash integrado (Contextual + Multilingüe).
-
-├─ 🎵 Audio: Sistema "iTunes Rescue" implementado (si Spotify falla, usa iTunes).
-
-├─ 🔍 Búsqueda: Unificada (Spotify Metadata + Audio).
-
-├─ 📄 Letras: Genius API + Fragmentación básica.
-
-└─ 🗄️ DB: Mock Database (memoria) funcionando.
-
-
-
-FRONTEND (Android): 60% (En integración) ⏳
-
-├─ 🔌 API: Retrofit configurado para Backend v3.0.
-
-├─ 📱 UI: Pantallas base listas (Home, Player, Dictionary).
-
-├─ ⏳ Lógica: Falta conectar el botón "Analizar IA" con la respuesta nueva.
-
-└─ ⏳ Audio: Falta probar el MediaPlayer con URLs de iTunes.
-
-✅ LO QUE ENTRA EN EL MVP (16/12)
-
-1. Funcionalidades Core
-
-Auth: Login/Registro JWT.
-
-Home: Listas curadas ("Grammy Nominees", "Global Hits") para demo segura.
-
-Player:
-
-Reproducción de preview (30s) vía iTunes.
-
-Visualización de letra completa.
-
-IA Tutor (Gemini):
-
-El usuario pide analizar.
-
-La IA detecta idioma y nivel.
-
-Devuelve JSON con palabras, traducciones contextuales y "Recommended ⭐".
-
-Diccionario: Guardar palabras recomendadas.
-
-2. Restricciones Técnicas (MVP)
-
-Base de Datos: Usar MockDatabase, hay que conectar con Mongo si es posible, si aún no se puede, pues usar mock
-
-Audio: Conformarse con los 30s de iTunes. No implementar scraping complejo.
-
-Sincronización: Scroll manual. No implementar .lrc automático.
-
-🚀 LO QUE VA AL PRODUCTO FINAL (Enero)
-
-1. Sistema de Aprendizaje (SRS)
-
-Flashcards: Algoritmo Spaced Repetition (estilo Anki/SuperMemo).
-
-Progreso: Gráficos de retención y palabras aprendidas.
-
-2. Infraestructura Real
-
-Persistencia: Migración a MongoDB Atlas.
-
-Despliegue: Servidor nube (Render/Railway) + HTTPS.
-
-3. I+D (Propuestas "Pirata")
-
-Audio Completo ("Estrategia Grayjay"): Investigar NewPipeExtractor para obtener audio de YouTube en el cliente (Android) y saltar la restricción de 30s.
-
-Modo Karaoke: Integrar API de LRCLIB para tiempos exactos.
-
-4. Cambio de modelo a IA Opensource Gratis
-
-Posteriormente del MVP, debatiremos si cambiamos la IA por otra con más usos gratuita open source para tratar de aumentar la vida util de la aplicación
-
-📋 GUÍA PARA DESARROLLADORES (AI ASSISTANTS)
-
-Si eres una IA ayudando con el código, sigue estas reglas estrictas:
-
-Backend:
-
-El archivo de IA es services/gemini_client.py. 
-
-El modelo es gemini-2.0-flash.
-
-El endpoint de análisis es POST /api/v1/ai/analyze.
-
-Frontend:
-
-Usa 10.0.2.2:8000 para localhost en el emulador.
-
-Los modelos de datos deben tener recommended: Boolean y translation: String.
-
-Prohibido en MVP:
-
-No intentar descargar MP3s completos en el servidor.
-
-No implementar websockets (modelos -live).
-
-📝 ÚLTIMOS CAMBIOS APLICADOS
-
-Refactor: Eliminado openai_client.py.
-
-Feature: Añadida detección automática de idioma (langdetect).
-
-Feature: Añadido fallback a iTunes en utils/spotify.py.
-
-Fix: Unificados endpoints de búsqueda en routers/songs.py.
-
+# 🎵 MusicTransIAtor - Contexto del Proyecto
+
+**Versión:** 4.0 (Integración Backend-Frontend Estable)  
+**Rol:** Arquitecto de Software / Lead Developer  
+**Estado:** 🔥 FASE FINAL MVP (Backend Cerrado - Frontend Integrando)  
+**Próxima Entrega:** 16/12/2025 (MVP Funcional)
+
+---
+
+## 📌 VISIÓN DEL PROYECTO
+
+App Android "F2P" (Free to Play) para aprender idiomas con música.  
+**Filosofía:** Máxima funcionalidad con coste cero (APIs públicas, IAs gratuitas, Hosting Free Tier).  
+**Innovación:** Análisis contextual de la letra (no diccionario estático) y estrategia de audio híbrida.
+
+---
+
+## 🎯 ESTADO TÉCNICO ACTUAL (v4.0)
+
+### 🐍 BACKEND (FastAPI + Mongo Atlas) - **ESTADO: TERMINADO ✅**
+El servidor es la fuente de verdad. No usamos Mocks para la demo final.
+
+* **IA (Gemini 2.0 Flash):**
+    * Prompt V3: Devuelve JSON estructurado separando `words` (Vocabulario) de `expressions` (Idioms).
+    * Contexto: Explica el significado basándose en el nivel real del usuario (`target_level`).
+* **🎵 Audio & Música:**
+    * **Estrategia "iTunes Rescue":** Si Spotify no da `preview_url` (común ahora), el backend busca automáticamente en iTunes API para rescatar el MP3 de 30s.
+    * **Búsqueda Unificada:** `/api/v1/songs/search` devuelve canciones reales.
+* **🛡️ Seguridad:**
+    * JWT con **Refresh Token** (Access 15min / Refresh 7 días).
+    * Registro con selección de `target_language` y `target_level`.
+* **💾 Base de Datos:**
+    * **MongoDB Atlas** (Producción).
+    * Fallback automático a `MockDatabase` (Memoria) si falla la conexión.
+
+### 📱 FRONTEND (Android Kotlin) - **ESTADO: EN INTEGRACIÓN 🔄**
+Adaptado para consumir el Backend Real v4.0.
+
+* **Modelos:** Sincronizados con los Schemas de Pydantic (`UserWord` con `type`, `example`, `isRecommended`).
+* **Red:** `AuthInterceptor` maneja automáticamente el error 401 refrescando el token.
+* **UI:** `SongLearningActivity` renderiza palabras (Naranja) y expresiones (Azul) interactivas.
+
+---
+
+## 🛣️ HOJA DE RUTA (ROADMAP)
+
+### 🟢 FASE 1: EL MVP (Objetivo: 16 Diciembre)
+**Alcance:** Flujo "Happy Path" completo y REAL.
+1.  **Registro:** Usuario elige "Aprender Inglés B1".
+2.  **Discovery:** Ve lista "Top Grammy" o busca "Estopa".
+3.  **Reproducción:** Suena el audio (Spotify o iTunes).
+4.  **Análisis:** Gemini extrae vocabulario adaptado al B1.
+5.  **Diccionario:** Guarda palabras ("Word") o frases ("Expression") con su contexto.
+6.  **Perfil:** Ve su progreso básico (nº palabras guardadas).
+
+### 🟡 FASE 2: PRODUCTO FINAL (Enero 2026)
+**Alcance:** Retención y Calidad de Vida.
+1.  **Flashcards SRS:** Algoritmo de Repaso Espaciado (SuperMemo/Anki) usando el campo `example` guardado.
+2.  **Infraestructura:** Despliegue en Render/Railway (salir de localhost).
+3.  **Seguridad:** Encriptación de secretos real (no hardcoded strings).
+
+### 🔴 FASE 3: I+D (Futuro / "Zona Pirata")
+1.  **Audio Completo ("Estrategia Grayjay"):** Investigar `NewPipeExtractor` o `yt-dlp` en servidor intermedio para saltar la restricción de 30s.
+2.  **Modo Karaoke:** Integrar API de `LRCLIB` para tiempos exactos sílaba a sílaba.
+3.  **IA Open Source:** Migrar de Gemini a Llama 3 / Mistral (vía Groq o Ollama local) para independencia total.
+
+---
+
+## 📋 GUÍA PARA DESARROLLADORES (AI ASSISTANTS)
+
+Si vas a generar código, respeta estas reglas **SAGRADAS** de la v4.0:
+
+### 1. Contrato de API (Endpoints Críticos)
+* **Login:** `POST /api/v1/auth/login` -> Devuelve `{ access_token, refresh_token, user }`
+* **Registro:** `POST /api/v1/auth/register` -> Envía `{ native_language, target_language, target_level }`
+* **Buscar:** `GET /api/v1/songs/search?query=X` -> Devuelve lista directa `[...]` (no `{results: [...]}`)
+* **Analizar:** `POST /api/v1/ai/analyze` -> Devuelve `{ words: [], expressions: [] }`
+* **Diccionario:** `POST /api/v1/dictionary/add` -> Envía `{ type: "word"|"expression", example: "..." }`
+
+### 2. Estructura de Datos
+* **Fechas:** Siempre usar `isoformat()` en el Backend. El Frontend parsea Strings.
+* **Niveles:** Usar escala CEFR (`A1`, `A2`, `B1`, `B2`, `C1`, `C2`).
+* **Carpetas:** El campo `type` en el diccionario define si es palabra suelta o expresión.
+
+### 3. Prohibiciones
+* ❌ **NO** usar Mocks en los Routers (`songs.py`, `lyrics.py`). Usar la lógica real.
+* ❌ **NO** crear endpoints `/flashcards` en el Backend todavía (usamos el Diccionario filtrado).
+* ❌ **NO** cambiar la IP `10.0.2.2` en Android (es el localhost del emulador).
+
+---
+*Última actualización: 02/12/2025 - Hito: Backend v4.0 Completo*
