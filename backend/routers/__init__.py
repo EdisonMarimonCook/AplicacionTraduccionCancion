@@ -12,26 +12,28 @@ Contiene todos los endpoints (rutas) organizados por funcionalidad:
 
 VENTAJA: Centraliza todos los routers para importarlos fácilmente en main.py
 """
+"""
+📦 Paquete: Routers
+Centraliza las importaciones.
+"""
 
 # Importar todos los routers
 from routers.auth import router as auth_router
-from routers.auth import get_current_user
 from routers.songs import router as songs_router
 from routers.lyrics import router as lyrics_router
 from routers.ai_analysis import router as ai_router
 
-# Nota: Importaremos los demás conforme los creemos
-# from routers.dictionary import router as dictionary_router
-# from routers.progress import router as progress_router
-# from routers.users import router as users_router
+# ✅ DESCOMENTADOS Y ACTIVADOS:
+from routers.dictionary import router as dictionary_router
+from routers.users import router as users_router
+from routers.progress import router as progress_router
 
-# Exportar para que main.py pueda hacer:
-# from routers import auth_router, songs_router, lyrics_router, etc.
 __all__ = [
     "auth_router",
     "songs_router",
     "lyrics_router",
-    "ai_router", 
+    "ai_router",
+    "dictionary_router",
+    "users_router",
+    "progress_router"
 ]
-
-

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN: Listas MVP (Grammys / Hits)
 # ===============================================================================
 GRAMMY_SEARCHES = {
-    "en": ["Billie Eilish", "Kendrick Lamar", "Chappell Roan", "Sabrina Carpenter", "Taylor Swift","Beyoncé"],
+    "en": ["Billie Eilish", "Kendrick Lamar", "Chappell Roan", "Sabrina Carpenter", "Taylor Swift", "Beyoncé"],
     "es": ["Latin Grammy 2024", "Bad Bunny", "Karol G", "Rosalia", "Exitos España"],
     "fr": ["Top France", "Stromae", "Indila", "Aya Nakamura"],
     "de": ["Top Germany", "Apache 207"],
@@ -39,60 +39,66 @@ def get_spotify_client() -> Optional[spotipy.Spotify]:
         )
         return spotipy.Spotify(client_credentials_manager=credentials_manager)
     except Exception as e:
-        logger.error(f"❌ Error iniciando Spotify: {e}")
+        logger.error(f"❌ Error inicializando Spotify: {e}")
         return None
 
 # ===============================================================================
-# ITUNES FALLBACK (Audio Preview)
+# ITUNES RESCUE STRATEGY 🚑 (Para cuando Spotify no da audio)
 # ===============================================================================
 
-def get_audio_preview_from_itunes(term: str) -> Optional[str]:
+def get_itunes_preview(query: str) -> Optional[str]:
     """
-    Busca en iTunes si Spotify no da preview.
-    API pública y gratuita.
+    Busca el audio preview en iTunes API (es pública y gratis).
     """
     try:
-        # Buscamos 'track' de tipo 'music'
         url = "https://itunes.apple.com/search"
         params = {
-            "term": term,
+            "term": query,
             "media": "music",
             "entity": "song",
             "limit": 1
         }
-        response = requests.get(url, params=params, timeout=3)
-        
+        response = requests.get(url, params=params, timeout=5)
         if response.status_code == 200:
             data = response.json()
             if data["resultCount"] > 0:
                 preview = data["results"][0].get("previewUrl")
                 if preview:
-                    logger.info("🍏 Audio recuperado desde iTunes Fallback")
+                    # logger.info(f"✅ Audio rescatado de iTunes para: {query}")
                     return preview
-    except Exception as e:
-        logger.warning(f"⚠️ iTunes Fallback falló: {e}")
-    return None
+        return None
+    except Exception:
+        return None
 
 # ===============================================================================
-# FUNCIONES DE BÚSQUEDA
+# FUNCIONES PRINCIPALES
 # ===============================================================================
 
 def search_songs_spotify(query: str, limit: int = 10) -> List[Dict]:
-    """Busca canciones y rellena audio con iTunes si hace falta"""
+    """Busca en Spotify y rellena huecos con iTunes si hace falta"""
     sp = get_spotify_client()
-    if not sp: return []
-    
+    if not sp: 
+        logger.warning("⚠️ Spotify no configurado")
+        return []
+
     try:
         results = sp.search(q=query, limit=limit, type='track')
+        items = results['tracks']['items']
         tracks = []
         
-        for item in results['tracks']['items']:
+        for item in items:
+            # Lógica de Audio: Si Spotify da null, probamos iTunes
             preview_url = item.get('preview_url')
             
-            # Formatear track
+            # 🔥 ESTRATEGIA RESCATE SOLO SI ES EL PRIMER RESULTADO (Para no saturar)
+            if not preview_url and items.index(item) == 0:
+                search_term = f"{item['name']} {item['artists'][0]['name']}"
+                preview_url = get_itunes_preview(search_term)
+
             track = {
                 "id": item['id'],
                 "name": item['name'],
+                "title": item['name'], # Alias para compatibilidad
                 "artist": item['artists'][0]['name'],
                 "image_url": item['album']['images'][0]['url'] if item['album']['images'] else None,
                 "preview_url": preview_url,
@@ -123,15 +129,15 @@ def get_grammy_songs(lang: str = "en") -> List[Dict]:
 async def enrich_single_song(title: str, artist: str) -> Dict:
     """Busca metadatos detallados + intento fuerte de audio"""
     search_query = f"{title} {artist}"
+    # Pedimos 1 resultado, la función search_songs_spotify ya aplicará iTunes Rescue
     tracks = search_songs_spotify(search_query, limit=1)
     
     if not tracks:
         return {}
-    
-    song = tracks[0]
-    
-    # Si Spotify no dio audio, intentamos iTunes ahora
-    if not song.get("preview_url"):
-        song["preview_url"] = get_audio_preview_from_itunes(search_query)
         
-    return song
+    return tracks[0]
+
+# 🔥 ESTA ES LA FUNCIÓN QUE FALTABA Y DABA ERROR EN MAIN.PY
+def get_top_tracks_by_language(lang: str) -> List[Dict]:
+    """Alias para que main.py pueda actualizar la cache"""
+    return get_grammy_songs(lang)

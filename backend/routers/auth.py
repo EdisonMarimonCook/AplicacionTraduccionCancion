@@ -5,7 +5,7 @@ USA: auth.py (funciones auxiliares), crud.py (BD)
 """
 
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime # Asegúrate de importar datetime
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials  
 from email_validator import validate_email, EmailNotValidError
@@ -47,8 +47,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Obtener usuario de BD
-    user_dict = await get_user_by_email(token_data["email"])
+    # Obtener usuario de BD (OJO: verify_token devuelve 'sub' o 'email' según auth.py)
+    # Asumimos que auth.py devuelve {'sub': email} o {'email': email}
+    email = token_data.get("sub") or token_data.get("email")
+    
+    if not email:
+         raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    user_dict = await get_user_by_email(email)
     
     if not user_dict:
         raise HTTPException(
@@ -57,6 +63,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Arreglo para ID
+    if "_id" in user_dict:
+        user_dict["id"] = str(user_dict["_id"])
+
     return User(**user_dict)
 
 # ===============================================================================
@@ -67,31 +77,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 async def register(user_data: UserCreate):
     """
     🔐 Registro de nuevo usuario CON IDIOMAS
-    
-    Request:
-    {
-      "email": "user@example.com",
-      "username": "user123",
-      "password": "password123",
-      "native_language": "es",          ✅ NUEVO
-      "learning_languages": [
-        {
-          "language": "es",
-          "level": "A1"
-        },
-        {
-          "language": "en",
-          "level": "B1"
-        }
-      ]
-    }
-    
-    - Valida email
-    - Verifica que no exista
-    - Encripta contraseña
-    - Guarda learning_languages
-    - Guarda native_language
-    - Guarda en BD
     """
     try:
         validate_email(user_data.email)
@@ -124,22 +109,22 @@ async def register(user_data: UserCreate):
         "full_name": user_data.full_name,
         "password_hash": hash_password(user_data.password),
         "is_active": True,
-        "native_language": user_data.native_language,    # ✅ CAMBIAR (era "en")
+        "native_language": user_data.native_language,
         "learning_languages": [
             {
                 "language": lang.language,
                 "level": lang.level,
-                "started_at": lang.started_at.isoformat(),
+                # 🔥 FIX CRÍTICO: Si started_at es None, usamos AHORA MISMO
+                "started_at": (lang.started_at or datetime.now()).isoformat(),
                 "last_tested": None
             }
             for lang in user_data.learning_languages
-        ]
+        ],
+        "created_at": datetime.now()
     }
     
     await create_user(user_dict)
     logger.info(f"✅ Nuevo usuario registrado: {user_data.email}")
-    logger.info(f"📚 Idiomas: {[f'{l.language}({l.level})' for l in user_data.learning_languages]}")
-    logger.info(f"🌍 Idioma nativo: {user_data.native_language}")
     
     return {
         "message": "User registered successfully",
@@ -156,12 +141,6 @@ async def register(user_data: UserCreate):
 async def login(credentials: UserLogin):
     """
     🔐 Login de usuario y generación de token JWT
-    
-    AHORA RETORNA: 
-    - access_token (15 min)
-    - refresh_token (7 días)    ✅ NUEVO
-    - learning_languages
-    - user_id
     """
     user_dict = await get_user_by_email(credentials.email)
     
@@ -186,7 +165,7 @@ async def login(credentials: UserLogin):
         expires_delta=access_token_expires
     )
     
-    # ✅ AGREGAR: Crear refresh_token (7 días)
+    # Crear refresh_token (7 días)
     refresh_token = create_refresh_token(
         data={"sub": user_dict["email"]},
         expires_delta=timedelta(days=7)
@@ -207,10 +186,10 @@ async def login(credentials: UserLogin):
     
     return Token(
         access_token=access_token,
-        refresh_token=refresh_token,    # ✅ AGREGAR ESTO
+        refresh_token=refresh_token,
         token_type="bearer",
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        user_id=user_dict.get("_id") or user_dict.get("id"),
+        user_id=str(user_dict.get("_id") or user_dict.get("id")),
         email=credentials.email,
         learning_languages=learning_languages
     )
@@ -219,34 +198,9 @@ async def login(credentials: UserLogin):
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     👤 Obtiene información del usuario actual autenticado
-    AHORA INCLUYE: learning_languages + native_language
     """
     logger.info(f"✅ Información del usuario solicitada: {current_user.email}")
     return current_user
-
-@router.post("/verify-token")
-async def verify_token_endpoint(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """
-    ✅ Verifica si un token es válido
-    """
-    token_data = verify_token(credentials.credentials)
-    
-    if not token_data:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
-        )
-    
-    logger.info(f"✅ Token válido para: {token_data['email']}")
-    
-    return {
-        "valid": True,
-        "email": token_data["email"]
-    }
-
-# ===============================================================================
-# ✅ NUEVO ENDPOINT: REFRESH TOKEN
-# ===============================================================================
 
 @router.post("/refresh", response_model=dict)
 async def refresh_access_token(
@@ -255,12 +209,10 @@ async def refresh_access_token(
     """
     🔄 REFRESCA EL ACCESS TOKEN USANDO REFRESH TOKEN
     """
-    
     try:
         logger.info(f"🔄 Intentando refrescar token...")
         
-        
-        token_data = verify_refresh_token(credentials.credentials)  # ← SIN await
+        token_data = verify_refresh_token(credentials.credentials)
         
         if not token_data:
             logger.warning("⚠️  Refresh token inválido o expirado")
@@ -270,7 +222,7 @@ async def refresh_access_token(
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        email = token_data.get("email")
+        email = token_data.get("email") or token_data.get("sub")
         
         # Crear nuevo access_token
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

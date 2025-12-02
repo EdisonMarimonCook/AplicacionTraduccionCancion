@@ -72,23 +72,23 @@ class TokenData(BaseModel):
 
 class DictionaryEntry(BaseModel):
     """Entrada en diccionario personal del usuario"""
+    
     id: str = Field(default_factory=lambda: str(datetime.now().timestamp()))
     user_id: str
     word: str
-    language: str
     translation: Optional[str] = None
-    definition: Optional[str] = None
-    original_context: Optional[str] = None # ✅ Contexto de la canción
-    example: Optional[str] = None
-    category: str = Field(default="palabra", description="palabra o expresión")
-    difficulty_level: str = "A1"
     
-    # ✅ NUEVO: Recomendado por IA
-    is_recommended: bool = Field(default=False)
+    # 🔥 CAMPOS NUEVOS V3.1
+    type: str = "word"           # Para tus carpetas
+    example: Optional[str] = None # Para flashcards
+    is_recommended: bool = False  # Estrellita
     
+    notes: Optional[str] = None
+    song_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
     last_reviewed: Optional[datetime] = None
-    review_count: int = 0
+    times_reviewed: int = 0
+    is_learned: bool = False
 
 # ================================================================
 # CANCIÓN
