@@ -3,130 +3,167 @@ package com.example.diccionario_hiphop
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.*
+import android.widget.ImageButton
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class SongSelectionActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
+    private lateinit var progressBar: ProgressBar
     private lateinit var searchView: SearchView
-    private lateinit var loadingProgress: ProgressBar
-    private lateinit var emptyState: TextView
-    private lateinit var backButton: ImageButton
+    private lateinit var tvHeader: TextView
+    private lateinit var btnOpenDict: ExtendedFloatingActionButton
+    private lateinit var btnProfile: ImageButton
 
-    private val songRepository = SongRepository()
-    private val adapter = SongAdapter()
-    private var allSongs: List<Song> = emptyList()
+    private lateinit var adapter: SongAdapter
+    private lateinit var repository: SongRepository
+    
+    // Debounce para no saturar el buscador
+    private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_selection)
 
-        initializeViews()
+        repository = SongRepository(this)
+
+        initViews()
         setupRecyclerView()
-        setupSearchView()
-        setupClickListeners()
+        setupSearch()
+        setupListeners()
+
+        // Carga inicial: Top Grammys
         loadTopSongs()
     }
 
-    private fun initializeViews() {
-        recyclerView = findViewById(R.id.songsRecyclerView)
+    private fun initViews() {
+        recyclerView = findViewById(R.id.rvSongs)
+        progressBar = findViewById(R.id.progressBar)
         searchView = findViewById(R.id.searchView)
-        loadingProgress = findViewById(R.id.loadingProgress)
-        emptyState = findViewById(R.id.emptyStateText)
-        backButton = findViewById(R.id.backButton)
+        tvHeader = findViewById(R.id.tvHeader)
+        btnOpenDict = findViewById(R.id.btnOpenDict)
+        btnProfile = findViewById(R.id.btnProfile)
     }
 
-    private fun setupRecyclerView() {
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = adapter
-
-        adapter.setOnItemClickListener { song ->
-            openSongLearning(song)
+    private fun setupListeners() {
+        btnOpenDict.setOnClickListener {
+            startActivity(Intent(this, DictionaryActivity::class.java))
+        }
+        
+        btnProfile.setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
         }
     }
 
-    private fun setupSearchView() {
+    private fun setupRecyclerView() {
+        adapter = SongAdapter(emptyList()) { songItem ->
+            // Al hacer click en una canción:
+            val intent = Intent(this, SongLearningActivity::class.java).apply {
+                putExtra("SONG_ID", songItem.id)
+                putExtra("SONG_TITLE", songItem.title)
+                putExtra("SONG_ARTIST", songItem.artist)
+                putExtra("PREVIEW_URL", songItem.previewUrl)
+                putExtra("COVER_URL", songItem.imageUrl)
+                putExtra("SPOTIFY_URL", songItem.spotifyUrl) // ✅ Importante para abrir Spotify
+            }
+            startActivity(intent)
+        }
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = adapter
+    }
+
+    private fun setupSearch() {
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                return false
+                if (!query.isNullOrEmpty()) {
+                    searchJob?.cancel()
+                    performSearch(query)
+                    searchView.clearFocus()
+                }
+                return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                filterSongs(newText ?: "")
+                // Debounce: Esperar 500ms antes de buscar
+                searchJob?.cancel()
+                searchJob = lifecycleScope.launch {
+                    delay(500) // Espera un poco para no spamear Spotify
+                    if (!newText.isNullOrEmpty() && newText.length >= 2) {
+                        performSearch(newText)
+                    } else if (newText.isNullOrEmpty()) {
+                        loadTopSongs()
+                    }
+                }
                 return true
             }
         })
     }
 
-    private fun setupClickListeners() {
-        backButton.setOnClickListener {
-            finish()
-        }
-    }
-
     private fun loadTopSongs() {
+        tvHeader.text = "🏆 Top Grammy & Hits"
         showLoading(true)
 
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             try {
-                val songs = withContext(Dispatchers.IO) {
-                    songRepository.getTopSongs("es") // Idioma por defecto español
+                // Llamamos al endpoint de Top Grammy del Backend v4.0
+                // ✅ CAMBIO: getTopGrammy devuelve List<SongItem> directamente
+                val response = repository.getTopGrammy("en") 
+                
+                if (response.isSuccessful && response.body() != null) {
+                    val songs = response.body()!!
+                    adapter.updateData(songs)
+                } else {
+                    Toast.makeText(this@SongSelectionActivity, "Error cargando Top", Toast.LENGTH_SHORT).show()
                 }
-
-                allSongs = songs
-                adapter.submitList(songs)
-                showEmptyState(songs.isEmpty())
-                showLoading(false)
-
             } catch (e: Exception) {
+                Toast.makeText(this@SongSelectionActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
+            } finally {
                 showLoading(false)
-                showError("Error cargando canciones: ${e.message}")
-                showEmptyState(true)
             }
         }
     }
 
-    private fun filterSongs(query: String) {
-        val filteredSongs = if (query.isBlank()) {
-            allSongs
-        } else {
-            allSongs.filter { song ->
-                song.title.contains(query, true) || song.artist.contains(query, true)
+    private fun performSearch(query: String) {
+        tvHeader.text = "Resultados para '$query'"
+        showLoading(true)
+
+        lifecycleScope.launch {
+            try {
+                // Llamada real al backend -> Spotify
+                // ✅ CAMBIO: searchSongs devuelve List<SongItem> directamente
+                val response = repository.searchSongs(query)
+
+                if (response.isSuccessful && response.body() != null) {
+                    val results = response.body()!!
+                    
+                    if (results.isEmpty()) {
+                        Toast.makeText(this@SongSelectionActivity, "No se encontraron canciones", Toast.LENGTH_SHORT).show()
+                    }
+                    adapter.updateData(results)
+                } else {
+                    Toast.makeText(this@SongSelectionActivity, "Error en la búsqueda", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@SongSelectionActivity, "Error buscando: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                showLoading(false)
             }
         }
-
-        adapter.submitList(filteredSongs)
-        showEmptyState(filteredSongs.isEmpty())
     }
 
-    private fun openSongLearning(song: Song) {
-        val intent = Intent(this, SongLearningActivity::class.java).apply {
-            putExtra("song_title", song.title)
-            putExtra("song_artist", song.artist)
-            putExtra("song_album_cover", song.albumCover)
-            putExtra("song_rank", song.spotifyRank)
-        }
-        startActivity(intent)
-    }
-
-    private fun showLoading(show: Boolean) {
-        loadingProgress.visibility = if (show) View.VISIBLE else View.GONE
-        recyclerView.visibility = if (show) View.GONE else View.VISIBLE
-    }
-
-    private fun showEmptyState(show: Boolean) {
-        emptyState.visibility = if (show) View.VISIBLE else View.GONE
-    }
-
-    private fun showError(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    private fun showLoading(isLoading: Boolean) {
+        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
     }
 }
