@@ -6,7 +6,9 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 
+<<<<<<< HEAD
 class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     private var songs: List<Song> = emptyList()
@@ -19,6 +21,17 @@ class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     fun setOnItemClickListener(listener: (Song) -> Unit) {
         onItemClickListener = listener
+=======
+class SongAdapter(
+    private var songs: List<SongItem>,
+    private val onSongClick: (SongItem) -> Unit
+) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
+
+    class SongViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvTitle: TextView = view.findViewById(R.id.tvSongTitle)
+        val tvArtist: TextView = view.findViewById(R.id.tvSongArtist)
+        val ivCover: ImageView = view.findViewById(R.id.ivSongCover)
+>>>>>>> feature/lyrics-translation
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
@@ -28,6 +41,7 @@ class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
     }
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
+<<<<<<< HEAD
         holder.bind(songs[position])
     }
 
@@ -52,4 +66,33 @@ class SongAdapter : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
             }
         }
     }
+=======
+        val song = songs[position]
+
+        holder.tvTitle.text = song.title
+        holder.tvArtist.text = song.artist
+
+        // Carga segura de imagen con Glide
+        if (!song.imageUrl.isNullOrEmpty()) {
+            Glide.with(holder.itemView.context)
+                .load(song.imageUrl)
+                .placeholder(R.drawable.ic_launcher_foreground)
+                .into(holder.ivCover)
+        } else {
+            // Imagen por defecto si no hay URL
+            holder.ivCover.setImageResource(R.drawable.ic_launcher_foreground)
+        }
+
+        holder.itemView.setOnClickListener {
+            onSongClick(song)
+        }
+    }
+
+    override fun getItemCount() = songs.size
+
+    fun updateData(newSongs: List<SongItem>) {
+        songs = newSongs
+        notifyDataSetChanged()
+    }
+>>>>>>> feature/lyrics-translation
 }
