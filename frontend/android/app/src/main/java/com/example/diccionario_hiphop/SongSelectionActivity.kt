@@ -22,14 +22,14 @@ class SongSelectionActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var progressBar: ProgressBar
     private lateinit var searchView: SearchView
-    private lateinit var tvHeader: TextView // Para cambiar el título "Top" vs "Resultados"
-
-    private lateinit var adapter: SongAdapter
-    private lateinit var repository: SongRepository
+    private lateinit var tvHeader: TextView
     private lateinit var btnOpenDict: ExtendedFloatingActionButton
     private lateinit var btnProfile: ImageButton
 
-    // 🔥 Variable para controlar el "Debounce" (espera al escribir)
+    private lateinit var adapter: SongAdapter
+    private lateinit var repository: SongRepository
+    
+    // Debounce para no saturar el buscador
     private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,10 +40,10 @@ class SongSelectionActivity : AppCompatActivity() {
 
         initViews()
         setupRecyclerView()
-        setupSearch()     // Configuración clave de la búsqueda
-        setupClickListeners()
+        setupSearch()
+        setupListeners()
 
-        // Carga inicial: Top 10
+        // Carga inicial: Top Grammys
         loadTopSongs()
     }
 
@@ -51,63 +51,58 @@ class SongSelectionActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.rvSongs)
         progressBar = findViewById(R.id.progressBar)
         searchView = findViewById(R.id.searchView)
-        tvHeader = findViewById(R.id.tvHeader) // Asegúrate de tener este ID en el XML
+        tvHeader = findViewById(R.id.tvHeader)
         btnOpenDict = findViewById(R.id.btnOpenDict)
         btnProfile = findViewById(R.id.btnProfile)
     }
 
-    // ... (setupClickListeners y setupRecyclerView siguen igual) ...
-    private fun setupClickListeners() {
-        btnOpenDict.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
-        btnProfile.setOnClickListener { startActivity(Intent(this, ProfileActivity::class.java)) }
+    private fun setupListeners() {
+        btnOpenDict.setOnClickListener {
+            startActivity(Intent(this, DictionaryActivity::class.java))
+        }
+        
+        btnProfile.setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
+        }
     }
 
     private fun setupRecyclerView() {
         adapter = SongAdapter(emptyList()) { songItem ->
-            val intent = Intent(this, SongLearningActivity::class.java)
-            intent.putExtra("song_id", songItem.id)
-            intent.putExtra("song_title", songItem.title)
-            intent.putExtra("song_artist", songItem.artist)
-            intent.putExtra("song_image", songItem.imageUrl)
-            intent.putExtra("song_preview", songItem.previewUrl)
-            intent.putExtra("song_spotify_url", songItem.spotifyUrl)
-            intent.putExtra("song_has_preview", songItem.hasPreview)
+            // Al hacer click en una canción:
+            val intent = Intent(this, SongLearningActivity::class.java).apply {
+                putExtra("SONG_ID", songItem.id)
+                putExtra("SONG_TITLE", songItem.title)
+                putExtra("SONG_ARTIST", songItem.artist)
+                putExtra("PREVIEW_URL", songItem.previewUrl)
+                putExtra("COVER_URL", songItem.imageUrl)
+                putExtra("SPOTIFY_URL", songItem.spotifyUrl) // ✅ Importante para abrir Spotify
+            }
             startActivity(intent)
         }
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
     }
 
-    // ⭐ LÓGICA DE BÚSQUEDA HÍBRIDA
     private fun setupSearch() {
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-
-            // Cuando el usuario pulsa "Enter" en el teclado
             override fun onQueryTextSubmit(query: String?): Boolean {
-                searchJob?.cancel()
                 if (!query.isNullOrEmpty()) {
+                    searchJob?.cancel()
                     performSearch(query)
+                    searchView.clearFocus()
                 }
-                searchView.clearFocus()
                 return true
             }
 
-            // Cuando el usuario escribe letra a letra
             override fun onQueryTextChange(newText: String?): Boolean {
-                // 1. Cancelar cualquier búsqueda anterior pendiente
+                // Debounce: Esperar 500ms antes de buscar
                 searchJob?.cancel()
-
-                // 2. Si borró todo, volver al Top 10
-                if (newText.isNullOrEmpty()) {
-                    loadTopSongs()
-                    return true
-                }
-
-                // 3. Si hay texto, esperar 500ms antes de llamar al servidor (Debounce)
                 searchJob = lifecycleScope.launch {
-                    delay(500)
-                    if (newText.length >= 2) { // Buscar solo si hay 2+ letras
+                    delay(500) // Espera un poco para no spamear Spotify
+                    if (!newText.isNullOrEmpty() && newText.length >= 2) {
                         performSearch(newText)
+                    } else if (newText.isNullOrEmpty()) {
+                        loadTopSongs()
                     }
                 }
                 return true
@@ -115,15 +110,21 @@ class SongSelectionActivity : AppCompatActivity() {
         })
     }
 
-    // Carga el Top 10 (Estado por defecto)
     private fun loadTopSongs() {
-        tvHeader.text = "Top Canciones" // Título de la sección
+        tvHeader.text = "🏆 Top Grammy & Hits"
         showLoading(true)
+
         lifecycleScope.launch {
             try {
-                val response = repository.getTopSongs("es")
+                // Llamamos al endpoint de Top Grammy del Backend v4.0
+                // ✅ CAMBIO: getTopGrammy devuelve List<SongItem> directamente
+                val response = repository.getTopGrammy("en") 
+                
                 if (response.isSuccessful && response.body() != null) {
-                    adapter.updateData(response.body()!!.songs)
+                    val songs = response.body()!!
+                    adapter.updateData(songs)
+                } else {
+                    Toast.makeText(this@SongSelectionActivity, "Error cargando Top", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@SongSelectionActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
@@ -133,22 +134,28 @@ class SongSelectionActivity : AppCompatActivity() {
         }
     }
 
-    // Realiza la búsqueda (Estado Activo)
     private fun performSearch(query: String) {
-        tvHeader.text = "Resultados para '$query'" // Cambiamos el título
+        tvHeader.text = "Resultados para '$query'"
         showLoading(true)
+
         lifecycleScope.launch {
             try {
+                // Llamada real al backend -> Spotify
+                // ✅ CAMBIO: searchSongs devuelve List<SongItem> directamente
                 val response = repository.searchSongs(query)
+
                 if (response.isSuccessful && response.body() != null) {
-                    val results = response.body()!!.results
+                    val results = response.body()!!
+                    
                     if (results.isEmpty()) {
                         Toast.makeText(this@SongSelectionActivity, "No se encontraron canciones", Toast.LENGTH_SHORT).show()
                     }
                     adapter.updateData(results)
+                } else {
+                    Toast.makeText(this@SongSelectionActivity, "Error en la búsqueda", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@SongSelectionActivity, "Error buscando", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SongSelectionActivity, "Error buscando: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
                 showLoading(false)
             }

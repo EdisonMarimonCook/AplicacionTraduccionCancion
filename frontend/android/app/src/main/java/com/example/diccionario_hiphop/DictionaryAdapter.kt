@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 
 class DictionaryAdapter(
@@ -16,7 +17,7 @@ class DictionaryAdapter(
         val tvWord: TextView = view.findViewById(R.id.tvWord)
         val tvTranslation: TextView = view.findViewById(R.id.tvTranslation)
         val tvContext: TextView = view.findViewById(R.id.tvContext)
-        val tvSource: TextView = view.findViewById(R.id.tvSource)
+        val tvSource: TextView = view.findViewById(R.id.tvSource) // Reutilizamos este ID para mostrar el TIPO
         val btnDelete: ImageButton = view.findViewById(R.id.btnDelete)
     }
 
@@ -31,8 +32,16 @@ class DictionaryAdapter(
 
         holder.tvWord.text = item.word.replaceFirstChar { it.uppercase() }
         holder.tvTranslation.text = item.translation
-        holder.tvContext.text = "\"${item.context}\""
-        holder.tvSource.text = "🎵 ${item.sourceSongTitle}"
+        holder.tvContext.text = "\"${item.context ?: ""}\""
+        
+        // ✅ CORRECCIÓN: Mostrar TIPO en lugar de canción
+        if (item.type == "expression") {
+            holder.tvSource.text = "📝 Expresión"
+            holder.tvSource.setTextColor(ContextCompat.getColor(holder.itemView.context, R.color.teal_700))
+        } else {
+            holder.tvSource.text = "📖 Palabra"
+            holder.tvSource.setTextColor(ContextCompat.getColor(holder.itemView.context, R.color.purple_700))
+        }
 
         holder.btnDelete.setOnClickListener {
             onDeleteClick(item)

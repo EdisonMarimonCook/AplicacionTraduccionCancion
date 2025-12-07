@@ -1,91 +1,77 @@
 # 🎵 MusicTransIAtor - Contexto del Proyecto
 
-**Versión:** 4.0 (Integración Backend-Frontend Estable)  
-**Rol:** Arquitecto de Software / Lead Developer  
-**Estado:** 🔥 FASE FINAL MVP (Backend Cerrado - Frontend Integrando)  
-**Próxima Entrega:** 16/12/2025 (MVP Funcional)
+**Versión:** 4.1 (Stabilized MVP)
+**Estado:** 🚀 LISTO PARA DEMO / GRABACIÓN
+**Hito Reciente:** Solución de crisis de límites de IA y sincronización de Registro.
 
 ---
 
 ## 📌 VISIÓN DEL PROYECTO
-
-App Android "F2P" (Free to Play) para aprender idiomas con música.  
-**Filosofía:** Máxima funcionalidad con coste cero (APIs públicas, IAs gratuitas, Hosting Free Tier).  
-**Innovación:** Análisis contextual de la letra (no diccionario estático) y estrategia de audio híbrida.
+App Android para aprender idiomas con música mediante análisis semántico de letras en tiempo real.
+**Arquitectura:** Cliente-Servidor (Android Nativo + Python FastAPI).
 
 ---
 
-## 🎯 ESTADO TÉCNICO ACTUAL (v4.0)
+## 🛠️ ESTADO TÉCNICO ACTUAL (v4.1)
 
-### 🐍 BACKEND (FastAPI + Mongo Atlas) - **ESTADO: TERMINADO ✅**
-El servidor es la fuente de verdad. No usamos Mocks para la demo final.
+### 🐍 BACKEND (FastAPI + Mongo Atlas)
+* **IA:**
+    * **Motor:** `gemini-2.5-flash-Lite` (Estable, Free Tier 15 RPM).
+    * **Lógica:** Recibe la letra completa desde el Frontend para evitar errores de "0 chars".
+* **Registro Multi-idioma:**
+    * Modelo de datos adaptado para recibir listas (`learning_languages: [...]`) soportando expansión futura, aunque el MVP solo use uno.
+    * Login devuelve estructura plana (`username` en raíz) para facilitar el parsing en Android.
+* **Infraestructura:**
+    * Actualmente: Localhost (`127.0.0.1:8000`).
+    * Futuro inmediato: Despliegue en **Render.com**.
 
-* **IA (Gemini 2.0 Flash):**
-    * Prompt V3: Devuelve JSON estructurado separando `words` (Vocabulario) de `expressions` (Idioms).
-    * Contexto: Explica el significado basándose en el nivel real del usuario (`target_level`).
-* **🎵 Audio & Música:**
-    * **Estrategia "iTunes Rescue":** Si Spotify no da `preview_url` (común ahora), el backend busca automáticamente en iTunes API para rescatar el MP3 de 30s.
-    * **Búsqueda Unificada:** `/api/v1/songs/search` devuelve canciones reales.
-* **🛡️ Seguridad:**
-    * JWT con **Refresh Token** (Access 15min / Refresh 7 días).
-    * Registro con selección de `target_language` y `target_level`.
-* **💾 Base de Datos:**
-    * **MongoDB Atlas** (Producción).
-    * Fallback automático a `MockDatabase` (Memoria) si falla la conexión.
-
-### 📱 FRONTEND (Android Kotlin) - **ESTADO: EN INTEGRACIÓN 🔄**
-Adaptado para consumir el Backend Real v4.0.
-
-* **Modelos:** Sincronizados con los Schemas de Pydantic (`UserWord` con `type`, `example`, `isRecommended`).
-* **Red:** `AuthInterceptor` maneja automáticamente el error 401 refrescando el token.
-* **UI:** `SongLearningActivity` renderiza palabras (Naranja) y expresiones (Azul) interactivas.
-
----
-
-## 🛣️ HOJA DE RUTA (ROADMAP)
-
-### 🟢 FASE 1: EL MVP (Objetivo: 16 Diciembre)
-**Alcance:** Flujo "Happy Path" completo y REAL.
-1.  **Registro:** Usuario elige "Aprender Inglés B1".
-2.  **Discovery:** Ve lista "Top Grammy" o busca "Estopa".
-3.  **Reproducción:** Suena el audio (Spotify o iTunes).
-4.  **Análisis:** Gemini extrae vocabulario adaptado al B1.
-5.  **Diccionario:** Guarda palabras ("Word") o frases ("Expression") con su contexto.
-6.  **Perfil:** Ve su progreso básico (nº palabras guardadas).
-
-### 🟡 FASE 2: PRODUCTO FINAL (Enero 2026)
-**Alcance:** Retención y Calidad de Vida.
-1.  **Flashcards SRS:** Algoritmo de Repaso Espaciado (SuperMemo/Anki) usando el campo `example` guardado.
-2.  **Infraestructura:** Despliegue en Render/Railway (salir de localhost).
-3.  **Seguridad:** Encriptación de secretos real (no hardcoded strings).
-
-### 🔴 FASE 3: I+D (Futuro / "Zona Pirata")
-1.  **Audio Completo ("Estrategia Grayjay"):** Investigar `NewPipeExtractor` o `yt-dlp` en servidor intermedio para saltar la restricción de 30s.
-2.  **Modo Karaoke:** Integrar API de `LRCLIB` para tiempos exactos sílaba a sílaba.
-3.  **IA Open Source:** Migrar de Gemini a Llama 3 / Mistral (vía Groq o Ollama local) para independencia total.
+### 📱 FRONTEND (Android Kotlin)
+* **Red:**
+    * Configurado para `10.0.2.2` (Emulador) o IP Local (Móvil Físico).
+    * `AuthInterceptor` gestiona refresco de tokens transparente.
+* **Flujo de Aprendizaje (`SongLearningActivity`):**
+    1.  Carga letra de Genius/Spotify (Endpoint `/lyrics`).
+    2.  Muestra letra en negro (Feedback inmediato).
+    3.  Envía letra a IA (`/ai/analyze`).
+    4.  Pinta `ClickableSpans`: **Naranja** (Palabras), **Azul/Cyan** (Expresiones).
+* **Diccionario:**
+    * Adaptado a nuevo modelo `UserWord` (con campos `type`, `example`, `isRecommended`).
 
 ---
 
-## 📋 GUÍA PARA DESARROLLADORES (AI ASSISTANTS)
-
-Si vas a generar código, respeta estas reglas **SAGRADAS** de la v4.0:
-
-### 1. Contrato de API (Endpoints Críticos)
-* **Login:** `POST /api/v1/auth/login` -> Devuelve `{ access_token, refresh_token, user }`
-* **Registro:** `POST /api/v1/auth/register` -> Envía `{ native_language, target_language, target_level }`
-* **Buscar:** `GET /api/v1/songs/search?query=X` -> Devuelve lista directa `[...]` (no `{results: [...]}`)
-* **Analizar:** `POST /api/v1/ai/analyze` -> Devuelve `{ words: [], expressions: [] }`
-* **Diccionario:** `POST /api/v1/dictionary/add` -> Envía `{ type: "word"|"expression", example: "..." }`
-
-### 2. Estructura de Datos
-* **Fechas:** Siempre usar `isoformat()` en el Backend. El Frontend parsea Strings.
-* **Niveles:** Usar escala CEFR (`A1`, `A2`, `B1`, `B2`, `C1`, `C2`).
-* **Carpetas:** El campo `type` en el diccionario define si es palabra suelta o expresión.
-
-### 3. Prohibiciones
-* ❌ **NO** usar Mocks en los Routers (`songs.py`, `lyrics.py`). Usar la lógica real.
-* ❌ **NO** crear endpoints `/flashcards` en el Backend todavía (usamos el Diccionario filtrado).
-* ❌ **NO** cambiar la IP `10.0.2.2` en Android (es el localhost del emulador).
+## 🐛 BUGS CONOCIDOS (Para arreglar post-Demo)
+1.  **Contador de Progreso:** Al borrar una palabra del diccionario, el contador total del perfil no se decrementa.
+2.  **Audio:** Limitado a 30s (Preview URL de iTunes/Spotify).
 
 ---
-*Última actualización: 02/12/2025 - Hito: Backend v4.0 Completo*
+
+## 🛣️ HOJA DE RUTA (ROADMAP ACTUALIZADO)
+
+### 🟢 FASE 1: PRESENTACIÓN PROTOTIPO (AHORA)
+* **Objetivo:** Grabar vídeo promocional y defensa en clase.
+* **Infraestructura:** PC del alumno haciendo de servidor (Ollama o Gemini 1.5).
+* **IA:** Gemini 2.5 Flash-Lite (Google Cloud).
+
+### 🟡 FASE 2: PRODUCTO FINAL (ENTREGA)
+* **Deployment:**
+    * Backend subido a **Render** (Gratis).
+    * APK subida a **GitHub Releases** o web sencilla.
+* **IA Robusta:** Migración a **Groq (Llama 3)** para velocidad extrema y cero costes, o **Ollama** si se exige ejecución local estricta.
+* **Features:**
+    * **Selección de Usuario:** Permitir seleccionar texto no resaltado para pedir traducción a la IA bajo demanda.
+    * **Error Handling Gracioso:** "La IA se está enfriando 🧊" si se agota la cuota.
+    * **Flashcards SRS:** Implementar el algoritmo de repaso.
+
+### 🔴 FASE 3: FUTURO (V2.0)
+* **Audio Completo:** Integración con fuentes alternativas (Youtube-dl/Grayjay logic).
+* **Modo Karaoke:** Sincronización temporal sílaba a sílaba.
+
+---
+
+## 📋 REGLAS DE DESARROLLO (V4.1)
+1.  **Frontend manda, Backend obedece:** El frontend envía la letra a la IA, no el backend por su cuenta (evita desincronización).
+2.  **Modelos Pydantic:** `UserCreate` debe aceptar `learning_languages` como lista.
+3.  **Parsers:** El Frontend espera JSON plano en Login (sin `user` anidado).
+4.  **IA:** Usar siempre `gemini-1.5-flash` para desarrollo. No usar `2.0-experimental` por bloqueo de cuota `limit: 0`.
+
+---

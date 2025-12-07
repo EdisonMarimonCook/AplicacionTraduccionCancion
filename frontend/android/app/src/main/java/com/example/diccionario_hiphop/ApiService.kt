@@ -7,7 +7,7 @@ import retrofit2.http.*
 interface ApiService {
 
     // =================================================================================
-    // 1️⃣ AUTENTICACIÓN
+    // 1️⃣ AUTENTICACIÓN (Correcto)
     // =================================================================================
 
     @POST("/api/v1/auth/login")
@@ -16,104 +16,64 @@ interface ApiService {
     @POST("/api/v1/auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<RegisterResponse>
 
-    // 🔥 Endpoint SÍNCRONO para el AuthInterceptor (devuelve Call, no Response)
+    // Endpoint síncrono para el AuthInterceptor
     @POST("/api/v1/auth/refresh")
     fun refreshToken(@Body request: RefreshTokenRequest): Call<LoginResponse>
 
-    @POST("/api/v1/auth/verify-token")
-    suspend fun verifyToken(): Response<VerifyTokenResponse>
-
-
     // =================================================================================
-    // 2️⃣ CANCIONES Y BÚSQUEDA
+    // 2️⃣ CANCIONES Y BÚSQUEDA (Backend: songs.py)
     // =================================================================================
 
-    @GET("/api/v1/songs/")
-    suspend fun getTopSongs(@Query("language") language: String = "es"): Response<TopSongsResponse>
+    // Top Grammys / Hits (La lista real de Spotify)
+    @GET("/api/v1/songs/top-grammy")
+    suspend fun getTopGrammy(@Query("lang") lang: String = "en"): Response<List<SongItem>>
 
-    @GET("/api/v1/lyrics/search")
-    suspend fun searchLyrics(
-        @Query("q") query: String,
-        @Query("limit") limit: Int = 5
-    ): Response<SearchResponse>
-
+    // Búsqueda Unificada Real
+    @GET("/api/v1/songs/search")
+    suspend fun searchSongs(@Query("query") query: String): Response<List<SongItem>>
 
     // =================================================================================
-    // 3️⃣ APRENDIZAJE (LETRAS Y ANÁLISIS)
+    // 3️⃣ LETRAS E IA (Backend: lyrics.py, ai_analysis.py)
     // =================================================================================
 
-    // Obtener letra simple
+    // Obtener letra y audio preview
     @GET("/api/v1/lyrics/")
     suspend fun getLyrics(
-        @Query("title") title: String,
+        @Query("title") title: String, 
         @Query("artist") artist: String
     ): Response<LyricsResponse>
 
-    // Obtener letra analizada con colores (IA)
-    @GET("/api/v1/lyrics/analyze")
-    suspend fun analyzeLyrics(
-        @Query("title") title: String,
-        @Query("artist") artist: String,
-        @Query("user_level") userLevel: String
-    ): Response<AnalysisResponse>
-
-    // Obtener letra con tiempos para Karaoke (Fragmentador)
-    @GET("/api/v1/lyrics/with-fragments")
-    suspend fun getLyricsWithFragments(
-        @Query("title") title: String,
-        @Query("artist") artist: String
-    ): Response<FragmentsResponse>
-
+    // ✅ CORRECCIÓN CRÍTICA: Nombre del endpoint y tipo de respuesta
+    @POST("/api/v1/ai/analyze")
+    suspend fun analyzeLyrics(@Body request: AnalyzeLyricsRequest): Response<HighlightWordsResponse>
 
     // =================================================================================
-    // 4️⃣ DICCIONARIO PERSONAL
+    // 4️⃣ DICCIONARIO (Backend: dictionary.py)
     // =================================================================================
 
-    @POST("/api/v1/user/words")
+    // ✅ CORRECCIÓN CRÍTICA: Rutas actualizadas a v4.0 (/dictionary/...)
+    @GET("/api/v1/dictionary/list")
+    suspend fun getDictionary(@Query("type") type: String? = null): Response<List<UserWord>>
+
+    @POST("/api/v1/dictionary/add")
     suspend fun addWord(@Body request: AddWordRequest): Response<UserWord>
 
-    @GET("/api/v1/user/words")
-    suspend fun getDictionary(): Response<DictionaryResponse>
-
-    @DELETE("/api/v1/user/words/{word_id}")
-    suspend fun deleteWord(@Path("word_id") wordId: String): Response<Map<String, String>>
-
+    @DELETE("/api/v1/dictionary/delete/{id}")
+    suspend fun deleteWord(@Path("id") id: String): Response<Void>
 
     // =================================================================================
-    // 5️⃣ FLASHCARDS (SISTEMA DE REPASO)
-    // =================================================================================
-
-    @POST("/api/v1/user/flashcards")
-    suspend fun createFlashcard(@Body request: CreateFlashcardRequest): Response<FlashcardItem>
-
-    @GET("/api/v1/user/flashcards/review")
-    suspend fun getFlashcardsToReview(): Response<FlashcardReviewResponse>
-
-    @POST("/api/v1/user/flashcards/{card_id}/review")
-    suspend fun submitReview(
-        @Path("card_id") cardId: String,
-        @Body request: ReviewRequest
-    ): Response<FlashcardItem>
-
-
-    // =================================================================================
-    // 6️⃣ SESIONES DE ESTUDIO
-    // =================================================================================
-
-    @POST("/api/v1/user/sessions")
-    suspend fun createSession(@Body request: CreateSessionRequest): Response<SessionResponse>
-
-    @GET("/api/v1/user/sessions")
-    suspend fun getSessions(): Response<SessionListResponse>
-
-
-    // =================================================================================
-    // 7️⃣ PERFIL Y UTILIDADES
+    // 5️⃣ PERFIL (Backend: progress.py)
     // =================================================================================
 
     @GET("/api/v1/user/progress")
     suspend fun getUserProgress(): Response<ProgressResponse>
 
+    // ❌ NOTA: Hemos eliminado los endpoints de Flashcards y Sessions porque 
+    // no existen en el Backend MVP v4.0. Se añadirán en la Fase 2.
+
+    //(Para ConnectionTester):
     @GET("/api/v1/health")
     suspend fun healthCheck(): Response<HealthResponse>
 }
+
+

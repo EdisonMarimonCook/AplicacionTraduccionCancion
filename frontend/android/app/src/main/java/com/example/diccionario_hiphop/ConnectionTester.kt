@@ -1,20 +1,22 @@
 package com.example.diccionario_hiphop
 
-import retrofit2.Response
+import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import android.util.Log
 
-class ConnectionTester {
+class ConnectionTester(private val context: Context) { // ✅ Recibimos Context
     private val TAG = "ConnectionTester"
 
     suspend fun testBackendConnection(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "🔌 Probando conexión con backend...")
-                val response: Response<HealthResponse> = RetrofitService.apiService.healthCheck()
+                
+                // ✅ Usamos getInstance(context) correctamente
+                val api = RetrofitService.getInstance(context)
+                val response = api.healthCheck()
 
-                // ✅ Ahora isSuccessful debería funcionar
                 if (response.isSuccessful) {
                     Log.d(TAG, "✅ Backend conectado: ${response.body()?.status}")
                     true

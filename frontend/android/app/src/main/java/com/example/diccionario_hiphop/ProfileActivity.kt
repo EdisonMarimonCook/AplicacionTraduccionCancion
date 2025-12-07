@@ -1,11 +1,11 @@
 package com.example.diccionario_hiphop
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -17,20 +17,16 @@ class ProfileActivity : AppCompatActivity() {
 
     // UI Elements
     private lateinit var btnBack: ImageButton
-    private lateinit var tvUsername: TextView
+    private lateinit var tvUsername: TextView // 🔥 Aquí mostraremos el nombre real
     private lateinit var tvUserLevel: TextView
-
-    // Stats Cards
     private lateinit var tvWordsCount: TextView
     private lateinit var tvStreak: TextView
     private lateinit var tvFlashcardsDone: TextView
-
-    // Menu Buttons
     private lateinit var btnMyDictionary: Button
     private lateinit var btnFlashcards: Button
     private lateinit var btnLogout: Button
-
     private lateinit var progressBar: ProgressBar
+
     private lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,9 +38,10 @@ class ProfileActivity : AppCompatActivity() {
         initViews()
         setupListeners()
 
-        // Cargar datos del usuario
-        loadUserData()
-        // Cargar estadísticas del servidor
+        // 1️⃣ Cargar nombre del usuario desde memoria local (Instantáneo)
+        loadLocalUserData()
+
+        // 2️⃣ Cargar estadísticas desde el servidor (Asíncrono)
         loadUserProgress()
     }
 
@@ -52,15 +49,12 @@ class ProfileActivity : AppCompatActivity() {
         btnBack = findViewById(R.id.btnBack)
         tvUsername = findViewById(R.id.tvUsername)
         tvUserLevel = findViewById(R.id.tvUserLevel)
-
         tvWordsCount = findViewById(R.id.tvWordsCount)
         tvStreak = findViewById(R.id.tvStreak)
         tvFlashcardsDone = findViewById(R.id.tvFlashcardsDone)
-
         btnMyDictionary = findViewById(R.id.btnMyDictionary)
         btnFlashcards = findViewById(R.id.btnFlashcards)
         btnLogout = findViewById(R.id.btnLogout)
-
         progressBar = findViewById(R.id.progressBar)
     }
 
@@ -78,11 +72,10 @@ class ProfileActivity : AppCompatActivity() {
         btnLogout.setOnClickListener { performLogout() }
     }
 
-    private fun loadUserData() {
-        // Recuperar nombre guardado en Login (si lo guardaste en prefs)
-        // Si no, usamos un valor por defecto
-        val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
-        val username = prefs.getString("username", "MC Learner")
+    private fun loadLocalUserData() {
+        // Recuperar nombre guardado en Login
+        val prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+        val username = prefs.getString("USERNAME", "Usuario")
         tvUsername.text = username
     }
 
@@ -91,33 +84,27 @@ class ProfileActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val api = RetrofitService.getInstance(this@ProfileActivity)
-
-                // Llamada al endpoint de progreso
                 val response = api.getUserProgress()
 
                 if (response.isSuccessful && response.body() != null) {
                     val data = response.body()!!
 
-                    // 1. Total Palabras Aprendidas
+                    // Actualizar contadores
                     tvWordsCount.text = data.totalWordsLearned.toString()
-
-                    // 2. Racha Actual (Días seguidos)
                     tvStreak.text = "🔥 ${data.currentStreak}"
+                    tvFlashcardsDone.text = "0" // Placeholder si la API no lo devuelve
 
-                    // 3. Flashcards (Usamos placeholder si la API no lo devuelve aún)
-                    // Si tu backend devuelve este dato, úsalo aquí.
-                    tvFlashcardsDone.text = "0"
-
-                    // 4. Nivel estimado de inglés (del mapa stats_by_language)
-                    val enStats = data.statsByLanguage["en"]
-                    val level = enStats?.estimatedLevel ?: "A1"
+                    // Calcular nivel (MVP: Hardcoded o basado en palabras)
+                    // Como quitamos statsByLanguage del modelo simple, usamos una lógica básica
+                    val level = if (data.totalWordsLearned > 50) "B1" else "A2"
                     tvUserLevel.text = "Nivel $level"
 
                 } else {
-                    Toast.makeText(this@ProfileActivity, "No se pudieron actualizar las estadísticas", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ProfileActivity, "No se pudieron actualizar stats", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@ProfileActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
+                // Si falla la red, no pasa nada grave, el nombre ya se cargó localmente
+                Toast.makeText(this@ProfileActivity, "Error de conexión al perfil", Toast.LENGTH_SHORT).show()
             } finally {
                 setLoading(false)
             }

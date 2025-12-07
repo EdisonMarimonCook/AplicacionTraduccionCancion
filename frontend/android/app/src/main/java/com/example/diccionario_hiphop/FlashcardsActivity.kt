@@ -5,7 +5,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.ImageButton
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -21,13 +20,12 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var tvTapHint: TextView
     private lateinit var touchOverlay: View
     private lateinit var layoutButtons: View
-    private lateinit var btnHard: Button
-    private lateinit var btnEasy: Button
+    private lateinit var btnNext: Button
     private lateinit var tvMessage: TextView
     private lateinit var cardView: View
 
-    // Data
-    private var flashcards: MutableList<FlashcardItem> = mutableListOf()
+    // Data: Usamos UserWord, NO FlashcardItem
+    private var flashcards: MutableList<UserWord> = mutableListOf()
     private var currentIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,19 +47,18 @@ class FlashcardsActivity : AppCompatActivity() {
         tvTapHint = findViewById(R.id.tvTapHint)
         touchOverlay = findViewById(R.id.touchOverlay)
         layoutButtons = findViewById(R.id.layoutButtons)
-        btnHard = findViewById(R.id.btnHard)
-        btnEasy = findViewById(R.id.btnEasy)
+        
+        btnNext = findViewById(R.id.btnEasy) // Reutilizamos ID existente
+        btnNext.text = "Siguiente ➔"
+        
+        // Ocultar botón hard si existe en el XML
+        findViewById<View>(R.id.btnHard)?.visibility = View.GONE
+
         tvMessage = findViewById(R.id.tvMessage)
         cardView = findViewById(R.id.cardView)
 
-        // Al tocar la tarjeta, revelar respuesta
-        touchOverlay.setOnClickListener {
-            revealAnswer()
-        }
-
-        // Botones de evaluación
-        btnHard.setOnClickListener { submitReview(false) }
-        btnEasy.setOnClickListener { submitReview(true) }
+        touchOverlay.setOnClickListener { revealAnswer() }
+        btnNext.setOnClickListener { nextCard() }
     }
 
     private fun loadFlashcards() {
@@ -69,79 +66,63 @@ class FlashcardsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val api = RetrofitService.getInstance(this@FlashcardsActivity)
-                val response = api.getFlashcardsToReview()
+                // Usamos getDictionary, no getFlashcardsToReview
+                val response = api.getDictionary()
 
                 if (response.isSuccessful && response.body() != null) {
-                    val data = response.body()!!
-                    flashcards = data.flashcards.toMutableList()
+                    val allWords = response.body()!!
+                    // Filtramos las que tienen ejemplo
+                    flashcards = allWords.filter { !it.example.isNullOrEmpty() }.toMutableList()
+                    flashcards.shuffle()
 
                     if (flashcards.isEmpty()) {
-                        showEmptyState("¡No tienes repaso pendiente hoy!\nVuelve mañana.")
+                        showEmptyState("No tienes palabras con ejemplos.")
                     } else {
                         showGameUI()
                         currentIndex = 0
                         showCard()
                     }
                 } else {
-                    showEmptyState("Error al cargar tarjetas")
+                    showEmptyState("Error al cargar")
                 }
             } catch (e: Exception) {
-                showEmptyState("Error de conexión")
+                showEmptyState("Error: ${e.message}")
             }
         }
     }
 
     private fun showCard() {
         if (currentIndex >= flashcards.size) {
-            showEmptyState("¡Repaso completado!\n🎉")
+            showEmptyState("¡Repaso completado! 🎉")
             return
         }
 
         val card = flashcards[currentIndex]
 
-        // Reset UI (Estado "Pregunta")
-        tvWord.text = card.word
-        tvContextQuestion.text = "\"${card.context}\""
+        tvWord.text = card.word.replaceFirstChar { it.uppercase() }
+        tvContextQuestion.text = "\"${card.example}\""
         tvTranslation.text = card.translation
 
         tvTranslation.visibility = View.INVISIBLE
         divider.visibility = View.INVISIBLE
         layoutButtons.visibility = View.INVISIBLE
-        touchOverlay.visibility = View.VISIBLE // Habilitar toque para revelar
+        touchOverlay.visibility = View.VISIBLE
         tvTapHint.visibility = View.VISIBLE
 
         tvCounter.text = "${currentIndex + 1} / ${flashcards.size}"
     }
 
     private fun revealAnswer() {
-        // Estado "Respuesta"
         tvTranslation.visibility = View.VISIBLE
         divider.visibility = View.VISIBLE
         layoutButtons.visibility = View.VISIBLE
-
-        touchOverlay.visibility = View.GONE // Deshabilitar toque
+        touchOverlay.visibility = View.GONE
         tvTapHint.visibility = View.GONE
     }
 
-    private fun submitReview(isCorrect: Boolean) {
-        val card = flashcards[currentIndex]
-        val resultStr = if (isCorrect) "correct" else "incorrect"
-        val request = ReviewRequest(resultStr)
-
-        lifecycleScope.launch {
-            try {
-                val api = RetrofitService.getInstance(this@FlashcardsActivity)
-                api.submitReview(card.cardId, request)
-
-                // Pasamos a la siguiente independientemente del resultado de la API
-                // (Optimistic UI update)
-                currentIndex++
-                showCard()
-
-            } catch (e: Exception) {
-                Toast.makeText(this@FlashcardsActivity, "Error al guardar progreso", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private fun nextCard() {
+        currentIndex++
+        showCard()
     }
 
     private fun showLoading(isLoading: Boolean) {

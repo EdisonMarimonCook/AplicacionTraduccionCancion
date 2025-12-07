@@ -13,7 +13,7 @@ from routers.schemas import HighlightWordsResponse # Asegúrate de que este impo
 logger = logging.getLogger(__name__)
 
 # ===== CONFIGURACIÓN =====
-MODEL_NAME = "gemini-2.0-flash" 
+MODEL_NAME = "gemini-2.5-flash-lite" 
 
 _client: Optional[Client] = None
 

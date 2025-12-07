@@ -23,12 +23,10 @@ class DictionaryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_dictionary) // Carga el diseño general
+        setContentView(R.layout.activity_dictionary)
 
         initViews()
         setupRecyclerView()
-
-        // Al abrir la pantalla, pedimos los datos
         loadDictionary()
 
         btnBack.setOnClickListener { finish() }
@@ -42,35 +40,31 @@ class DictionaryActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        // Inicializamos el adaptador (el camarero) vacío
         adapter = DictionaryAdapter(mutableListOf()) { wordToDelete ->
-            // Qué hacer cuando se pulsa borrar en un item
             confirmDelete(wordToDelete)
         }
         rvDictionary.layoutManager = LinearLayoutManager(this)
-        rvDictionary.adapter = adapter // Conectamos el camarero con la lista
+        rvDictionary.adapter = adapter
     }
 
     private fun loadDictionary() {
         setLoading(true)
         lifecycleScope.launch {
             try {
-                // LLAMADA AL SERVIDOR
                 val apiService = RetrofitService.getInstance(this@DictionaryActivity)
-                val response = apiService.getDictionary()
+                // ✅ CAMBIO: El backend devuelve List<UserWord> directamente
+                val response = apiService.getDictionary(type = null) // Pedimos todo (palabras y expresiones)
 
                 if (response.isSuccessful && response.body() != null) {
-                    val dictionary = response.body()!!
+                    val words = response.body()!!
 
-                    if (dictionary.words.isEmpty()) {
-                        // Si no hay palabras, mostramos mensaje de vacío
+                    if (words.isEmpty()) {
                         tvEmptyState.visibility = View.VISIBLE
                         rvDictionary.visibility = View.GONE
                     } else {
-                        // Si hay palabras, se las damos al adaptador
                         tvEmptyState.visibility = View.GONE
                         rvDictionary.visibility = View.VISIBLE
-                        adapter.updateData(dictionary.words)
+                        adapter.updateData(words)
                     }
                 } else {
                     Toast.makeText(this@DictionaryActivity, "Error al cargar", Toast.LENGTH_SHORT).show()
@@ -85,12 +79,10 @@ class DictionaryActivity : AppCompatActivity() {
 
     private fun confirmDelete(word: UserWord) {
         AlertDialog.Builder(this)
-            .setTitle("¿Borrar palabra?")
-            .setMessage("¿Quieres eliminar '${word.word}'?")
-            .setPositiveButton("Eliminar") { _, _ ->
-                deleteWord(word)
-            }
-            .setNegativeButton("Cancelar", null)
+            .setTitle("¿Borrar?")
+            .setMessage("¿Eliminar '${word.word}'?")
+            .setPositiveButton("Sí") { _, _ -> deleteWord(word) }
+            .setNegativeButton("No", null)
             .show()
     }
 
@@ -98,12 +90,12 @@ class DictionaryActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val apiService = RetrofitService.getInstance(this@DictionaryActivity)
-                val response = apiService.deleteWord(word.wordId)
+                // ✅ CAMBIO: Usamos 'word.id' (nuevo modelo) en lugar de 'word.wordId'
+                val response = apiService.deleteWord(word.id)
 
                 if (response.isSuccessful) {
                     Toast.makeText(this@DictionaryActivity, "Eliminada", Toast.LENGTH_SHORT).show()
-                    adapter.removeWord(word) // La quitamos de la lista visualmente
-
+                    adapter.removeWord(word)
                     if (adapter.itemCount == 0) tvEmptyState.visibility = View.VISIBLE
                 } else {
                     Toast.makeText(this@DictionaryActivity, "Error al eliminar", Toast.LENGTH_SHORT).show()

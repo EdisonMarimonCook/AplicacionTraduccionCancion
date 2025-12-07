@@ -2,308 +2,97 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
+    tools:context=".SongLearningActivity">
 
-    <!-- 1. BARRA SUPERIOR (Fija) -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/topBar"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="@android:color/white"
-        android:elevation="4dp"
-        app:layout_constraintTop_toTopOf="parent">
+    <!-- Botón de atrás -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_revert"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_margin="16dp" />
 
-        <ImageButton
-            android:id="@+id/backButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/abc_ic_ab_back_material"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="@android:color/black"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:contentDescription="Volver"/>
+    <!-- Portada del álbum -->
+    <ImageView
+        android:id="@+id/ivAlbumCover"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_margin="16dp"
+        android:background="#DDDDDD"
+        app:layout_constraintTop_toBottomOf="@id/btnBack"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:src="@tools:sample/avatars" />
 
-        <TextView
-            android:id="@+id/headerTitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:text="CANCIÓN"
-            android:textAllCaps="true"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:gravity="center"
-            app:layout_constraintStart_toEndOf="@id/backButton"
-            app:layout_constraintEnd_toStartOf="@id/favoriteButton"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+    <!-- Título de la canción -->
+    <TextView
+        android:id="@+id/tvHeaderTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Título Canción"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintStart_toEndOf="@id/ivAlbumCover"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/ivAlbumCover" />
 
-        <ImageButton
-            android:id="@+id/favoriteButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@android:drawable/btn_star_big_off"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="#6200EE"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:contentDescription="Favorito"/>
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Artista -->
+    <TextView
+        android:id="@+id/tvHeaderArtist"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Artista"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
+        app:layout_constraintStart_toEndOf="@id/ivAlbumCover"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvHeaderTitle" />
 
-    <!-- CONTENIDO SCROLLABLE -->
-    <androidx.core.widget.NestedScrollView
+    <!-- Botón Play -->
+    <ImageButton
+        android:id="@+id/btnPlayPause"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@android:drawable/ic_media_play"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/tvHeaderArtist"
+        app:layout_constraintStart_toEndOf="@id/ivAlbumCover" />
+
+    <!-- Barra de progreso (cargando) -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Scroll para la letra -->
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/topBar"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/ivAlbumCover"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/tvLyrics"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="32dp">
-
-            <!-- 2. INFO DE LA CANCIÓN -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="24dp"
-                android:background="#F5F5F5">
-
-                <!-- Carátula -->
-                <androidx.cardview.widget.CardView
-                    android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="8dp">
-                    <ImageView
-                        android:id="@+id/albumCover"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_launcher_foreground"
-                        android:background="@android:color/darker_gray"/>
-                </androidx.cardview.widget.CardView>
-
-                <TextView
-                    android:id="@+id/songTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Título de la Canción"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    android:textColor="@android:color/black"
-                    android:layout_marginTop="16dp"
-                    android:gravity="center"/>
-
-                <TextView
-                    android:id="@+id/songArtist"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Artista"
-                    android:textSize="16sp"
-                    android:textColor="@android:color/darker_gray"
-                    android:gravity="center"/>
-
-                <!-- Metadatos (Tags) -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginTop="12dp">
-
-                    <TextView
-                        android:id="@+id/songLanguage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🇬🇧 English"
-                        android:background="@drawable/bg_search_rounded"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="4dp"
-                        android:layout_marginEnd="8dp"/>
-
-                    <TextView
-                        android:id="@+id/songLevel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Nivel: B1"
-                        android:textStyle="bold"
-                        android:background="@drawable/bg_search_rounded"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="4dp"/>
-                </LinearLayout>
-
-                <!-- Barra de Dificultad -->
-                <ProgressBar
-                    android:id="@+id/difficultyBar"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="150dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:max="100"
-                    android:progress="50"
-                    android:progressTint="#FF9800"/>
-            </LinearLayout>
-
-            <!-- 3. REPRODUCTOR -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardBackgroundColor="#333333">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <!-- Controles Principales -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <ImageButton
-                            android:id="@+id/btnPlayPause"
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
-                            android:src="@android:drawable/ic_media_play"
-                            android:background="@drawable/bg_search_rounded"
-                            android:backgroundTint="@android:color/white"
-                            app:tint="@android:color/black"/>
-
-                        <SeekBar
-                            android:id="@+id/seekBar"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginHorizontal="8dp"
-                            android:progressTint="@android:color/white"
-                            android:thumbTint="@android:color/white"/>
-
-                        <TextView
-                            android:id="@+id/tvDuration"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="--:--"
-                            android:textColor="@android:color/white"
-                            android:textSize="12sp"/>
-                    </LinearLayout>
-
-                    <!-- Botones Navegación Fragmentos (WIP) -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center"
-                        android:layout_marginTop="8dp">
-
-                        <Button
-                            android:id="@+id/btnPrevFragment"
-                            android:layout_width="wrap_content"
-                            android:layout_height="40dp"
-                            android:text="↻ Prev"
-                            android:textSize="12sp"
-                            android:backgroundTint="#555555"
-                            android:layout_marginEnd="8dp"
-                            style="@style/Widget.MaterialComponents.Button.TextButton"
-                            android:textColor="@android:color/white"/>
-
-                        <Button
-                            android:id="@+id/btnNextFragment"
-                            android:layout_width="wrap_content"
-                            android:layout_height="40dp"
-                            android:text="Next ↻"
-                            android:textSize="12sp"
-                            android:backgroundTint="#555555"
-                            style="@style/Widget.MaterialComponents.Button.TextButton"
-                            android:textColor="@android:color/white"/>
-                    </LinearLayout>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- 4. LETRA (Contenedor dinámico) -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="LETRA ANALIZADA"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/darker_gray"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="8dp"/>
-
-            <LinearLayout
-                android:id="@+id/lyricsContainer"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"/>
-
-            <!-- Loader -->
-            <ProgressBar
-                android:id="@+id/loadingProgress"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone"/>
-
-            <!-- 5. BOTONES DE ACCIÓN (Footer) -->
-            <GridLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:columnCount="2"
-                android:padding="8dp">
-
-                <Button
-                    android:id="@+id/btnAddToDict"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:text="📚 Diccionario"
-                    android:layout_margin="4dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-                <Button
-                    android:id="@+id/btnCreateCard"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:text="🎴 Flashcard"
-                    android:layout_margin="4dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-                <Button
-                    android:id="@+id/btnFavAction"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:text="❤ Favorito"
-                    android:layout_margin="4dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-
-                <Button
-                    android:id="@+id/btnStats"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_columnWeight="1"
-                    android:text="📊 Stats"
-                    android:layout_margin="4dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
-            </GridLayout>
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+            android:padding="16dp"
+            android:textSize="18sp"
+            android:lineSpacingExtra="4dp"
+            android:text="Cargando letra..." />
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

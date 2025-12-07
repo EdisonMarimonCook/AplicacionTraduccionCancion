@@ -14,7 +14,7 @@ import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
-    // Elementos de la UI
+    // UI
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
     private lateinit var passwordLayout: TextInputLayout
@@ -23,7 +23,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvForgotPassword: TextView
     private lateinit var tvRegister: TextView
 
-    // Gestor de Sesión
     private lateinit var tokenManager: TokenManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +31,7 @@ class MainActivity : AppCompatActivity() {
         // 1. Inicializar TokenManager
         tokenManager = TokenManager(this)
 
-        // 2. Auto-Login: Si ya hay un token guardado, saltamos el login
+        // 2. Auto-Login: Si hay token, vamos dentro
         if (tokenManager.getToken() != null) {
             navigateToSongSelection()
             return
@@ -47,7 +46,6 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         etEmail = findViewById(R.id.etEmail)
         etPassword = findViewById(R.id.etPassword)
-        // Asegúrate de que el ID en tu XML sea 'tilPassword' para el layout de contraseña
         passwordLayout = findViewById(R.id.tilPassword)
         cbRememberMe = findViewById(R.id.cbRememberMe)
         btnLogin = findViewById(R.id.btnLogin)
@@ -80,10 +78,8 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
         }
 
-        // Navegar a la pantalla de Registro
         tvRegister.setOnClickListener {
-            val intent = Intent(this, RegisterActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, RegisterActivity::class.java))
         }
     }
 
@@ -97,37 +93,36 @@ class MainActivity : AppCompatActivity() {
             try {
                 val apiService = RetrofitService.getInstance(this@MainActivity)
                 val request = LoginRequest(email, password)
-
-                // Llamada al servidor
                 val response = apiService.login(request)
 
                 if (response.isSuccessful && response.body() != null) {
                     val loginData = response.body()!!
 
-                    // 🔥 CORRECCIÓN AQUÍ: Usamos saveTokens (plural) con ambos valores
-                    // El modelo LoginResponse ahora tiene accessToken Y refreshToken
+                    // 1. Guardar Tokens
                     tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
 
-                    // Guardar nombre de usuario en preferencias para el perfil
+                    // 2. Guardar datos de usuario (Estructura plana corregida)
+                    // Usamos el username que viene, o el email si falla, o "Usuario" por defecto
+                    val userDisplayName = loginData.username ?: loginData.email ?: "Usuario"
+
                     getSharedPreferences("user_prefs", MODE_PRIVATE).edit()
-                        .putString("username", loginData.user.username)
+                        .putString("USERNAME", userDisplayName)
+                        .putString("USER_ID", loginData.userId)     // ✅ Acceso directo
+                        .putString("USER_EMAIL", loginData.email)   // ✅ Acceso directo
                         .apply()
 
-                    // Mensaje de éxito
-                    Toast.makeText(this@MainActivity, "¡Bienvenido ${loginData.user.username}!", Toast.LENGTH_LONG).show()
-
-                    // Entrar a la app
+                    // 3. Feedback y Navegación
+                    Toast.makeText(this@MainActivity, "¡Bienvenido $userDisplayName!", Toast.LENGTH_LONG).show()
                     navigateToSongSelection()
 
                 } else {
-                    // Error 401 o 404
                     Toast.makeText(this@MainActivity, "Login fallido: Credenciales incorrectas", Toast.LENGTH_SHORT).show()
                 }
 
-            } catch (e: IOException) {
-                Toast.makeText(this@MainActivity, "Error de conexión. Verifica que el servidor esté activo.", Toast.LENGTH_SHORT).show()
-            } catch (e: HttpException) {
-                Toast.makeText(this@MainActivity, "Error del servidor: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                // Manejo genérico de errores (red, servidor, timeout)
+                val msg = if (e is IOException) "Error de conexión" else "Error del servidor: ${e.message}"
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
             } finally {
                 setLoading(false)
             }
@@ -136,10 +131,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun navigateToSongSelection() {
         val intent = Intent(this, SongSelectionActivity::class.java)
-
-        // Limpiar historial para que al dar "Atrás" no vuelva al login
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-
         startActivity(intent)
         finish()
     }

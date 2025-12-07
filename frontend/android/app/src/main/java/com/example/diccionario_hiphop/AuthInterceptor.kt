@@ -57,7 +57,6 @@ class AuthInterceptor(
             // Creamos un Retrofit LIMPIO (sin interceptores) para evitar bucles infinitos.
             // ⚠️ IMPORTANTE: Asegúrate de que esta URL coincide con la de tu RetrofitService.
             // Si usas emulador: "http://10.0.2.2:8000/"
-            // Si usas móvil físico: "http://TU_IP_LOCAL:8000/"
             val retrofit = Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:8000/")
                 .addConverterFactory(GsonConverterFactory.create())
@@ -65,16 +64,16 @@ class AuthInterceptor(
 
             val api = retrofit.create(ApiService::class.java)
 
-            // Llamada síncrona (.execute) porque estamos dentro de un interceptor y no podemos usar corrutinas aquí fácilmente
+            // Llamada síncrona (.execute)
             val call = api.refreshToken(RefreshTokenRequest(refreshToken))
             val response = call.execute()
 
             if (response.isSuccessful && response.body() != null) {
                 val newAccessToken = response.body()!!.accessToken
-                // Algunos backends devuelven también un nuevo refresh token (rotación)
-                // Si el tuyo lo hace, guárdalo. Si devuelve null o vacío, mantén el viejo.
-                val newRefreshToken = response.body()!!.refreshToken
-
+                
+                // NOTA: El backend v4.0 devuelve 'access_token' nuevo pero quizás no 'refresh_token'.
+                // Mantenemos el antiguo si el nuevo viene vacío o nulo.
+                val newRefreshToken = response.body()?.refreshToken ?: ""
                 val finalRefreshToken = if (newRefreshToken.isNotEmpty()) newRefreshToken else refreshToken
 
                 // Guardar los nuevos tokens

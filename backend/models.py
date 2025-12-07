@@ -1,88 +1,97 @@
 """
 ARCHIVO: models.py
 PROPÓSITO: Definir estructura de datos (usuarios, palabras, etc.)
-USADO POR: Todos los endpoints
 """
 
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
-from routers.schemas import LearningLanguage
+from typing import Union
+
+# ================================================================
+# MODELOS AUXILIARES
+# ================================================================
+
+class LearningLanguage(BaseModel):
+    """Modelo interno para la lista de idiomas en BD"""
+    language: str
+    level: str
+    
+    # 🔥 SOLUCIÓN: Aceptamos str (del JSON) o datetime (de MongoDB)
+    started_at: Optional[Union[str, datetime]] = None 
+    
+    last_tested: Optional[datetime] = None
+    
+    # Esto ayuda a convertir automáticamente tipos si es necesario
+    class Config:
+        populate_by_name = True
 
 # ================================================================
 # USUARIO
 # ================================================================
 
 class UserBase(BaseModel):
-    """Schema base de usuario (común a create/read)"""
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
     full_name: Optional[str] = None
 
 class UserCreate(BaseModel):
-    """Schema para crear usuario (incluye password)"""
-    email: str
+    """
+    Schema para crear usuario (Versión Multi-idioma)
+    Recibe una LISTA de idiomas para soportar la visión completa.
+    """
+    email: EmailStr
     username: str
     full_name: Optional[str] = None
     password: str
     native_language: str = "es"
-    learning_languages: List[LearningLanguage] = Field(
-        default=[LearningLanguage(language="es", level="A1")],
-        description="Idiomas que quiere aprender"
-    )
+    
+    # ✅ AHORA SÍ: Aceptamos la lista (Coincide con tu RegisterActivity)
+    learning_languages: List[LearningLanguage] = Field(default=[])
 
 class UserLogin(BaseModel):
-    """Schema para login"""
     email: EmailStr
     password: str
 
 class User(UserBase):
-    """Schema de usuario guardado en BD"""
     id: str = Field(default_factory=lambda: str(datetime.now().timestamp()))
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
     is_active: bool = True
     
-    learning_languages: List[LearningLanguage] = Field(
-        default=[LearningLanguage(language="es", level="A1")]
-    )
+    learning_languages: List[LearningLanguage] = Field(default=[])
     native_language: str = "es"
     
     class Config:
         populate_by_name = True
+# En backend/models.py
 
 class Token(BaseModel):
-    """Schema de token JWT"""
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
-    expires_in: int  # segundos
+    expires_in: int
     user_id: Optional[str] = None
     email: Optional[str] = None
+    username: Optional[str] = None  # ✅ AÑADIR ESTO
     learning_languages: Optional[List[LearningLanguage]] = None
 
 class TokenData(BaseModel):
-    """Data dentro del JWT"""
     email: Optional[str] = None
     exp: Optional[int] = None
 
 # ================================================================
-# DICCIONARIO PERSONAL
+# DICCIONARIO Y CANCIONES
 # ================================================================
 
 class DictionaryEntry(BaseModel):
-    """Entrada en diccionario personal del usuario"""
-    
     id: str = Field(default_factory=lambda: str(datetime.now().timestamp()))
     user_id: str
     word: str
     translation: Optional[str] = None
-    
-    # 🔥 CAMPOS NUEVOS V3.1
-    type: str = "word"           # Para tus carpetas
-    example: Optional[str] = None # Para flashcards
-    is_recommended: bool = False  # Estrellita
-    
+    type: str = "word"
+    example: Optional[str] = None
+    is_recommended: bool = False
     notes: Optional[str] = None
     song_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
@@ -90,12 +99,7 @@ class DictionaryEntry(BaseModel):
     times_reviewed: int = 0
     is_learned: bool = False
 
-# ================================================================
-# CANCIÓN
-# ================================================================
-
 class Song(BaseModel):
-    """Información de canción"""
     id: str
     title: str
     artist: str
@@ -107,7 +111,6 @@ class Song(BaseModel):
     duration_ms: Optional[int] = None
 
 class SongSession(BaseModel):
-    """Sesión de estudio con una canción"""
     id: str = Field(default_factory=lambda: str(datetime.now().timestamp()))
     user_id: str
     song_id: str
