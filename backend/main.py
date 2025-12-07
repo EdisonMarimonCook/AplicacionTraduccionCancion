@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+<<<<<<<<< Temporary merge branch 1
 from fastapi import FastAPI
 import asyncio
 <<<<<<< HEAD
@@ -17,14 +17,14 @@ from config import settings
 from database import db, USE_MOCK
 >>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
 from cache import top10_cache
-=======
+=========
 """
 ARCHIVO: main.py
 PROPÓSITO: Archivo principal de la aplicación FastAPI
 CONTIENE: Configuración, eventos, endpoints básicos y Registro de Routers
 """
 
->>>>>>> feature/lyrics-translation
+>>>>>>>>> Temporary merge branch 2
 import logging
 import asyncio
 from fastapi import FastAPI, HTTPException
@@ -90,10 +90,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-<<<<<<< HEAD
+<<<<<<<<< Temporary merge branch 1
 <<<<<<< HEAD
     # Lista de idiomas que soportas
 =======
+=========
+>>>>>>>>> Temporary merge branch 2
     """Se ejecuta cuando INICIA la aplicación"""
     
     logger.info("=" * 80)
@@ -115,49 +117,60 @@ async def startup_event():
     
     # ========== LLENAR CACHE DE TOP 10 ==========
     logger.info("📊 Actualizando cache de Top 10 canciones...")
+<<<<<<<<< Temporary merge branch 1
 >>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
+=========
+>>>>>>>>> Temporary merge branch 2
     SUPPORTED_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "jp"]
-=======
-    logger.info("🚀 INICIANDO MUSIC TRANSIATOR API (v4.0)")
     
-    # 1. Conectar BD (si no es Mock)
-    if not USE_MOCK and hasattr(db, "connect"):
-        try:
-            db.connect()
-        except Exception as e:
-            logger.error(f"❌ Error conectando a Mongo en startup: {e}")
->>>>>>> feature/lyrics-translation
-
-    # 2. Verificar APIs externas
-    if is_genius_configured():
-        logger.info("✅ Genius API configurada")
-    else:
-        logger.warning("⚠️ Genius API Token no encontrado (Lyrics limitadas)")
+    def update_full_cache():
+        """Actualiza el cache con Top 10 de cada idioma"""
+        logger.info("🔄 Iniciando actualización del cache...")
         
-    if settings.GEMINI_API_KEY:
-        logger.info("✅ Gemini IA configurada")
-    else:
-        logger.warning("⚠️ Gemini API Key no encontrada (IA desactivada)")
+        try:
+            from spotify import get_top10_playlist
+            
+            for lang in SUPPORTED_LANGUAGES:
+                try:
+                    logger.info(f"  📥 Obteniendo Top 10 para: {lang}")
+                    top10_cache[lang] = get_top10_playlist(lang)
+                    logger.info(f"  ✅ Cache actualizado para: {lang} ({len(top10_cache[lang])} canciones)")
+                except Exception as e:
+                    logger.error(f"  ❌ Error obteniendo Top 10 para {lang}: {e}")
+                    top10_cache[lang] = []
+        except ImportError:
+            logger.warning("⚠️  Spotify module no disponible, usando cache vacío")
+            for lang in SUPPORTED_LANGUAGES:
+                top10_cache[lang] = []
+    
+    # Ejecutar actualización inicial
+    update_full_cache()
+    logger.info(f"✅ Cache poblado: {len(top10_cache)} idiomas, {sum(len(s) for s in top10_cache.values())} canciones")
+    
+    # ========== ACTUALIZACIÓN AUTOMÁTICA CADA HORA ==========
+    async def actualizar_top10_periodicamente():
+        """Actualiza el cache cada hora en segundo plano"""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Esperar 1 hora
+                logger.info("⏰ Actualizando cache (actualización periódica)...")
+                update_full_cache()
+            except Exception as e:
+                logger.error(f"❌ Error en actualización periódica: {e}")
+    
+    # Crear tarea asincrónica que corra en background
+    asyncio.create_task(actualizar_top10_periodicamente())
+    
+    logger.info("=" * 80)
+    logger.info("✅ APLICACIÓN INICIADA CORRECTAMENTE")
+    logger.info("=" * 80)
 
-    # 3. Precargar Cache (Top 10) en segundo plano
-    asyncio.create_task(update_top10_cache())
-
-async def update_top10_cache():
-    """Tarea en segundo plano para actualizar cache de canciones"""
-    from utils.spotify import get_top_tracks_by_language
-    logger.info("🎵 Actualizando cache de Top 10 canciones...")
-    try:
-        # Precargamos inglés y español
-        top10_cache["en"] = get_top_tracks_by_language("en")
-        top10_cache["es"] = get_top_tracks_by_language("es")
-        logger.info("✅ Cache actualizada")
-    except Exception as e:
-        logger.error(f"❌ Error actualizando cache: {e}")
-
-<<<<<<< HEAD
+<<<<<<<<< Temporary merge branch 1
 <<<<<<< HEAD
     asyncio.create_task(actualizar_top10())
 =======
+=========
+>>>>>>>>> Temporary merge branch 2
 @app.on_event("shutdown")
 async def shutdown_event():
     """Se ejecuta cuando TERMINA la aplicación"""
@@ -333,16 +346,7 @@ if __name__ == "__main__":
         port=8000,
         reload=settings.DEBUG
     )
+<<<<<<<<< Temporary merge branch 1
 >>>>>>> b2e0717 (git commit -m "feat: Auth con learning_languages + MOCK Database)
-=======
-    return JSONResponse(status_code=exc.status_code, content={"error": exc.detail})
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request, exc):
-    logger.error(f"❌ General Exception: {str(exc)}")
-    return JSONResponse(status_code=500, content={"error": "Internal server error"})
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
->>>>>>> feature/lyrics-translation
+=========
+>>>>>>>>> Temporary merge branch 2
