@@ -105,3 +105,6 @@ build/
 *.json
 cache/
 
+# Archivos de configuración local de Android Studio
+local.properties
+
