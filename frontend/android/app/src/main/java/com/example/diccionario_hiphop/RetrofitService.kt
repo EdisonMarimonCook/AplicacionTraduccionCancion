@@ -11,7 +11,7 @@ class RetrofitService {
     companion object {
         // ⚠️ CAMBIAR SI USAS MÓVIL FÍSICO (PON TU IP LOCAL)
         // Para emulador usa: "http://10.0.2.2:8000/"
-        private const val BASE_URL = "http://10.0.2.2:8000/"
+        private const val BASE_URL = "http://192.168.137.1:8000/"
 
         @Volatile private var INSTANCE: ApiService? = null
 
