@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # ===== BASE DE DATOS - MONGODB =====
     MONGODB_URL: str = "mongodb://localhost:27017"
     MONGODB_DB_NAME: str = "music_translator"
-    USE_MOCK_DB: bool = True  # ✅ AGREGAR ESTO
+    USE_MOCK_DB: bool = True
     
     # ===== AUTENTICACIÓN =====
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     SPOTIFY_CLIENT_SECRET: str = ""
     
     # ===== APIs EXTERNAS - GENIUS =====
-    GENIUS_API_TOKEN: str = ""  # ✅ CORRECTO (coincide con genius_client.py)
+    GENIUS_API_TOKEN: str = ""
     
     # ===== IA - GEMINI =====
     USE_GEMINI: bool = True
@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     USE_OLLAMA: bool = False
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama2"
+    
+    # ===== EMAIL (Para recuperación de contraseña) =====
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""
+    MAIL_FROM: str = ""
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
     
     # ===== URLs DE FRONTEND =====
     FRONTEND_URL: str = "http://localhost:3000"

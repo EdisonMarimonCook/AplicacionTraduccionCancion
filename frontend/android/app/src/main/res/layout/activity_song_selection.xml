@@ -68,13 +68,15 @@
     <!-- ============================================ -->
 
     <!-- Fondo oscuro al abrir el menú -->
-    <View
+   <View
         android:id="@+id/viewDimmer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#99000000"
+        android:background="@android:color/transparent" 
         android:visibility="gone"
-        android:elevation="10dp"
+        android:elevation="5dp"
+        android:clickable="true"
+        android:focusable="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -93,7 +95,11 @@
         android:paddingHorizontal="12dp"
         android:paddingVertical="6dp"
         android:visibility="gone"
-        android:elevation="12dp"
+        android:elevation="11dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no"
         android:layout_marginEnd="12dp"
         app:layout_constraintEnd_toStartOf="@id/fabProfile"
         app:layout_constraintTop_toTopOf="@id/fabProfile"
@@ -112,7 +118,41 @@
         app:layout_constraintBottom_toTopOf="@+id/fabFlashcards"
         app:layout_constraintEnd_toEndOf="@+id/fabMain"
         app:layout_constraintStart_toStartOf="@+id/fabMain"
-        android:elevation="12dp"/>
+        
+        app:elevation="20dp"             
+        android:clickable="true"/>  <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabFlashcards"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_view_carousel"
+        app:tint="@android:color/white"
+        android:backgroundTint="#6200EE"
+        app:fabSize="mini"
+        android:visibility="gone"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/fabDictionary"
+        app:layout_constraintEnd_toEndOf="@+id/fabMain"
+        app:layout_constraintStart_toStartOf="@+id/fabMain"
+        
+        app:elevation="20dp"
+        android:clickable="true"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabDictionary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_menu_book"
+        app:tint="@android:color/white"
+        android:backgroundTint="#6200EE"
+        app:fabSize="mini"
+        android:visibility="gone"
+        android:layout_marginBottom="24dp"
+        app:layout_constraintBottom_toTopOf="@+id/fabMain"
+        app:layout_constraintEnd_toEndOf="@+id/fabMain"
+        app:layout_constraintStart_toStartOf="@+id/fabMain"
+        
+        app:elevation="20dp"
+        android:clickable="true"/>
 
     <!-- 2. OPCIÓN FLASHCARDS -->
     <TextView
@@ -127,7 +167,11 @@
         android:paddingHorizontal="12dp"
         android:paddingVertical="6dp"
         android:visibility="gone"
-        android:elevation="12dp"
+        android:elevation="11dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no"
         android:layout_marginEnd="12dp"
         app:layout_constraintEnd_toStartOf="@id/fabFlashcards"
         app:layout_constraintTop_toTopOf="@id/fabFlashcards"
@@ -146,7 +190,8 @@
         app:layout_constraintBottom_toTopOf="@+id/fabDictionary"
         app:layout_constraintEnd_toEndOf="@+id/fabMain"
         app:layout_constraintStart_toStartOf="@+id/fabMain"
-        android:elevation="12dp"/>
+        android:elevation="20dp"
+        android:clickable="true"/>
 
     <!-- 3. OPCIÓN DICCIONARIO -->
     <TextView
@@ -161,7 +206,11 @@
         android:paddingHorizontal="12dp"
         android:paddingVertical="6dp"
         android:visibility="gone"
-        android:elevation="12dp"
+        android:elevation="11dp"
+        android:clickable="false"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:importantForAccessibility="no"
         android:layout_marginEnd="12dp"
         app:layout_constraintEnd_toStartOf="@id/fabDictionary"
         app:layout_constraintTop_toTopOf="@id/fabDictionary"
@@ -180,7 +229,8 @@
         app:layout_constraintBottom_toTopOf="@+id/fabMain"
         app:layout_constraintEnd_toEndOf="@+id/fabMain"
         app:layout_constraintStart_toStartOf="@+id/fabMain"
-        android:elevation="12dp"/>
+        android:elevation="20dp"
+        android:clickable="true"/>
 
     <!-- 4. BOTÓN PRINCIPAL -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -194,6 +244,6 @@
         android:layout_margin="24dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:elevation="12dp"/>
+        android:elevation="15dp"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -117,7 +117,7 @@
                     android:id="@+id/tvForgotPassword"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="¿Olvidaste?"
+                    android:text="¿Olvidaste tu contraseña?"
                     android:textStyle="bold"
                     android:textColor="#6200EE"/>
             </LinearLayout>

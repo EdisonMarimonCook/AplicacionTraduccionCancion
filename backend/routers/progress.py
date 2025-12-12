@@ -3,11 +3,6 @@ ARCHIVO: routers/progress.py
 PROPÓSITO: Endpoints de progreso y estadísticas
 RUTAS: /progress/stats, /progress/by-language
 USUARIO: Frontend/Mobile
-
-"""
-"""
-ROUTER: Progreso
-PROPÓSITO: Calcular estadísticas para el perfil del usuario.
 """
 
 import logging
@@ -30,7 +25,7 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
         items = await db.get_user_dictionary(current_user.id)
         total_words = len(items)
         
-        # 2. Obtener datos del usuario (para racha)
+        # 2. Obtener datos del usuario (para racha y learning_languages)
         user_data = await db.get_user_by_email(current_user.email)
         
         # 3. Calcular racha
@@ -51,25 +46,27 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
             
             days_diff = (today - last_date).days
             
-            # Si la última actividad fue hoy, mantener racha
-            # Si fue ayer, la racha ya se incrementó al guardar palabra
-            # Si pasaron más de 1 día, mostrar 0 (se resetea al guardar siguiente palabra)
+            # Si pasaron más de 1 día, resetear racha
             if days_diff > 1:
                 current_streak = 0
         
-        # 4. Estadísticas por idioma
-        stats_by_lang = {
-            "en": {
-                "words_learned": total_words,
-                "estimated_level": "B1"
-            }
-        }
+        # 4. 🆕 Obtener learning_languages del usuario
+        learning_languages = user_data.get("learning_languages", [])
+        
+        # Formato para el frontend
+        learning_languages_formatted = []
+        for lang_data in learning_languages:
+            learning_languages_formatted.append({
+                "language": lang_data.get("language", "en"),
+                "level": lang_data.get("level", "A1"),
+                "words_count": total_words if lang_data.get("language") == "en" else 0
+            })
 
         return {
             "total_words_learned": total_words,
             "current_streak": current_streak,
             "longest_streak": user_data.get("longest_streak", 0),
-            "stats_by_language": stats_by_lang,
+            "learning_languages": learning_languages_formatted,  # 🔥 AGREGADO
             "status": "success"
         }
     except Exception as e:
@@ -78,6 +75,6 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
             "total_words_learned": 0,
             "current_streak": 0,
             "longest_streak": 0,
-            "stats_by_language": {},
+            "learning_languages": [],
             "status": "error"
         }

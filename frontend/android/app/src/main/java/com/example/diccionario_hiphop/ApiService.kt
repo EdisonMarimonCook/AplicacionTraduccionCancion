@@ -104,4 +104,17 @@ interface ApiService {
 
     @GET("/api/v1/health")
     suspend fun healthCheck(): Response<HealthResponse>
+
+    // =================================================================================
+    // 6️⃣ VERIFICACIÓN Y RECUPERACIÓN DE CONTRASEÑA
+    // =================================================================================
+
+    @POST("/api/v1/auth/verify")
+    suspend fun verifyAccount(@Body request: VerifyAccountRequest): Response<MessageResponse>
+
+    @POST("/api/v1/auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<MessageResponse>
+
+    @POST("/api/v1/auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
 }

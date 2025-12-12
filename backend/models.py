@@ -66,6 +66,7 @@ class User(UserBase):
     current_streak: int = 0
     last_activity_date: Optional[datetime] = None
     longest_streak: int = 0
+    avatar_url: Optional[str] = None  # Nueva línea
     
     class Config:
         populate_by_name = True

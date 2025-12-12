@@ -50,7 +50,8 @@ data class UserProfile(
     val email: String,
     val username: String,
     @SerializedName("full_name") val fullName: String?,
-    @SerializedName("native_language") val nativeLanguage: String?
+    @SerializedName("native_language") val nativeLanguage: String?,
+    @SerializedName("avatar_url") val avatarUrl: String? = null  // 🆕 Nueva línea
 )
 
 // Para cambiar Nombre / Datos básicos
@@ -166,7 +167,14 @@ data class AddWordRequest(
 data class ProgressResponse(
     @SerializedName("total_words_learned") val totalWordsLearned: Int,
     @SerializedName("current_streak") val currentStreak: Int,
-    val status: String
+    @SerializedName("longest_streak") val longestStreak: Int,
+    @SerializedName("learning_languages") val learningLanguages: List<LearningLanguage> = emptyList()
+)
+
+data class LearningLanguage(
+    val language: String,
+    val level: String,
+    @SerializedName("words_count") val wordsCount: Int = 0
 )
 
 data class RefreshTokenRequest(
@@ -199,5 +207,28 @@ data class FlashcardReviewResponse(
     val success: Boolean,
     @SerializedName("next_review_date") val nextReviewDate: String,
     @SerializedName("interval_days") val intervalDays: Int,
+    val message: String
+)
+
+// ===========================================================
+// 8️⃣ VERIFICACIÓN Y RECUPERACIÓN DE CONTRASEÑA
+// ===========================================================
+
+data class VerifyAccountRequest(
+    val email: String,
+    val code: String
+)
+
+data class ForgotPasswordRequest(
+    val email: String
+)
+
+data class ResetPasswordRequest(
+    val email: String,
+    val code: String,
+    @SerializedName("new_password") val newPassword: String
+)
+
+data class MessageResponse(
     val message: String
 )

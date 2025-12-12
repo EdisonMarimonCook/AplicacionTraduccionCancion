@@ -1,5 +1,6 @@
 package com.example.diccionario_hiphop
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
@@ -89,14 +90,10 @@ class RegisterActivity : AppCompatActivity() {
             try {
                 val apiService = RetrofitService.getInstance(this@RegisterActivity)
 
-                // 🔥 ESTRATEGIA MULTI-IDIOMA (Future-Proof):
-                // Aunque la UI solo permite elegir Inglés ahora mismo,
-                // preparamos una LISTA. Así el Backend recibe lo que espera.
-                
                 val primaryLanguage = LearningLanguageRequest(
                     language = "en",
                     level = selectedLevelCode,
-                    startedAt = null // El backend pondrá datetime.now()
+                    startedAt = null
                 )
 
                 val request = RegisterRequest(
@@ -105,13 +102,23 @@ class RegisterActivity : AppCompatActivity() {
                     fullName = fullName,
                     password = password,
                     nativeLanguage = "es",
-                    learningLanguages = listOf(primaryLanguage) // 📦 Empaquetado en lista
+                    learningLanguages = listOf(primaryLanguage)
                 )
 
                 val response = apiService.register(request)
 
                 if (response.isSuccessful) {
-                    Toast.makeText(this@RegisterActivity, "¡Cuenta creada! Inicia sesión.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                        this@RegisterActivity,
+                        "📧 ¡Cuenta creada! Revisa tu email para verificar.",
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    // ✅ NAVEGAR A PANTALLA DE VERIFICACIÓN
+                    val intent = Intent(this@RegisterActivity, VerifyAccountActivity::class.java)
+                    intent.putExtra("email", email)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
                     finish()
                 } else {
                     val errorBody = response.errorBody()?.string() ?: "Error desconocido"

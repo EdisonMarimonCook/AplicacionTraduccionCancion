@@ -1,14 +1,14 @@
 package com.example.diccionario_hiphop
 
-import android.animation.ObjectAnimator
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageButton
+import android.widget.ProgressBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.lifecycle.lifecycleScope
@@ -29,6 +29,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var tvMessage: TextView
     private lateinit var cardView: CardView
     private lateinit var tvIntervalIndicator: TextView
+    private lateinit var progressBar: ProgressBar
 
     // Gesture detector para swipe
     private lateinit var gestureDetector: GestureDetector
@@ -61,12 +62,56 @@ class FlashcardsActivity : AppCompatActivity() {
         tvMessage = findViewById(R.id.tvMessage)
         cardView = findViewById(R.id.cardView)
         tvIntervalIndicator = findViewById(R.id.tvIntervalIndicator)
+        progressBar = findViewById(R.id.progressBar)
 
         touchOverlay.setOnClickListener { revealAnswer() }
     }
 
     private fun setupGestureDetector() {
         gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+
+            override fun onDown(e: MotionEvent): Boolean = true
+
+            override fun onScroll(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                distanceX: Float,
+                distanceY: Float
+            ): Boolean {
+                // Mostrar feedback visual mientras arrastra (solo si respuesta revelada)
+                if (!isAnswerRevealed) return false
+
+                val diffX = e2.x - (e1?.x ?: 0f)
+
+                // Mover la tarjeta con el dedo
+                cardView.translationX = diffX
+
+                // Rotar según la dirección (máximo ±15 grados)
+                val rotation = (diffX / 30f).coerceIn(-15f, 15f)
+                cardView.rotation = rotation
+
+                // Cambiar overlay de color
+                if (diffX > 50) {
+                    // Verde para FÁCIL (derecha)
+                    cardView.foreground = ColorDrawable(Color.parseColor("#4D4CAF50"))
+                    tvIntervalIndicator.visibility = View.VISIBLE
+                    tvIntervalIndicator.text = "FÁCIL ✓"
+                    tvIntervalIndicator.setBackgroundColor(Color.parseColor("#4CAF50"))
+                } else if (diffX < -50) {
+                    // Rojo para DIFÍCIL (izquierda)
+                    cardView.foreground = ColorDrawable(Color.parseColor("#4DF44336"))
+                    tvIntervalIndicator.visibility = View.VISIBLE
+                    tvIntervalIndicator.text = "DIFÍCIL ✗"
+                    tvIntervalIndicator.setBackgroundColor(Color.parseColor("#F44336"))
+                } else {
+                    // Sin color si no pasa el umbral
+                    cardView.foreground = null
+                    tvIntervalIndicator.visibility = View.GONE
+                }
+
+                return true
+            }
+
             override fun onFling(
                 e1: MotionEvent?,
                 e2: MotionEvent,
@@ -79,8 +124,8 @@ class FlashcardsActivity : AppCompatActivity() {
                 val diffX = e2.x - (e1?.x ?: 0f)
                 val diffY = e2.y - (e1?.y ?: 0f)
 
-                // Verificar que sea principalmente horizontal
-                if (abs(diffX) > abs(diffY) && abs(diffX) > 100) {
+                // Reducir umbral a 50 para facilitar en emulador
+                if (abs(diffX) > abs(diffY) && abs(diffX) > 50) {
                     if (diffX > 0) {
                         // Swipe derecha → FÁCIL
                         showIntervalPreview(true)
@@ -93,32 +138,40 @@ class FlashcardsActivity : AppCompatActivity() {
                         submitReview(1)
                     }
                     return true
+                } else {
+                    // Si no pasó el umbral, resetear la tarjeta
+                    resetCardPosition()
                 }
                 return false
             }
         })
 
-        // Interceptar toques en la tarjeta para detectar swipes
+        // Capturar eventos táctiles en el cardView
         cardView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false // Permitir que otros listeners también reciban el evento
+            val handled = gestureDetector.onTouchEvent(event)
+
+            // Cuando suelta el dedo, resetear si no fue un fling válido
+            if (event.action == MotionEvent.ACTION_UP && isAnswerRevealed) {
+                if (abs(cardView.translationX) < 50) {
+                    resetCardPosition()
+                }
+            }
+
+            handled
         }
     }
 
     private fun showIntervalPreview(isEasy: Boolean) {
-        // Mostrar predicción de cuándo se verá de nuevo
         val card = flashcards[currentIndex]
         val currentReps = card.repetitions
         val currentInterval = card.interval
-        
-        // Calcular intervalo aproximado (sin llamar al backend todavía)
+
+        // Calcular intervalo aproximado
         val estimatedDays = if (isEasy) {
-            // Fácil: avanza según SM-2
             if (currentReps == 0) 1
             else if (currentReps == 1) 6
             else (currentInterval * 2.5).toInt().coerceAtLeast(7)
         } else {
-            // Difícil: resetea
             1
         }
 
@@ -131,25 +184,32 @@ class FlashcardsActivity : AppCompatActivity() {
         tvIntervalIndicator.text = message
         tvIntervalIndicator.setBackgroundColor(if (isEasy) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
         tvIntervalIndicator.visibility = View.VISIBLE
+    }
 
-        // Ocultar después de 2 segundos
-        tvIntervalIndicator.postDelayed({
-            tvIntervalIndicator.visibility = View.GONE
-        }, 2000)
+    private fun resetCardPosition() {
+        cardView.animate()
+            .translationX(0f)
+            .rotation(0f)
+            .setDuration(200)
+            .start()
+        cardView.foreground = null
+        tvIntervalIndicator.visibility = View.GONE
     }
 
     private fun animateSwipeRight() {
-        // Animación de deslizamiento a la derecha
-        val animator = ObjectAnimator.ofFloat(cardView, "translationX", 0f, 1000f)
-        animator.duration = 300
-        animator.start()
+        cardView.animate()
+            .translationX(1000f)
+            .rotation(15f)
+            .setDuration(300)
+            .start()
     }
 
     private fun animateSwipeLeft() {
-        // Animación de deslizamiento a la izquierda
-        val animator = ObjectAnimator.ofFloat(cardView, "translationX", 0f, -1000f)
-        animator.duration = 300
-        animator.start()
+        cardView.animate()
+            .translationX(-1000f)
+            .rotation(-15f)
+            .setDuration(300)
+            .start()
     }
 
     private fun loadFlashcards() {
@@ -189,9 +249,11 @@ class FlashcardsActivity : AppCompatActivity() {
         val card = flashcards[currentIndex]
         isAnswerRevealed = false
 
-        // Resetear posición de la tarjeta (por si venía de animación)
+        // Resetear posición, rotación y overlay de la tarjeta
         cardView.translationX = 0f
+        cardView.rotation = 0f
         cardView.alpha = 1f
+        cardView.foreground = null
         tvIntervalIndicator.visibility = View.GONE
 
         tvWord.text = card.word.replaceFirstChar { it.uppercase() }
@@ -220,7 +282,7 @@ class FlashcardsActivity : AppCompatActivity() {
 
     private fun submitReview(quality: Int) {
         val card = flashcards[currentIndex]
-        
+
         lifecycleScope.launch {
             try {
                 val api = RetrofitService.getInstance(this@FlashcardsActivity)
@@ -229,53 +291,41 @@ class FlashcardsActivity : AppCompatActivity() {
 
                 if (response.isSuccessful && response.body() != null) {
                     val result = response.body()!!
-                    
-                    // Actualizar el indicador con el tiempo REAL del backend
+
+                    // Actualizar indicador con tiempo real
                     val realDays = result.intervalDays
-                    val message = when {
-                        realDays == 0 -> "La verás hoy mismo"
-                        realDays == 1 -> "La verás mañana"
-                        else -> "La verás en $realDays días"
+                    val message = if (quality >= 3) {
+                        "✓ La verás en $realDays ${if (realDays == 1) "día" else "días"}"
+                    } else {
+                        "✗ La verás mañana"
                     }
-                    
                     tvIntervalIndicator.text = message
-                    
-                    // Mostrar Toast adicional con el mensaje completo del backend
-                    Toast.makeText(this@FlashcardsActivity, result.message, Toast.LENGTH_SHORT).show()
-                    
-                    // Esperar un poco para que se vea la animación y el indicador
+
+                    // Esperar a que termine la animación
                     cardView.postDelayed({
                         currentIndex++
                         showCard()
-                    }, 2000) // 2 segundos para leer el indicador
-                } else {
-                    Toast.makeText(this@FlashcardsActivity, "Error al guardar", Toast.LENGTH_SHORT).show()
-                    // Resetear posición si falla
-                    cardView.translationX = 0f
-                    tvIntervalIndicator.visibility = View.GONE
+                    }, 350)
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@FlashcardsActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                cardView.translationX = 0f
-                tvIntervalIndicator.visibility = View.GONE
+                // Error silencioso, continuar
+                cardView.postDelayed({
+                    currentIndex++
+                    showCard()
+                }, 350)
             }
         }
     }
 
     private fun showLoading(isLoading: Boolean) {
-        if (isLoading) {
-            tvMessage.text = "Cargando..."
-            tvMessage.visibility = View.VISIBLE
-            cardView.visibility = View.INVISIBLE
-        } else {
-            tvMessage.visibility = View.GONE
-        }
+        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
     private fun showEmptyState(msg: String) {
         tvMessage.text = msg
         tvMessage.visibility = View.VISIBLE
         cardView.visibility = View.GONE
+        layoutSwipeArrows.visibility = View.GONE
     }
 
     private fun showGameUI() {

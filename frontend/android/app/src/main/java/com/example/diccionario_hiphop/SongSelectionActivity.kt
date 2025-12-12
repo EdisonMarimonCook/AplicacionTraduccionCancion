@@ -73,47 +73,33 @@ class SongSelectionActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // 1. ABRIR / CERRAR MENÚ (Botón Principal)
+        // 1. ABRIR / CERRAR MENÚ
         fabMain.setOnClickListener { toggleMenu(!isMenuOpen) }
-
-        // 2. CERRAR AL TOCAR FONDO OSCURO
         viewDimmer.setOnClickListener { if (isMenuOpen) toggleMenu(false) }
 
-        // 3. OPCIÓN DICCIONARIO (Icono y Texto)
-        val goDict = View.OnClickListener {
-            try {
-                startActivity(Intent(this, DictionaryActivity::class.java))
-                toggleMenu(false)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Pantalla Diccionario no creada", Toast.LENGTH_SHORT).show()
-            }
+        // --- 3. DICCIONARIO (Texto + Icono) ---
+        val irDiccionario = View.OnClickListener {
+            startActivity(Intent(this, DictionaryActivity::class.java))
+            toggleMenu(false)
         }
-        fabDict.setOnClickListener(goDict)
-        txtDict.setOnClickListener(goDict)
+        fabDict.setOnClickListener(irDiccionario)
+        txtDict.setOnClickListener(irDiccionario)
 
-        // 4. OPCIÓN FLASHCARDS (Icono y Texto)
-        val goFlash = View.OnClickListener {
-            try {
-                startActivity(Intent(this, FlashcardsActivity::class.java))
-                toggleMenu(false)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Pantalla Flashcards no creada", Toast.LENGTH_SHORT).show()
-            }
+        // --- 4. FLASHCARDS (Texto + Icono) ---
+        val irFlashcards = View.OnClickListener {
+            startActivity(Intent(this, FlashcardsActivity::class.java))
+            toggleMenu(false)
         }
-        fabFlash.setOnClickListener(goFlash)
-        txtFlash.setOnClickListener(goFlash)
+        fabFlash.setOnClickListener(irFlashcards)
+        txtFlash.setOnClickListener(irFlashcards)
 
-        // 5. OPCIÓN PERFIL (Icono y Texto)
-        val goProfile = View.OnClickListener {
-            try {
-                startActivity(Intent(this, ProfileActivity::class.java))
-                toggleMenu(false)
-            } catch (e: Exception) {
-                Toast.makeText(this, "Pantalla Perfil no creada", Toast.LENGTH_SHORT).show()
-            }
+        // --- 5. PERFIL (Texto + Icono) ---
+        val irPerfil = View.OnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
+            toggleMenu(false)
         }
-        fabProfile.setOnClickListener(goProfile)
-        txtProfile.setOnClickListener(goProfile)
+        fabProfile.setOnClickListener(irPerfil)
+        txtProfile.setOnClickListener(irPerfil)
     }
 
     private fun toggleMenu(open: Boolean) {
@@ -124,13 +110,13 @@ class SongSelectionActivity : AppCompatActivity() {
             fabMain.animate().rotation(45f).setDuration(300).start()
             viewDimmer.visibility = View.VISIBLE
 
-            // 🔥 CRUCIAL: Traer al frente para que reciban el clic por encima de todo
-            viewDimmer.bringToFront()
-            fabMain.bringToFront()
-
             showFab(fabDict, txtDict)
             showFab(fabFlash, txtFlash)
             showFab(fabProfile, txtProfile)
+            
+            // 🔥 Botón principal al final para que quede encima de todo
+            fabMain.bringToFront()
+
         } else {
             // CERRAR MENÚ
             fabMain.animate().rotation(0f).setDuration(300).start()
@@ -146,13 +132,13 @@ class SongSelectionActivity : AppCompatActivity() {
         fab.visibility = View.VISIBLE
         txt.visibility = View.VISIBLE
 
-        // 🔥 Asegurar que están "encima" y son clicables
+        // 🔥 Texto primero, FAB después (FAB queda más arriba en Z)
         fab.bringToFront()
         txt.bringToFront()
 
-        // Habilitar clic explícitamente
+        // ✅ Ambos clickables
         fab.isClickable = true
-        txt.isClickable = true
+        txt.isClickable = true  // 🔥 AHORA SÍ ES CLICKABLE
 
         // Animación de aparición (Fade in + Slide up)
         fab.alpha = 0f

@@ -41,6 +41,23 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
+        <!-- 2.1 VERIFICACIÓN DE EMAIL -->
+        <activity
+            android:name=".VerifyAccountActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
+        <!-- 2.2 RECUPERACIÓN DE CONTRASEÑA -->
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
+        <activity
+            android:name=".ResetPasswordActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
         <!-- 3. SELECCIÓN DE CANCIONES -->
         <activity
             android:name=".SongSelectionActivity"

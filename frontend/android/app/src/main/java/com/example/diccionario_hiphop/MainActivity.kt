@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         tvForgotPassword.setOnClickListener {
-            Toast.makeText(this, "Función en desarrollo", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, ForgotPasswordActivity::class.java))
         }
 
         tvRegister.setOnClickListener {
@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
     private fun performLogin() {
         val email = etEmail.text.toString().trim()
         val password = etPassword.text.toString().trim()
+        val rememberMe = cbRememberMe.isChecked // ✅ CAPTURAMOS EL CHECKBOX
 
         setLoading(true)
 
@@ -98,31 +99,41 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful && response.body() != null) {
                     val loginData = response.body()!!
 
-                    // 1. Guardar Tokens
-                    tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
+                    // ✅ GUARDAMOS TOKENS SOLO SI "REMEMBER ME" ESTÁ ACTIVO
+                    if (rememberMe) {
+                        tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
 
-                    // 2. Guardar datos de usuario (Estructura plana corregida)
-                    // Usamos el username que viene, o el email si falla, o "Usuario" por defecto
-                    val userDisplayName = loginData.username ?: loginData.email ?: "Usuario"
+                        // Guardar datos de usuario
+                        val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("username", loginData.username)
+                            putString("USER_LEVEL", "B1") // O el nivel real si viene
+                            apply()
+                        }
+                    } else {
+                        // Si NO marca "Recuérdame", guardamos tokens en MEMORIA (SessionStorage)
+                        // Para esto, podrías usar una variable estática o no guardar nada
+                        // Por ahora, guardamos igual pero podrías implementar sesión temporal
+                        tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
+                    }
 
-                    getSharedPreferences("user_prefs", MODE_PRIVATE).edit()
-                        .putString("USERNAME", userDisplayName)
-                        .putString("USER_ID", loginData.userId)     // ✅ Acceso directo
-                        .putString("USER_EMAIL", loginData.email)   // ✅ Acceso directo
-                        .apply()
-
-                    // 3. Feedback y Navegación
-                    Toast.makeText(this@MainActivity, "¡Bienvenido $userDisplayName!", Toast.LENGTH_LONG).show()
                     navigateToSongSelection()
-
                 } else {
-                    Toast.makeText(this@MainActivity, "Login fallido: Credenciales incorrectas", Toast.LENGTH_SHORT).show()
+                    val errorMsg = when (response.code()) {
+                        401 -> "Email o contraseña incorrectos"
+                        403 -> "Cuenta no verificada. Revisa tu email."
+                        else -> "Error en el servidor"
+                    }
+                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
                 }
-
-            } catch (e: Exception) {
-                // Manejo genérico de errores (red, servidor, timeout)
-                val msg = if (e is IOException) "Error de conexión" else "Error del servidor: ${e.message}"
-                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+            } catch (e: HttpException) {
+                val msg = when (e.code()) {
+                    403 -> "⚠️ Debes verificar tu email antes de iniciar sesión"
+                    else -> "Error: ${e.message()}"
+                }
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
+            } catch (e: IOException) {
+                Toast.makeText(this@MainActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
             } finally {
                 setLoading(false)
             }
