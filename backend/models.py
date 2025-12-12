@@ -62,6 +62,11 @@ class User(UserBase):
     learning_languages: List[LearningLanguage] = Field(default=[])
     native_language: str = "es"
     
+    # ✅ NUEVOS CAMPOS PARA RACHA
+    current_streak: int = 0
+    last_activity_date: Optional[datetime] = None
+    longest_streak: int = 0
+    
     class Config:
         populate_by_name = True
 # En backend/models.py

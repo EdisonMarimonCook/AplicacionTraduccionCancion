@@ -7,6 +7,7 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from config import settings
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +64,121 @@ class MongoDatabase:
             
         return self._fix_id(user)
     
+    async def get_user_by_username(self, username: str) -> dict:
+        """Obtener usuario por username (para validar duplicados)"""
+        user = await self.db["users"].find_one({"username": username})
+        return self._fix_id(user)
+    
+    async def get_user_by_username(self, username: str) -> dict:
+        """Obtener usuario por username"""
+        user = await self.db["users"].find_one({"username": username})
+        return self._fix_id(user)
+    
     async def update_user(self, email: str, update_data: dict) -> dict:
         await self.db["users"].update_one(
             {"email": email}, 
             {"$set": update_data}
         )
         return await self.get_user_by_email(email)
+    
+    async def update_user_email(self, current_email: str, new_email: str) -> bool:
+        """
+        Actualizar email del usuario.
+        En MongoDB esto es simple: solo actualizar el campo.
+        No hay problema de índice como en Mock DB.
+        """
+        try:
+            result = await self.db["users"].update_one(
+                {"email": current_email},
+                {"$set": {"email": new_email}}
+            )
+            logger.info(f"✅ Mongo: Email actualizado - {current_email} → {new_email}")
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"❌ Mongo: Error actualizando email - {str(e)}")
+            return False
+    
+    async def update_user_email(self, current_email: str, new_email: str) -> bool:
+        """
+        Actualizar email del usuario.
+        En MongoDB esto es simple: solo actualizar el campo.
+        No hay problema de índice como en Mock DB.
+        """
+        try:
+            result = await self.db["users"].update_one(
+                {"email": current_email},
+                {"$set": {"email": new_email}}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"❌ Mongo: Error actualizando email - {str(e)}")
+            return False
+
+    async def update_user_activity(self, user_id: str) -> bool:
+        """
+        📅 Actualiza la fecha de actividad y calcula la racha
+        """
+        try:
+            from bson.objectid import ObjectId
+            
+            # Buscar usuario
+            user = await self.db["users"].find_one({"_id": ObjectId(user_id)})
+            
+            if not user:
+                return False
+            
+            today = datetime.utcnow().date()
+            last_activity = user.get("last_activity_date")
+            current_streak = user.get("current_streak", 0)
+            longest_streak = user.get("longest_streak", 0)
+            
+            # Primera vez
+            if not last_activity:
+                await self.db["users"].update_one(
+                    {"_id": ObjectId(user_id)},
+                    {"$set": {
+                        "current_streak": 1,
+                        "longest_streak": 1,
+                        "last_activity_date": datetime.utcnow()
+                    }}
+                )
+                return True
+            
+            # Calcular diferencia de días
+            last_date = last_activity.date() if isinstance(last_activity, datetime) else last_activity
+            days_diff = (today - last_date).days
+            
+            # Ya estudió hoy
+            if days_diff == 0:
+                return True
+            
+            # Estudió ayer → incrementar
+            if days_diff == 1:
+                current_streak += 1
+            # Pasó más de 1 día → resetear
+            else:
+                current_streak = 1
+            
+            # Actualizar récord
+            if current_streak > longest_streak:
+                longest_streak = current_streak
+            
+            # Guardar en BD
+            await self.db["users"].update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {
+                    "current_streak": current_streak,
+                    "longest_streak": longest_streak,
+                    "last_activity_date": datetime.utcnow()
+                }}
+            )
+            
+            logger.info(f"✅ MongoDB: Racha actualizada = {current_streak}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error actualizando actividad: {e}")
+            return False
 
     # ================================================================
     # DICCIONARIO (Colección: dictionary_entries)
@@ -100,6 +210,34 @@ class MongoDatabase:
                 result = await self.db["dictionary_entries"].delete_one({"id": entry_id})
             return result.deleted_count > 0
         except:
+            return False
+
+    # ================================================================
+    # FLASHCARDS SRS (Colección: flashcard_srs)
+    # ================================================================
+    
+    async def create_flashcard_srs_data(self, srs_data: dict) -> str:
+        """Crear datos SRS para una flashcard nueva"""
+        if "id" in srs_data:
+            del srs_data["id"]
+        result = await self.db["flashcard_srs"].insert_one(srs_data)
+        return str(result.inserted_id)
+    
+    async def get_flashcard_srs_data(self, word_id: str) -> dict:
+        """Obtener datos SRS de una palabra"""
+        srs = await self.db["flashcard_srs"].find_one({"word_id": word_id})
+        return self._fix_id(srs)
+    
+    async def update_flashcard_srs_data(self, word_id: str, update_data: dict) -> bool:
+        """Actualizar datos SRS tras una revisión"""
+        try:
+            result = await self.db["flashcard_srs"].update_one(
+                {"word_id": word_id},
+                {"$set": update_data}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"❌ Error actualizando SRS: {e}")
             return False
 
 # Instancia global

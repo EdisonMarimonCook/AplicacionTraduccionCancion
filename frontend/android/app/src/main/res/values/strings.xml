@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App Name -->
-    <string name="app_name">Diccionario HipHop</string>
+    <string name="app_name">MusicTransIAtor</string>
 
     <!-- Activity Titles -->
     <string name="select_song">Seleccionar Canción</string>

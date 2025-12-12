@@ -6,20 +6,18 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_gradient_main">
 
-    <!-- Logo Flotando Arriba -->
     <ImageView
         android:id="@+id/ivLogo"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:src="@drawable/ic_launcher_foreground"
-        app:tint="@android:color/white"
-        app:layout_constraintBottom_toTopOf="@+id/cardContainer"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_width="300dp"
+        android:layout_height="250dp"
+        android:src="@drawable/logo_app"
+        android:scaleType="fitCenter"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.6" />
+        app:layout_constraintBottom_toTopOf="@+id/cardContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.5" />
 
-    <!-- Tarjeta Central Flotante -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardContainer"
         android:layout_width="match_parent"
@@ -28,6 +26,7 @@
         app:cardCornerRadius="24dp"
         app:cardElevation="12dp"
         app:cardBackgroundColor="@android:color/white"
+        android:theme="@style/Theme.MaterialComponents.Light"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -57,7 +56,6 @@
                 android:textColor="#757575"
                 android:layout_marginBottom="24dp"/>
 
-            <!-- Input Email -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilEmail"
                 android:layout_width="match_parent"
@@ -76,7 +74,6 @@
                     android:inputType="textEmailAddress" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Input Password -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/tilPassword"
                 android:layout_width="match_parent"
@@ -97,7 +94,6 @@
                     android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Opciones Extra -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -126,7 +122,6 @@
                     android:textColor="#6200EE"/>
             </LinearLayout>
 
-            <!-- Botón Principal -->
             <Button
                 android:id="@+id/btnLogin"
                 android:layout_width="match_parent"
@@ -138,7 +133,6 @@
                 app:cornerRadius="30dp"
                 android:backgroundTint="#6200EE"/>
 
-            <!-- Loading -->
             <ProgressBar
                 android:id="@+id/progressBar"
                 android:layout_width="wrap_content"
@@ -150,12 +144,11 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Registro Footer -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="100dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

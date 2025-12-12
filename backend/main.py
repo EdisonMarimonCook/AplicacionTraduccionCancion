@@ -35,6 +35,9 @@ from routers.dictionary import router as dictionary_router
 # 🔥 IMPORTANTE: El router de progreso (Para ProfileActivity)
 from routers.progress import router as progress_router
 
+# 4. Router de Flashcards
+from routers.flashcards import router as flashcards_router
+
 # ===============================================================================
 # CONFIGURAR LOGGING
 # ===============================================================================
@@ -148,7 +151,8 @@ app.include_router(lyrics_router)
 app.include_router(ai_router)
 app.include_router(dictionary_router)
 app.include_router(users_router)
-app.include_router(progress_router) # ✅ AHORA SÍ: El perfil funcionará
+app.include_router(progress_router) 
+app.include_router(flashcards_router) 
 
 # ===============================================================================
 # MANEJO DE ERRORES

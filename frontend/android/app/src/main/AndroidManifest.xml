@@ -8,6 +8,7 @@
 
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -15,52 +16,63 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DiccionarioHipHop"
-        android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
-        <!-- 0. SPLASH SCREEN (Nueva Portada - LAUNCHER) -->
+        <!-- 0. SPLASH SCREEN -->
         <activity
             android:name=".SplashActivity"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- 1. Login (Ya no es Launcher) -->
+        <!-- 1. LOGIN -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
-        <!-- 2. Registro -->
+        <!-- 2. REGISTRO (Aquí es donde se borraban los datos al girar) -->
         <activity
             android:name=".RegisterActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
-        <!-- 3. Selección de Canciones (Home) -->
+        <!-- 3. SELECCIÓN DE CANCIONES -->
         <activity
             android:name=".SongSelectionActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
-        <!-- 4. Aprendizaje -->
+        <!-- 4. APRENDIZAJE (Música e IA) -->
         <activity
             android:name=".SongLearningActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
-        <!-- 5. Diccionario -->
+        <!-- 5. HERRAMIENTAS -->
         <activity
             android:name=".DictionaryActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
-        <!-- 6. Perfil -->
-        <activity
-            android:name=".ProfileActivity"
-            android:exported="false" />
-
-        <!-- 7. Flashcards -->
         <activity
             android:name=".FlashcardsActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
+        <!-- 6. PERFIL Y EDICIÓN -->
+        <activity
+            android:name=".ProfileActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+
+        <activity
+            android:name=".EditProfileActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false" />
 
     </application>

@@ -7,7 +7,7 @@ import retrofit2.http.*
 interface ApiService {
 
     // =================================================================================
-    // 1️⃣ AUTENTICACIÓN (Correcto)
+    // 1️⃣ AUTENTICACIÓN
     // =================================================================================
 
     @POST("/api/v1/auth/login")
@@ -16,42 +16,63 @@ interface ApiService {
     @POST("/api/v1/auth/register")
     suspend fun register(@Body request: RegisterRequest): Response<RegisterResponse>
 
-    // Endpoint síncrono para el AuthInterceptor
     @POST("/api/v1/auth/refresh")
     fun refreshToken(@Body request: RefreshTokenRequest): Call<LoginResponse>
 
     // =================================================================================
-    // 2️⃣ CANCIONES Y BÚSQUEDA (Backend: songs.py)
+    // 2️⃣ GESTIÓN DE USUARIOS (/api/v1/users)
     // =================================================================================
 
-    // Top Grammys / Hits (La lista real de Spotify)
+    // Obtener datos del perfil actual
+    @GET("/api/v1/users/profile")
+    suspend fun getProfile(): Response<UserProfile>
+
+    // Actualizar datos básicos (Nombre, Idioma...)
+    // Usa el modelo UpdateProfileRequest definido en Models.kt
+    @PUT("/api/v1/users/profile")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<UserProfile>
+
+    // Cambiar Contraseña
+    // Usa el modelo ChangePasswordRequest
+    @POST("/api/v1/users/change-password")
+    suspend fun changePassword(@Body request: ChangePasswordRequest): Response<Void>
+
+    // Cambiar Email
+    // Usa el modelo ChangeEmailRequest
+    @POST("/api/v1/users/change-email")
+    suspend fun changeEmail(@Body request: ChangeEmailRequest): Response<Void>
+
+    // Obtener Progreso (Estadísticas)
+    @GET("/api/v1/user/progress")
+    suspend fun getUserProgress(): Response<ProgressResponse>
+
+    // =================================================================================
+    // 3️⃣ CANCIONES Y BÚSQUEDA
+    // =================================================================================
+
     @GET("/api/v1/songs/top-grammy")
     suspend fun getTopGrammy(@Query("lang") lang: String = "en"): Response<List<SongItem>>
 
-    // Búsqueda Unificada Real
     @GET("/api/v1/songs/search")
     suspend fun searchSongs(@Query("query") query: String): Response<List<SongItem>>
 
     // =================================================================================
-    // 3️⃣ LETRAS E IA (Backend: lyrics.py, ai_analysis.py)
+    // 4️⃣ LETRAS E IA
     // =================================================================================
 
-    // Obtener letra y audio preview
     @GET("/api/v1/lyrics/")
     suspend fun getLyrics(
-        @Query("title") title: String, 
+        @Query("title") title: String,
         @Query("artist") artist: String
     ): Response<LyricsResponse>
 
-    // ✅ CORRECCIÓN CRÍTICA: Nombre del endpoint y tipo de respuesta
     @POST("/api/v1/ai/analyze")
     suspend fun analyzeLyrics(@Body request: AnalyzeLyricsRequest): Response<HighlightWordsResponse>
 
     // =================================================================================
-    // 4️⃣ DICCIONARIO (Backend: dictionary.py)
+    // 5️⃣ DICCIONARIO
     // =================================================================================
 
-    // ✅ CORRECCIÓN CRÍTICA: Rutas actualizadas a v4.0 (/dictionary/...)
     @GET("/api/v1/dictionary/list")
     suspend fun getDictionary(@Query("type") type: String? = null): Response<List<UserWord>>
 
@@ -62,18 +83,25 @@ interface ApiService {
     suspend fun deleteWord(@Path("id") id: String): Response<Void>
 
     // =================================================================================
-    // 5️⃣ PERFIL (Backend: progress.py)
+    // FLASHCARDS
     // =================================================================================
 
-    @GET("/api/v1/user/progress")
-    suspend fun getUserProgress(): Response<ProgressResponse>
+    @GET("/api/v1/flashcards/due")
+    suspend fun getDueFlashcards(): Response<List<FlashcardData>>
 
-    // ❌ NOTA: Hemos eliminado los endpoints de Flashcards y Sessions porque 
-    // no existen en el Backend MVP v4.0. Se añadirán en la Fase 2.
+    @POST("/api/v1/flashcards/review/{word_id}")
+    suspend fun reviewFlashcard(
+        @Path("word_id") wordId: String,
+        @Body request: FlashcardReviewRequest
+    ): Response<FlashcardReviewResponse>
 
-    //(Para ConnectionTester):
+    @GET("/api/v1/flashcards/stats")
+    suspend fun getFlashcardStats(): Response<Map<String, Int>>
+
+    // =================================================================================
+    // EXTRAS
+    // =================================================================================
+
     @GET("/api/v1/health")
     suspend fun healthCheck(): Response<HealthResponse>
 }
-
-

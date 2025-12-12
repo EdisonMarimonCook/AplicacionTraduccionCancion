@@ -61,11 +61,13 @@ class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
     full_name: Optional[str] = None
     native_language: Optional[str] = None
+    learning_languages: Optional[List[LearningLanguage]] = None  # 🔥 FIX: Permite actualizar idiomas
 
 class PasswordChangeRequest(BaseModel):
     """Para cambiar contraseña"""
     current_password: str
     new_password: str
+    confirm_password: str  # 🔥 FIX: Campo que faltaba
 
 class EmailChangeRequest(BaseModel):
     """Para cambiar email"""
@@ -87,6 +89,8 @@ class UserProfileResponse(BaseModel):
     native_language: str
     learning_languages: List[LearningLanguage] = []
     created_at: datetime
+    updated_at: Optional[datetime] = None  # 🔥 FIX: Agregado
+    is_active: bool = True  # 🔥 FIX: Agregado
 
 # ===============================================================================
 # 4️⃣ DICCIONARIO (Base de Datos)
@@ -161,3 +165,50 @@ class HighlightWordsResponse(BaseModel):
     words: List[WordHighlight]
     expressions: List[ExpressionHighlight]
     suggestions: List[str]
+
+# ===============================================================================
+# 6️⃣ FLASHCARDS SRS (Sistema de Repetición Espaciada)
+# ===============================================================================
+
+class FlashcardReviewRequest(BaseModel):
+    """
+    Request para enviar resultado de revisión
+    quality: 0-5 (SuperMemo SM-2)
+      0: Blackout (No recordaba nada)
+      1: Incorrect (Respuesta incorrecta)
+      2: Incorrect but remembered (Incorrecto pero casi)
+      3: Correct with difficulty (Correcto pero difícil)
+      4: Correct (Correcto normal)
+      5: Perfect (Fácil, perfecto)
+    """
+    quality: int = Field(..., ge=0, le=5, description="Calidad de recuerdo (0-5)")
+
+class FlashcardData(BaseModel):
+    """
+    Datos SRS de una tarjeta (basado en SuperMemo SM-2)
+    """
+    id: str
+    word_id: str  # Referencia al diccionario
+    word: str
+    translation: str
+    example: str
+    type: str
+    
+    # Datos SRS
+    easiness_factor: float = 2.5  # Factor de facilidad (1.3-2.5+)
+    interval: int = 0  # Días hasta próxima revisión
+    repetitions: int = 0  # Número de repeticiones correctas consecutivas
+    next_review_date: datetime  # Cuándo debe revisarse
+    last_reviewed: Optional[datetime] = None
+    
+    # Estadísticas
+    times_reviewed: int = 0
+    times_correct: int = 0
+    times_incorrect: int = 0
+
+class FlashcardReviewResponse(BaseModel):
+    """Respuesta tras revisar una tarjeta"""
+    success: bool
+    next_review_date: datetime
+    interval_days: int
+    message: str

@@ -25,6 +25,7 @@ class MockDatabase:
         self.flashcards: Dict[str, dict] = {}
         self.songs: Dict[str, dict] = {}
         self.song_analyses: Dict[str, dict] = {}
+        self.flashcard_srs = {}  # word_id -> SRS data
         
         # Contadores para IDs
         self.user_counter = 0
@@ -95,6 +96,24 @@ class MockDatabase:
         for user in self.users.values():
             if user.get("_id") == user_id:
                 return user
+        return None
+    
+    async def get_user_by_username(self, username: str) -> Optional[dict]:
+        """Obtener usuario por username (para validar duplicados)"""
+        for user in self.users.values():
+            if user.get("username") == username:
+                logger.info(f"✅ MOCK: Usuario encontrado por username - {username}")
+                return user
+        logger.info(f"⚠️  MOCK: Usuario no encontrado por username - {username}")
+        return None
+    
+    async def get_user_by_username(self, username: str) -> Optional[dict]:
+        """Obtener usuario por username"""
+        for user in self.users.values():
+            if user.get("username") == username:
+                logger.info(f"✅ MOCK: Usuario encontrado por username - {username}")
+                return user
+        logger.info(f"⚠️  MOCK: Usuario no encontrado por username - {username}")
         return None
     
     # ================================================================
@@ -325,24 +344,99 @@ class MockDatabase:
             logger.error(f"❌ MOCK: Error actualizando usuario - {str(e)}")
             return None
     
-    async def change_email(self, old_email: str, new_email: str) -> bool:
-        """Cambiar email del usuario (mover en diccionario)"""
+    async def update_user_email(self, old_email: str, new_email: str) -> bool:
+        """
+        🔥 SOLUCIÓN AL PROBLEMA DEL ÍNDICE:
+        Cuando cambias el email, hay que MOVER el usuario en el diccionario.
+        
+        Pasos:
+        1. Verificar que nuevo email no exista
+        2. Sacar usuario del diccionario con clave vieja
+        3. Actualizar su campo email
+        4. Guardar con nueva clave (new_email)
+        """
         try:
             if new_email in self.users:
                 logger.warning(f"⚠️  MOCK: Email ya existe - {new_email}")
                 return False
             
+            # MOVER usuario (pop elimina la clave vieja)
             user = self.users.pop(old_email)
             user["email"] = new_email
             user["updated_at"] = datetime.now().isoformat()
             
+            # Guardar con nueva clave
             self.users[new_email] = user
             
             logger.info(f"✅ MOCK: Email cambiado de {old_email} a {new_email}")
+            logger.info(f"🗑️ MOCK: Clave vieja borrada del diccionario (ARREGLADO)")
             return True
         
         except Exception as e:
             logger.error(f"❌ MOCK: Error cambiando email - {str(e)}")
+            return False
+    
+    async def update_user_activity(self, user_id: str) -> bool:
+        """
+        📅 Actualiza la fecha de actividad y calcula la racha
+        """
+        try:
+            # Buscar usuario por ID
+            user = None
+            for email, u in self.users.items():
+                if u.get("_id") == user_id or u.get("id") == user_id:
+                    user = u
+                    break
+            
+            if not user:
+                return False
+            
+            today = datetime.utcnow().date()
+            last_activity = user.get("last_activity_date")
+            current_streak = user.get("current_streak", 0)
+            longest_streak = user.get("longest_streak", 0)
+            
+            # Primera vez que estudia
+            if not last_activity:
+                user["current_streak"] = 1
+                user["longest_streak"] = 1
+                user["last_activity_date"] = datetime.utcnow()
+                return True
+            
+            # Convertir a date si es datetime
+            if isinstance(last_activity, datetime):
+                last_date = last_activity.date()
+            elif isinstance(last_activity, str):
+                last_date = datetime.fromisoformat(last_activity).date()
+            else:
+                last_date = last_activity
+            
+            days_diff = (today - last_date).days
+            
+            # Si ya estudió hoy, no cambiar nada
+            if days_diff == 0:
+                return True
+            
+            # Si estudió ayer, incrementar racha
+            if days_diff == 1:
+                current_streak += 1
+            # Si pasó más de 1 día, resetear racha
+            else:
+                current_streak = 1
+            
+            # Actualizar longest streak si superó el récord
+            if current_streak > longest_streak:
+                longest_streak = current_streak
+            
+            user["current_streak"] = current_streak
+            user["longest_streak"] = longest_streak
+            user["last_activity_date"] = datetime.utcnow()
+            
+            logger.info(f"✅ Actividad actualizada para {user.get('email')}: Racha = {current_streak}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error actualizando actividad: {e}")
             return False
     
     # ================================================================

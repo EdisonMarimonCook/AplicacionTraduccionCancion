@@ -28,18 +28,51 @@ async def get_user_by_id(user_id: str) -> dict:
     """Obtener usuario por ID"""
     return await db.get_user_by_id(user_id)
 
-async def username_exists(username: str) -> bool:
-    # Para MVP asumimos que el email es el identificador crítico
-    return False 
+async def username_exists(username: str, exclude_email: str = None) -> bool:
+    """
+    Verificar si username está en uso.
+    
+    Args:
+        username: Username a verificar
+        exclude_email: Email del usuario actual (para ignorarlo al actualizar su propio perfil)
+    
+    Returns:
+        True si el username ya existe (y NO pertenece a exclude_email)
+    """
+    # Buscar si existe algún usuario con ese username
+    user = await db.get_user_by_username(username)
+    
+    if not user:
+        return False
+    
+    # Si existe pero es del usuario actual (exclude_email), no cuenta como "existente"
+    if exclude_email and user.get("email") == exclude_email:
+        return False
+    
+    return True 
 
 async def email_exists(email: str) -> bool:
     """Verificar si email está disponible"""
     return await db.user_exists(email)
 
 async def change_user_email(current_email: str, new_email: str) -> bool:
+    """
+    Cambiar email del usuario.
+    
+    IMPORTANTE: Si usas Mock DB (diccionario Python), hay que:
+    1. Copiar el usuario con la nueva clave (nuevo email)
+    2. Borrar la clave vieja
+    3. Si usas MongoDB, esto no es problema (actualiza directo)
+    
+    Returns:
+        True si se cambió exitosamente, False si new_email ya existe
+    """
+    # Verificar que nuevo email no esté en uso
     if await user_exists(new_email):
         return False
-    await db.update_user(current_email, {"email": new_email})
+    
+    # Actualizar en BD (esto maneja Mock DB y MongoDB correctamente)
+    await db.update_user_email(current_email, new_email)
     return True
 
 async def update_user_profile(

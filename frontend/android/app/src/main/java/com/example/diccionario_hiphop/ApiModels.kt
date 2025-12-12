@@ -12,30 +12,23 @@ data class LoginResponse(
     @SerializedName("access_token") val accessToken: String,
     @SerializedName("refresh_token") val refreshToken: String,
     @SerializedName("token_type") val tokenType: String,
-    @SerializedName("user_id") val userId: String,   // Viene directo
-    val email: String,                               // Viene directo
-    val username: String?                            // Viene directo (nullable por seguridad)
+    @SerializedName("user_id") val userId: String,
+    val email: String,
+    val username: String?
 )
 
-
-// ✅ REGISTRO POTENTE (Soporta lista de idiomas)
 data class RegisterRequest(
     val email: String,
     val username: String,
     @SerializedName("full_name") val fullName: String,
     val password: String,
     @SerializedName("native_language") val nativeLanguage: String = "es",
-    
-    // 🔥 Enviamos una LISTA, aunque por ahora solo lleve uno
     @SerializedName("learning_languages") val learningLanguages: List<LearningLanguageRequest>
 )
 
 data class LearningLanguageRequest(
     val language: String,
     val level: String,
-    // Enviamos null en la fecha para que el backend ponga la actual, 
-    // o enviamos un string si quieres controlarlo tú. 
-    // Para simplificar y evitar errores de formato, lo hacemos nullable.
     @SerializedName("started_at") val startedAt: String? = null
 )
 
@@ -48,36 +41,68 @@ data class RegisterResponse(
 data class VerifyTokenResponse(val valid: Boolean)
 
 // ===========================================================
-// 2️⃣ MODELO DE CANCIÓN (Sincronizado con spotify.py)
+// 2️⃣ PERFIL DE USUARIO
+// ===========================================================
+
+// Ver datos del perfil
+data class UserProfile(
+    val id: String,
+    val email: String,
+    val username: String,
+    @SerializedName("full_name") val fullName: String?,
+    @SerializedName("native_language") val nativeLanguage: String?
+)
+
+// Para cambiar Nombre / Datos básicos
+data class UpdateProfileRequest(
+    val username: String? = null,
+    @SerializedName("full_name") val fullName: String? = null,
+    @SerializedName("native_language") val nativeLanguage: String? = null
+)
+
+// Para cambiar Contraseña
+data class ChangePasswordRequest(
+    @SerializedName("current_password") val currentPassword: String,
+    @SerializedName("new_password") val newPassword: String,
+    @SerializedName("confirm_password") val confirmPassword: String
+)
+
+// Para cambiar Email
+data class ChangeEmailRequest(
+    @SerializedName("new_email") val newEmail: String,
+    val password: String // Contraseña actual para confirmar
+)
+
+// ===========================================================
+// 3️⃣ MODELO DE CANCIÓN
 // ===========================================================
 data class SongItem(
     val id: String,
     @SerializedName("title", alternate = ["name"]) val title: String,
     val artist: String,
     @SerializedName("image_url") val imageUrl: String?,
-    @SerializedName("preview_url") val previewUrl: String?, // Puede venir de iTunes o Spotify
+    @SerializedName("preview_url") val previewUrl: String?,
     @SerializedName("spotify_url") val spotifyUrl: String?
 )
 
 // ===========================================================
-// 3️⃣ LETRAS Y ANÁLISIS IA (Sincronizado con Gemini V3)
+// 4️⃣ LETRAS Y ANÁLISIS IA
 // ===========================================================
 
 data class LyricsResponse(
-    val title: String, 
-    val artist: String, 
+    val title: String,
+    val artist: String,
     val lyrics: String,
     @SerializedName("preview_url") val previewUrl: String?
 )
 
 data class AnalyzeLyricsRequest(
-    val title: String, 
-    val artist: String, 
+    val title: String,
+    val artist: String,
     val lyrics: String,
     @SerializedName("user_level") val userLevel: String = "B1"
 )
 
-// ✅ CORRECCIÓN CRÍTICA: Formato de respuesta REAL
 data class HighlightWordsResponse(
     @SerializedName("detected_language") val detectedLanguage: String,
     val words: List<WordHighlight>,
@@ -87,13 +112,13 @@ data class HighlightWordsResponse(
 
 data class WordHighlight(
     val word: String,
-    val type: String,        // 'noun', 'verb', 'adj'
+    val type: String,
     val translation: String,
     val explanation: String,
-    val example: String,     
+    val example: String,
     val difficulty: String,
     val color: String,
-    val recommended: Boolean 
+    val recommended: Boolean
 )
 
 data class ExpressionHighlight(
@@ -108,21 +133,21 @@ data class ExpressionHighlight(
 )
 
 // ===========================================================
-// 4️⃣ DICCIONARIO (Sincronizado con routers/dictionary.py)
+// 5️⃣ DICCIONARIO
 // ===========================================================
 data class UserWord(
     val id: String,
     val word: String,
     val translation: String?,
-    
-    @SerializedName("notes") 
-    val context: String?, 
-    
-    val type: String = "word",       // 🔥 'word' o 'expression'
-    val example: String? = null,     // 🔥 Para Flashcards
-    
-    @SerializedName("is_recommended") 
-    val isRecommended: Boolean = false // ⭐ Estrellita
+
+    @SerializedName("notes")
+    val context: String?,
+
+    val type: String = "word",
+    val example: String? = null,
+
+    @SerializedName("is_recommended")
+    val isRecommended: Boolean = false
 ) : Serializable
 
 data class AddWordRequest(
@@ -136,7 +161,7 @@ data class AddWordRequest(
 )
 
 // ===========================================================
-// 5️⃣ PROGRESO
+// 6️⃣ PROGRESO Y OTROS
 // ===========================================================
 data class ProgressResponse(
     @SerializedName("total_words_learned") val totalWordsLearned: Int,
@@ -149,3 +174,30 @@ data class RefreshTokenRequest(
 )
 
 data class HealthResponse(val status: String)
+
+// ===========================================================
+// 7️⃣ TARJETAS DE REPASO (NEW)
+// ===========================================================
+data class FlashcardReviewRequest(
+    val quality: Int // 0-5
+)
+
+data class FlashcardData(
+    val id: String,
+    @SerializedName("word_id") val wordId: String,
+    val word: String,
+    val translation: String,
+    val example: String,
+    val type: String,
+    @SerializedName("easiness_factor") val easinessFactor: Float,
+    val interval: Int,
+    val repetitions: Int,
+    @SerializedName("next_review_date") val nextReviewDate: String
+)
+
+data class FlashcardReviewResponse(
+    val success: Boolean,
+    @SerializedName("next_review_date") val nextReviewDate: String,
+    @SerializedName("interval_days") val intervalDays: Int,
+    val message: String
+)

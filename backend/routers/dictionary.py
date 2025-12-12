@@ -45,7 +45,10 @@ async def add_word(
         # 4. Guardar en Base de Datos (Mongo o Mock)
         entry_id = await db.create_dictionary_entry(new_entry)
         
-        # 5. Responder
+        # ✅ 5. ACTUALIZAR ACTIVIDAD DEL USUARIO (PARA RACHA)
+        await db.update_user_activity(current_user.id)
+        
+        # 6. Responder
         new_entry["id"] = entry_id
         return new_entry
         
