@@ -9,6 +9,7 @@ from typing import Optional
 from google.genai import Client
 from config import settings
 from routers.schemas import HighlightWordsResponse # Asegúrate de que este import funcione
+from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +108,9 @@ async def identify_hiphop_terms(lyrics: str, native_lang: str = "es") -> dict:
     # (Puedes dejar tu función antigua aquí si la usas para otra cosa, 
     # pero highlight_by_level ya cubre expresiones)
     return {}
+
+# En backend/routers/ai_analysis.py, línea ~68-71
+raise HTTPException(
+    status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+    detail="La IA se está enfriando, disculpe las molestias y vuelva luego 🧊"
+)

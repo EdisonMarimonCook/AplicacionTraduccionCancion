@@ -31,12 +31,48 @@ class MainActivity : AppCompatActivity() {
         // 1. Inicializar TokenManager
         tokenManager = TokenManager(this)
 
-        // 2. Auto-Login: Si hay token, vamos dentro
+        // 2. Auto-Login: Si hay token guardado, intentar validarlo con el backend
+        // Esto permite que usuarios que marcaron "Recordarme" no tengan que volver a ingresar credenciales
         if (tokenManager.getToken() != null) {
-            navigateToSongSelection()
+            tryAutoLogin()
             return
         }
 
+        // 3. Si no hay token, mostrar pantalla de login normal
+        setContentView(R.layout.activity_main)
+        initViews()
+        setupValidations()
+        setupClickListeners()
+    }
+
+    /**
+     * Intenta hacer auto-login validando el token guardado con el backend.
+     * Si el token es válido, navega directamente a SongSelectionActivity.
+     * Si es inválido o hay error de red, limpia los tokens y muestra la pantalla de login.
+     */    private fun tryAutoLogin() {
+        lifecycleScope.launch {
+            try {
+                // Validar token con el backend
+                val apiService = RetrofitService.getInstance(this@MainActivity)
+                val response = apiService.getProfile()
+
+                if (response.isSuccessful && response.body() != null) {
+                    // Token válido, navegamos directamente
+                    navigateToSongSelection()
+                } else {
+                    // Token inválido, limpiar tokens y mostrar login
+                    tokenManager.clearTokens()
+                    showLoginScreen()
+                }
+            } catch (e: Exception) {
+                // Error de red o token inválido, limpiar tokens y mostrar login
+                tokenManager.clearTokens()
+                showLoginScreen()
+            }
+        }
+    }
+
+    private fun showLoginScreen() {
         setContentView(R.layout.activity_main)
         initViews()
         setupValidations()
@@ -86,7 +122,7 @@ class MainActivity : AppCompatActivity() {
     private fun performLogin() {
         val email = etEmail.text.toString().trim()
         val password = etPassword.text.toString().trim()
-        val rememberMe = cbRememberMe.isChecked // ✅ CAPTURAMOS EL CHECKBOX
+        val rememberMe = cbRememberMe.isChecked
 
         setLoading(true)
 
@@ -99,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful && response.body() != null) {
                     val loginData = response.body()!!
 
-                    // ✅ GUARDAMOS TOKENS SOLO SI "REMEMBER ME" ESTÁ ACTIVO
+                    // Guardar tokens de forma persistente solo si "Remember Me" está activo
                     if (rememberMe) {
                         tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
 
@@ -107,13 +143,12 @@ class MainActivity : AppCompatActivity() {
                         val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
                         prefs.edit().apply {
                             putString("username", loginData.username)
-                            putString("USER_LEVEL", "B1") // O el nivel real si viene
+                            putString("USER_LEVEL", "B1")
                             apply()
                         }
                     } else {
-                        // Si NO marca "Recuérdame", guardamos tokens en MEMORIA (SessionStorage)
-                        // Para esto, podrías usar una variable estática o no guardar nada
-                        // Por ahora, guardamos igual pero podrías implementar sesión temporal
+                        // Si NO marca "Recuérdame", guardamos tokens solo para esta sesión
+                        // Los tokens se guardan temporalmente pero se limpiarán al cerrar la app
                         tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
                     }
 

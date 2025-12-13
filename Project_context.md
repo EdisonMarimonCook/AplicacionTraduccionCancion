@@ -1,8 +1,8 @@
 # 🎵 MusicTransIAtor - Contexto del Proyecto
 
-**Versión:** 4.3 (MVP Feature-Complete + Email Verification)
-**Estado:** 🎯 MVP COMPLETO - Listo para Testing en Dispositivo Físico
-**Hito Reciente:** Email verification, password recovery, UI improvements (menú flotante clickable, swipe gestures mejorados).
+**Versión:** 4.4 (MVP Feature-Complete + Auto-Login)
+**Estado:** 🎯 MVP COMPLETO - Auto-Login Implementado
+**Hito Reciente:** Auto-login con validación de tokens, mejora UX "Remember Me".
 
 ---
 
@@ -21,12 +21,17 @@ App Android para aprender idiomas con música mediante análisis semántico de l
     * **Lógica:** Recibe la letra completa desde el Frontend para evitar errores de "0 chars".
     * **Fallback:** Respuesta Mock si se agota la cuota (evita crashes).
 
-* **Autenticación JWT + Email Verification (NUEVO v4.3):**
+* **Autenticación JWT + Email Verification + Auto-Login (v4.4):**
     * Access Token (15 min) + Refresh Token (7 días).
     * Refresh automático en `AuthInterceptor` del Android.
     * ✅ **Verificación por email:** PIN de 4 dígitos enviado al registrarse
     * ✅ **Recuperación de contraseña:** Sistema completo con códigos por email
     * ✅ **Email service:** SMTP via Gmail con templates HTML personalizados
+    * ✅ **Auto-Login (NUEVO v4.4):** 
+        * Al iniciar la app, valida token guardado con `/users/profile`
+        * Si es válido → Acceso directo (sin pantalla de login)
+        * Si es inválido → Limpia tokens y muestra login
+        * Solo funciona si usuario marcó "Recordarme" en login anterior
     * ✅ Endpoints: `/auth/verify`, `/auth/forgot-password`, `/auth/reset-password`
 
 * **Gestión de Usuarios:**
@@ -36,9 +41,10 @@ App Android para aprender idiomas con música mediante análisis semántico de l
     * ✅ Función `username_exists()` con parámetro `exclude_email` para evitar falsos positivos
     * ✅ **Nivel de idioma:** Se obtiene desde `learning_languages` del usuario
 
-* **Sistema de Racha Diaria:**
+* **Sistema de Racha Diaria (MEJORADO v4.4):**
     * ✅ Calcula días consecutivos de estudio automáticamente
     * ✅ Se actualiza al guardar palabras en el diccionario
+    * ✅ **NUEVO:** Se actualiza también al revisar flashcards
     * ✅ Resetea si pasan más de 1 día sin actividad
     * ✅ Guarda récord personal (`longest_streak`)
     * **Campos nuevos en User:** `current_streak`, `last_activity_date`, `longest_streak`
@@ -65,7 +71,8 @@ App Android para aprender idiomas con música mediante análisis semántico de l
     * Configurado para `10.0.2.2` (Emulador) o IP Local (Móvil Físico).
     * `AuthInterceptor` gestiona refresco de tokens transparente (401 → Refresh automático).
 
-* **Autenticación Completa (NUEVO v4.3):**
+* **Autenticación Completa (v4.4):**
+    * ✅ **MainActivity:** Auto-login inteligente que valida tokens al inicio
     * ✅ **VerifyAccountActivity:** Pantalla de verificación con PIN de 4 dígitos
     * ✅ **ForgotPasswordActivity:** Solicitar código de recuperación
     * ✅ **ResetPasswordActivity:** Cambiar contraseña con código
@@ -166,7 +173,7 @@ App Android para aprender idiomas con música mediante análisis semántico de l
 
 **Features Adicionales:**
 - **Selección de Usuario:** Permitir seleccionar texto no resaltado para traducción bajo demanda.
-- **Error Handling Gracioso:** "La IA se está enfriando 🧊" si se agota la cuota.
+- **Error Handling Gracioso:** "La IA se está enfriando, disculpe las molestias y vuelva luego 🧊" si se agota la cuota.
 - **Optimización SRS:** Ajustes finos del algoritmo según feedback de usuarios.
 
 ---
@@ -264,3 +271,50 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Frontend:
 Cambiar BASE_URL en RetrofitService.kt
 Android Studio → Run
+---
+
+##  NOVEDADES v4.4 - Auto-Login Implementado
+
+### **Funcionalidad "Remember Me" Completa**
+
+**Comportamiento:**
+-  Usuario marca "Recordarme"  Tokens se guardan persistentemente
+-  Al abrir la app  Valida tokens autom�ticamente con el backend
+-  Si tokens v�lidos  Acceso directo sin login
+-  Si tokens inv�lidos  Limpia autom�ticamente y muestra login
+
+**Archivos Modificados:**
+
+1. **MainActivity.kt** (Login Screen):
+   - `onCreate()`: Detecta tokens guardados y ejecuta `tryAutoLogin()`
+   - `tryAutoLogin()`: Valida token con `/users/profile` endpoint
+   - `performLogin()`: Guarda tokens cuando "Remember Me" est� activo
+   - Limpia tokens inv�lidos autom�ticamente con `clearTokens()`
+
+2. **TokenManager.kt** (Gesti�n de Tokens):
+   - Nuevo m�todo: `clearTokens()` (alias de `clearSession()`)
+   - Mantiene separaci�n entre limpiar tokens y logout completo
+   - `forceLogout()`: Limpia tokens + datos de usuario + redirige a login
+
+**Flujo T�cnico:**
+```
+App Start  TokenManager.getToken() != null?
+     S�  tryAutoLogin()
+              apiService.getProfile() v�lido?
+                    S�  navigateToSongSelection()
+                    NO  clearTokens() + showLoginScreen()
+     NO  showLoginScreen()
+```
+
+**UX Mejorada:**
+- Usuario con sesi�n activa NO ve pantalla de login (experiencia fluida)
+- Tokens expirados/inv�lidos se limpian transparentemente
+- Logout manual disponible en ProfileActivity
+- Seguridad: Validaci�n backend obligatoria antes de acceso
+
+**Testing:**
+1. Login con "Recordarme" activado
+2. Cerrar app completamente
+3. Reabrir app  Debe entrar directamente (sin login)
+4. En ProfileActivity  Cerrar sesi�n
+5. Reabrir app  Debe mostrar login (tokens limpiados)

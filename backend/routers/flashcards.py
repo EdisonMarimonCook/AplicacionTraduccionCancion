@@ -179,6 +179,9 @@ async def review_flashcard(
         
         await db.update_flashcard_srs_data(word_id, updated_data)
         
+        # 🆕 ACTUALIZAR RACHA DEL USUARIO (mismo comportamiento que guardar palabra)
+        await db.update_user_activity(current_user.id)
+        
         # Mensaje de feedback
         if review.quality >= 4:
             message = f"¡Perfecto! La volverás a ver en {new_interval} días."

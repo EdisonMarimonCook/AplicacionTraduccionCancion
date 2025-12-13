@@ -55,6 +55,13 @@ class TokenManager(private val context: Context) {
     }
 
     /**
+     * Alias de clearSession() para mayor claridad en el código.
+     */
+    fun clearTokens() {
+        clearSession()
+    }
+
+    /**
      * 🔥 FORCE LOGOUT: Borra TODO y redirige al Login.
      * Se usa cuando el token expira y el refresco falla (401 final).
      */
