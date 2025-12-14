@@ -9,10 +9,8 @@ import java.util.concurrent.TimeUnit
 
 class RetrofitService {
     companion object {
-        // ⚠️ CAMBIAR SI USAS MÓVIL FÍSICO (PON TU IP LOCAL)
-        // Para emulador usa: "http://10.0.2.2:8000/", para conectar con movil hay que primero, crear red en la que se conecte el movil al pc
-        // y luego cambiar la ip de la url de abajo con la del pc
-        private const val BASE_URL = "http://192.168.1.138:8000/"
+        // 🔥 CAMBIO: Quitar 'private' para que se pueda usar en ProfileActivity
+        const val BASE_URL = "http://192.168.1.141:8000/" // Reemplaza X con tu IP real
 
         @Volatile private var INSTANCE: ApiService? = null
 

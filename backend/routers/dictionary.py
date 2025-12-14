@@ -48,6 +48,9 @@ async def add_word(
         # ✅ 5. ACTUALIZAR ACTIVIDAD DEL USUARIO (PARA RACHA)
         await db.update_user_activity(current_user.id)
         
+        # 🔥 AÑADIR ESTA LÍNEA AL FINAL (antes del return)
+        await db.update_user_streak(str(current_user.id))
+        
         # 6. Responder
         new_entry["id"] = entry_id
         return new_entry

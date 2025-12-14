@@ -22,7 +22,13 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
     """
     try:
         # 1. Obtener todas las palabras del usuario
-        items = await db.get_user_dictionary(current_user.id)
+        # Usamos str(current_user.id) para asegurar compatibilidad con Mongo
+        items = await db.get_user_dictionary(str(current_user.id))
+        
+        # Aseguramos que items sea una lista
+        if items is None:
+            items = []
+            
         total_words = len(items)
         
         # 2. Obtener datos del usuario (para racha y learning_languages)
@@ -38,7 +44,11 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
         else:
             # Convertir a datetime si viene como string de Mongo
             if isinstance(last_activity, str):
-                last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
+                try:
+                    last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
+                except ValueError:
+                    # Fallback si el formato es extraño
+                    last_activity = datetime.utcnow()
             
             # Calcular días desde última actividad
             today = datetime.utcnow().date()
@@ -46,27 +56,30 @@ async def get_user_progress(current_user: User = Depends(get_current_user)):
             
             days_diff = (today - last_date).days
             
-            # Si pasaron más de 1 día, resetear racha
+            # Si pasaron más de 1 día, resetear racha (solo visual, BD lo maneja al actualizar)
             if days_diff > 1:
                 current_streak = 0
         
-        # 4. 🆕 Obtener learning_languages del usuario
+        # 4. Obtener learning_languages del usuario
         learning_languages = user_data.get("learning_languages", [])
         
         # Formato para el frontend
         learning_languages_formatted = []
         for lang_data in learning_languages:
-            learning_languages_formatted.append({
-                "language": lang_data.get("language", "en"),
-                "level": lang_data.get("level", "A1"),
-                "words_count": total_words if lang_data.get("language") == "en" else 0
-            })
+            # Si es dict
+            if isinstance(lang_data, dict):
+                learning_languages_formatted.append({
+                    "language": lang_data.get("language", "en"),
+                    "level": lang_data.get("level", "A1"),
+                    # Por ahora asignamos todas las palabras al inglés o primer idioma
+                    "words_count": total_words if lang_data.get("language") == "en" else 0
+                })
 
         return {
             "total_words_learned": total_words,
             "current_streak": current_streak,
             "longest_streak": user_data.get("longest_streak", 0),
-            "learning_languages": learning_languages_formatted,  # 🔥 AGREGADO
+            "learning_languages": learning_languages_formatted,
             "status": "success"
         }
     except Exception as e:

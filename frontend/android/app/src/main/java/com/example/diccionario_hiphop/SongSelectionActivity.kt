@@ -35,7 +35,7 @@ class SongSelectionActivity : AppCompatActivity() {
     private lateinit var txtProfile: TextView
     private lateinit var viewDimmer: View
 
-    private lateinit var adapter: SongAdapter
+    private lateinit var adapter: SongAdapter // Esta es la variable importante
     private lateinit var repository: SongRepository
 
     private var searchJob: Job? = null
@@ -43,6 +43,11 @@ class SongSelectionActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_selection)
+
+        // Aplicar tema dinámico al fondo
+        window.decorView.setBackgroundColor(
+            resources.getColor(android.R.color.background_light, theme)
+        )
 
         repository = SongRepository(this)
 
@@ -77,7 +82,7 @@ class SongSelectionActivity : AppCompatActivity() {
         fabMain.setOnClickListener { toggleMenu(!isMenuOpen) }
         viewDimmer.setOnClickListener { if (isMenuOpen) toggleMenu(false) }
 
-        // --- 3. DICCIONARIO (Texto + Icono) ---
+        // --- 3. DICCIONARIO ---
         val irDiccionario = View.OnClickListener {
             startActivity(Intent(this, DictionaryActivity::class.java))
             toggleMenu(false)
@@ -85,7 +90,7 @@ class SongSelectionActivity : AppCompatActivity() {
         fabDict.setOnClickListener(irDiccionario)
         txtDict.setOnClickListener(irDiccionario)
 
-        // --- 4. FLASHCARDS (Texto + Icono) ---
+        // --- 4. FLASHCARDS ---
         val irFlashcards = View.OnClickListener {
             startActivity(Intent(this, FlashcardsActivity::class.java))
             toggleMenu(false)
@@ -93,9 +98,9 @@ class SongSelectionActivity : AppCompatActivity() {
         fabFlash.setOnClickListener(irFlashcards)
         txtFlash.setOnClickListener(irFlashcards)
 
-        // --- 5. PERFIL (Texto + Icono) ---
+        // --- 5. PERFIL ---
         val irPerfil = View.OnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
+            startActivityForResult(Intent(this, ProfileActivity::class.java), 300) // 🔥 Código 300 para detectar cambios en perfil
             toggleMenu(false)
         }
         fabProfile.setOnClickListener(irPerfil)
@@ -104,21 +109,15 @@ class SongSelectionActivity : AppCompatActivity() {
 
     private fun toggleMenu(open: Boolean) {
         isMenuOpen = open
-
         if (open) {
-            // ABRIR MENÚ
             fabMain.animate().rotation(45f).setDuration(300).start()
             viewDimmer.visibility = View.VISIBLE
 
             showFab(fabDict, txtDict)
             showFab(fabFlash, txtFlash)
             showFab(fabProfile, txtProfile)
-            
-            // 🔥 Botón principal al final para que quede encima de todo
             fabMain.bringToFront()
-
         } else {
-            // CERRAR MENÚ
             fabMain.animate().rotation(0f).setDuration(300).start()
             viewDimmer.visibility = View.GONE
 
@@ -131,19 +130,12 @@ class SongSelectionActivity : AppCompatActivity() {
     private fun showFab(fab: FloatingActionButton, txt: TextView) {
         fab.visibility = View.VISIBLE
         txt.visibility = View.VISIBLE
-
-        // 🔥 Texto primero, FAB después (FAB queda más arriba en Z)
         fab.bringToFront()
         txt.bringToFront()
-
-        // ✅ Ambos clickables
         fab.isClickable = true
-        txt.isClickable = true  // 🔥 AHORA SÍ ES CLICKABLE
-
-        // Animación de aparición (Fade in + Slide up)
+        txt.isClickable = true
         fab.alpha = 0f
         fab.animate().alpha(1f).translationY(0f).setDuration(300).start()
-
         txt.alpha = 0f
         txt.animate().alpha(1f).translationY(0f).setDuration(300).start()
     }
@@ -151,23 +143,22 @@ class SongSelectionActivity : AppCompatActivity() {
     private fun hideFab(fab: FloatingActionButton, txt: TextView) {
         fab.visibility = View.GONE
         txt.visibility = View.GONE
-
-        // Deshabilitar clic para que no molesten (clics fantasma)
         fab.isClickable = false
         txt.isClickable = false
     }
 
     private fun setupRecyclerView() {
-        adapter = SongAdapter(emptyList()) { songItem ->
-            val intent = Intent(this, SongLearningActivity::class.java).apply {
-                putExtra("SONG_ID", songItem.id)
-                putExtra("SONG_TITLE", songItem.title)
-                putExtra("SONG_ARTIST", songItem.artist)
-                putExtra("PREVIEW_URL", songItem.previewUrl)
-                putExtra("COVER_URL", songItem.imageUrl)
-                putExtra("SPOTIFY_URL", songItem.spotifyUrl)
-            }
-            startActivity(intent)
+        // Inicializamos el adaptador con lista vacía
+        adapter = SongAdapter(emptyList()) { song ->
+            val intent = Intent(this, SongLearningActivity::class.java)
+            
+            // PASAMOS LOS DATOS EXACTOS DEL MODELO SongItem
+            intent.putExtra("song_title", song.title)
+            intent.putExtra("song_artist", song.artist)
+            intent.putExtra("song_image", song.imageUrl) // ✅ CORREGIDO: Antes era coverUrl
+            intent.putExtra("song_audio", song.previewUrl) 
+            
+            startActivityForResult(intent, 200) // 🔥 Código 200 para detectar si añadió palabras
         }
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
@@ -185,7 +176,6 @@ class SongSelectionActivity : AppCompatActivity() {
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                // Debounce para no saturar la búsqueda
                 searchJob?.cancel()
                 searchJob = lifecycleScope.launch {
                     delay(500)
@@ -206,14 +196,20 @@ class SongSelectionActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                // Tu ApiService ya devuelve Response<List<SongItem>>
                 val response = repository.getTopGrammy("en")
+                
                 if (response.isSuccessful && response.body() != null) {
                     val songs = response.body()!!
-                    adapter.updateData(songs)
+                    
+                    // ✅ CORREGIDO: Pasamos la lista directa. 
+                    // No hace falta hacer .map { SongItem(...) } porque YA SON SongItem.
+                    adapter.updateData(songs) 
                 } else {
                     Toast.makeText(this@SongSelectionActivity, "Error cargando Top", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
+                e.printStackTrace() // Imprime el error real en consola
                 Toast.makeText(this@SongSelectionActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
             } finally {
                 showLoading(false)
@@ -227,10 +223,19 @@ class SongSelectionActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                // Tu repositorio ya devuelve una lista de SongItem (List<SongItem>)
                 val response = repository.searchSongs(query)
+                
                 if (response.isSuccessful && response.body() != null) {
                     val results = response.body()!!
+
+                    // ❌ ANTES HACÍAS ESTO (Y DABA ERROR):
+                    // val items = results.map { SongItem(it.id, it.coverUrl, ...) } 
+                    // adapter.updateData(items)
+
+                    // ✅ AHORA HAZ SOLO ESTO (Directo):
                     adapter.updateData(results)
+                    
                 } else {
                     Toast.makeText(this@SongSelectionActivity, "No se encontraron resultados", Toast.LENGTH_SHORT).show()
                 }
@@ -245,5 +250,20 @@ class SongSelectionActivity : AppCompatActivity() {
     private fun showLoading(isLoading: Boolean) {
         progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         recyclerView.visibility = if (isLoading) View.GONE else View.VISIBLE
+    }
+
+    // 🔥 Propagar RESULT_OK si vuelve de SongLearningActivity con palabras añadidas
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            200 -> { // Volvió de SongLearningActivity
+                if (resultCode == RESULT_OK) {
+                    setResult(RESULT_OK) // Propagar para que ProfileActivity se recargue si está abierta
+                }
+            }
+            300 -> { // Volvió de ProfileActivity (no hacemos nada, pero está preparado para futuro)
+                // Aquí podrías recargar algo si fuera necesario
+            }
+        }
     }
 }

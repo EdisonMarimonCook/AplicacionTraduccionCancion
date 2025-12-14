@@ -1,97 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    package="com.example.diccionario_hiphop">
 
-    <!-- Permisos de Red -->
+    <!-- PERMISOS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:allowBackup="true"
-        android:usesCleartextTraffic="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.DiccionarioHipHop"
-        tools:targetApi="31">
-
-        <!-- 0. SPLASH SCREEN -->
+        android:usesCleartextTraffic="true">
+        
+        <!-- ACTIVIDADES -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- 1. LOGIN -->
-        <activity
-            android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".RegisterActivity" android:exported="false" />
+        <activity android:name=".VerifyAccountActivity" android:exported="false" />
+        <activity android:name=".ForgotPasswordActivity" android:exported="false" />
+        <activity android:name=".ResetPasswordActivity" android:exported="false" />
+        <activity android:name=".SongSelectionActivity" android:exported="false" />
+        <activity android:name=".SongLearningActivity" android:exported="false" />
+        <activity android:name=".DictionaryActivity" android:exported="false" />
+        <activity android:name=".FlashcardsActivity" android:exported="false" />
+        <activity android:name=".ProfileActivity" 
+            android:exported="false" 
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+        <activity android:name=".EditProfileActivity" android:exported="false" />
+        <activity android:name=".SettingsActivity" android:exported="false" />
 
-        <!-- 2. REGISTRO (Aquí es donde se borraban los datos al girar) -->
+        <!-- Actividad para recortar imágenes (uCrop) -->
         <activity
-            android:name=".RegisterActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 2.1 VERIFICACIÓN DE EMAIL -->
-        <activity
-            android:name=".VerifyAccountActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 2.2 RECUPERACIÓN DE CONTRASEÑA -->
-        <activity
-            android:name=".ForgotPasswordActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".ResetPasswordActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 3. SELECCIÓN DE CANCIONES -->
-        <activity
-            android:name=".SongSelectionActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 4. APRENDIZAJE (Música e IA) -->
-        <activity
-            android:name=".SongLearningActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 5. HERRAMIENTAS -->
-        <activity
-            android:name=".DictionaryActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".FlashcardsActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <!-- 6. PERFIL Y EDICIÓN -->
-        <activity
-            android:name=".ProfileActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
-        <activity
-            android:name=".EditProfileActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
-
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+        
     </application>
 
 </manifest>

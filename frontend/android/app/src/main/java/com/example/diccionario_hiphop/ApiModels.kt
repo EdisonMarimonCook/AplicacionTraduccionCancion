@@ -4,7 +4,7 @@ import com.google.gson.annotations.SerializedName
 import java.io.Serializable
 
 // ===========================================================
-// 1️⃣ AUTENTICACIÓN (Sincronizado con Backend v4.0)
+// 1️⃣ AUTENTICACIÓN
 // ===========================================================
 data class LoginRequest(val email: String, val password: String)
 
@@ -32,46 +32,61 @@ data class LearningLanguageRequest(
     @SerializedName("started_at") val startedAt: String? = null
 )
 
-data class RegisterResponse(
-    val id: String,
-    val email: String,
-    val username: String
-)
-
+data class RegisterResponse(val id: String, val email: String, val username: String)
 data class VerifyTokenResponse(val valid: Boolean)
 
 // ===========================================================
-// 2️⃣ PERFIL DE USUARIO
+// 2️⃣ USUARIO (Unificado: Perfil + Datos)
 // ===========================================================
 
-// Ver datos del perfil
-data class UserProfile(
+// 🔥 ESTA ES LA CLASE IMPORTANTE. ÚSALA EN RETROFIT Y PROFILEACTIVITY
+data class User(
     val id: String,
     val email: String,
     val username: String,
-    @SerializedName("full_name") val fullName: String?,
-    @SerializedName("native_language") val nativeLanguage: String?,
-    @SerializedName("avatar_url") val avatarUrl: String? = null  // 🆕 Nueva línea
+    
+    @SerializedName("native_language") 
+    val nativeLanguage: String,
+    
+    @SerializedName("avatar_url") 
+    val avatarUrl: String?,
+    
+    val streak: Int,
+    
+    @SerializedName("reviews_count") 
+    val reviewsCount: Int,
+    
+    @SerializedName("words_count")  // 🔥 AÑADIR ESTE CAMPO
+    val wordsCount: Int = 0,
+    
+    @SerializedName("learning_languages") 
+    val learningLanguages: List<LearningLanguage>?
 )
 
-// Para cambiar Nombre / Datos básicos
+data class LearningLanguage(
+    val language: String,
+    val level: String,
+    @SerializedName("started_at") val startedAt: String? = null,
+    @SerializedName("last_tested") val lastTested: String? = null,
+    @SerializedName("wordsLearned") val wordsLearned: Int = 0  // 🔥 AÑADIR ESTE CAMPO
+)
+
+// Solicitudes de cambio de perfil
 data class UpdateProfileRequest(
     val username: String? = null,
     @SerializedName("full_name") val fullName: String? = null,
     @SerializedName("native_language") val nativeLanguage: String? = null
 )
 
-// Para cambiar Contraseña
 data class ChangePasswordRequest(
     @SerializedName("current_password") val currentPassword: String,
     @SerializedName("new_password") val newPassword: String,
     @SerializedName("confirm_password") val confirmPassword: String
 )
 
-// Para cambiar Email
 data class ChangeEmailRequest(
     @SerializedName("new_email") val newEmail: String,
-    val password: String // Contraseña actual para confirmar
+    val password: String
 )
 
 // ===========================================================
@@ -89,7 +104,6 @@ data class SongItem(
 // ===========================================================
 // 4️⃣ LETRAS Y ANÁLISIS IA
 // ===========================================================
-
 data class LyricsResponse(
     val title: String,
     val artist: String,
@@ -106,27 +120,27 @@ data class AnalyzeLyricsRequest(
 
 data class HighlightWordsResponse(
     @SerializedName("detected_language") val detectedLanguage: String,
-    val words: List<WordHighlight>,
-    val expressions: List<ExpressionHighlight>,
+    val words: List<WordDefinition>,
+    val expressions: List<ExpressionDefinition>,
     val suggestions: List<String>
 )
 
-data class WordHighlight(
+data class WordDefinition(
     val word: String,
     val type: String,
-    val translation: String,
-    val explanation: String,
+    @SerializedName("translation") val definition: String,
+    val explanation: String?,
     val example: String,
     val difficulty: String,
     val color: String,
     val recommended: Boolean
 )
 
-data class ExpressionHighlight(
+data class ExpressionDefinition(
     val expression: String,
     val type: String,
-    val translation: String,
-    val explanation: String,
+    @SerializedName("translation") val meaning: String,
+    @SerializedName("explanation") val translation: String?,
     val example: String,
     val difficulty: String,
     val color: String,
@@ -140,15 +154,10 @@ data class UserWord(
     val id: String,
     val word: String,
     val translation: String?,
-
-    @SerializedName("notes")
-    val context: String?,
-
+    @SerializedName("notes") val context: String?,
     val type: String = "word",
     val example: String? = null,
-
-    @SerializedName("is_recommended")
-    val isRecommended: Boolean = false
+    @SerializedName("is_recommended") val isRecommended: Boolean = false
 ) : Serializable
 
 data class AddWordRequest(
@@ -171,24 +180,13 @@ data class ProgressResponse(
     @SerializedName("learning_languages") val learningLanguages: List<LearningLanguage> = emptyList()
 )
 
-data class LearningLanguage(
-    val language: String,
-    val level: String,
-    @SerializedName("words_count") val wordsCount: Int = 0
-)
-
-data class RefreshTokenRequest(
-    @SerializedName("refresh_token") val refreshToken: String
-)
-
+data class RefreshTokenRequest(@SerializedName("refresh_token") val refreshToken: String)
 data class HealthResponse(val status: String)
 
 // ===========================================================
-// 7️⃣ TARJETAS DE REPASO (NEW)
+// 7️⃣ FLASHCARDS
 // ===========================================================
-data class FlashcardReviewRequest(
-    val quality: Int // 0-5
-)
+data class FlashcardReviewRequest(val quality: Int)
 
 data class FlashcardData(
     val id: String,
@@ -211,24 +209,19 @@ data class FlashcardReviewResponse(
 )
 
 // ===========================================================
-// 8️⃣ VERIFICACIÓN Y RECUPERACIÓN DE CONTRASEÑA
+// 8️⃣ RECUPERACIÓN DE CUENTA
 // ===========================================================
-
-data class VerifyAccountRequest(
-    val email: String,
-    val code: String
-)
-
-data class ForgotPasswordRequest(
-    val email: String
-)
+data class VerifyAccountRequest(val email: String, val code: String)
+data class ForgotPasswordRequest(val email: String)
 
 data class ResetPasswordRequest(
-    val email: String,
+    val email: String, 
     val code: String,
     @SerializedName("new_password") val newPassword: String
 )
 
-data class MessageResponse(
+data class MessageResponse(val message: String)
+data class AvatarUpdateResponse(
+    @SerializedName("avatar_url") val avatarUrl: String,
     val message: String
 )

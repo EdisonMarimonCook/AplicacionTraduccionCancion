@@ -1,9 +1,7 @@
 package com.example.diccionario_hiphop
 
-import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
@@ -12,181 +10,156 @@ import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.view.View
 import android.widget.*
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
-import kotlinx.coroutines.launch
+import coil.load
+import coil.transform.RoundedCornersTransformation
 
 class SongLearningActivity : AppCompatActivity() {
 
-    // UI
+    private val viewModel: SongLearningViewModel by viewModels()
+
+    // UI Elements
     private lateinit var tvLyrics: TextView
     private lateinit var btnPlay: ImageButton
     private lateinit var progressBar: ProgressBar
-    private lateinit var ivCover: ImageView
     private lateinit var tvTitle: TextView
     private lateinit var tvArtist: TextView
     private lateinit var btnBack: ImageButton
+    private lateinit var ivCover: ImageView 
 
-    // Lógica
-    private var mediaPlayer: MediaPlayer? = null
-    private lateinit var repository: SongRepository
-    
-    private var songId: String? = null
-    private var songTitle: String? = null
-    private var songArtist: String? = null
-    private var previewUrl: String? = null
-    private var coverUrl: String? = null
-    private var spotifyUrl: String? = null
-
-    // Guardamos la letra para poder repintarla
     private var originalLyricsText: String = ""
+    private var mediaPlayer: MediaPlayer? = null
+    private var isPlaying = false
+    private var wordWasAdded = false // 🔥 Flag para saber si se añadió alguna palabra
+    
+    // Datos recibidos
+    private var songTitle: String = ""
+    private var songArtist: String = ""
+    private var coverUrl: String? = null
+    private var previewUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_learning)
 
-        repository = SongRepository(this)
-        
-        songId = intent.getStringExtra("SONG_ID")
-        songTitle = intent.getStringExtra("SONG_TITLE") ?: "Desconocido"
-        songArtist = intent.getStringExtra("SONG_ARTIST") ?: "Desconocido"
-        previewUrl = intent.getStringExtra("PREVIEW_URL")
-        coverUrl = intent.getStringExtra("COVER_URL")
-        spotifyUrl = intent.getStringExtra("SPOTIFY_URL")
+        // 1. Recoger datos del Intent (Sincronizado con SelectionActivity)
+        songTitle = intent.getStringExtra("song_title") ?: "Desconocido"
+        songArtist = intent.getStringExtra("song_artist") ?: "Desconocido"
+        coverUrl = intent.getStringExtra("song_image")      
+        previewUrl = intent.getStringExtra("song_audio")   
 
         initViews()
-        setupPlayer()
-        loadContent() // 🔥 Aquí empieza la magia corregida
+        setupUI()     // Pone textos y CARGA LA IMAGEN
+        setupPlayer() // Prepara el audio
+
+        // 2. Observar ViewModel
+        viewModel.lyricsState.observe(this) { lyrics ->
+            originalLyricsText = lyrics
+            tvLyrics.text = lyrics
+        }
+
+        viewModel.analysisState.observe(this) { analysis ->
+            if (analysis != null) applyHighlights(analysis)
+        }
+
+        viewModel.loadingState.observe(this) { isLoading ->
+            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+        
+        viewModel.errorState.observe(this) { errorMsg ->
+            Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+        }
+
+        // 3. Cargar datos si no existen (Llama a la IA)
+        val userLevel = getSharedPreferences("user_prefs", MODE_PRIVATE).getString("userLevel", "B1") ?: "B1"
+        viewModel.loadContent(songTitle, songArtist, userLevel)
     }
 
     private fun initViews() {
         tvLyrics = findViewById(R.id.tvLyrics)
         btnPlay = findViewById(R.id.btnPlayPause)
         progressBar = findViewById(R.id.progressBar)
-        ivCover = findViewById(R.id.ivAlbumCover)
         tvTitle = findViewById(R.id.tvHeaderTitle)
         tvArtist = findViewById(R.id.tvHeaderArtist)
         btnBack = findViewById(R.id.btnBack)
+        ivCover = findViewById(R.id.ivAlbumCover) 
 
+        tvLyrics.movementMethod = LinkMovementMethod.getInstance()
+        
+        btnBack.setOnClickListener { finish() }
+    }
+
+    private fun setupUI() {
         tvTitle.text = songTitle
         tvArtist.text = songArtist
-        tvLyrics.movementMethod = LinkMovementMethod.getInstance()
-
+        
+        // CARGA DE IMAGEN CON COIL
         if (!coverUrl.isNullOrEmpty()) {
-            Glide.with(this).load(coverUrl).into(ivCover)
+            ivCover.load(coverUrl) {
+                crossfade(true)
+                transformations(RoundedCornersTransformation(16f))
+                error(R.drawable.ic_launcher_background) 
+            }
         }
-
-        btnPlay.setOnClickListener { togglePlay() }
-        btnBack.setOnClickListener { finish() }
     }
 
     private fun setupPlayer() {
         if (previewUrl.isNullOrEmpty()) {
-            if (!spotifyUrl.isNullOrEmpty()) {
-                btnPlay.setImageResource(android.R.drawable.ic_menu_search)
-                btnPlay.setOnClickListener {
-                    try {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(spotifyUrl)))
-                    } catch (e: Exception) {
-                        Toast.makeText(this, "No se puede abrir Spotify", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } else {
-                btnPlay.isEnabled = false
-                btnPlay.alpha = 0.5f
-            }
+            btnPlay.isEnabled = false
+            btnPlay.alpha = 0.5f
             return
         }
 
-        try {
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+        mediaPlayer = MediaPlayer().apply {
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build()
+            )
+            try {
                 setDataSource(previewUrl)
-                isLooping = true
-                prepareAsync()
-                setOnPreparedListener { btnPlay.isEnabled = true }
-                setOnCompletionListener { if (!isLooping) btnPlay.setImageResource(android.R.drawable.ic_media_play) }
+                prepareAsync() 
+                setOnPreparedListener { 
+                    btnPlay.isEnabled = true 
+                    btnPlay.alpha = 1.0f
+                }
+                setOnCompletionListener {
+                    this@SongLearningActivity.isPlaying = false
+                    btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        }
+
+        btnPlay.setOnClickListener {
+            togglePlay()
+        }
     }
 
     private fun togglePlay() {
-        mediaPlayer?.let {
-            if (it.isPlaying) {
-                it.pause()
+        mediaPlayer?.let { player ->
+            if (player.isPlaying) {
+                player.pause()
+                isPlaying = false
                 btnPlay.setImageResource(android.R.drawable.ic_media_play)
             } else {
-                it.start()
+                player.start()
+                isPlaying = true
                 btnPlay.setImageResource(android.R.drawable.ic_media_pause)
             }
         }
     }
 
-    // 🔥 LOGICA CORREGIDA: Obtener Letra -> Mostrar -> Analizar
-    private fun loadContent() {
-        progressBar.visibility = View.VISIBLE
-        tvLyrics.text = "Buscando letra..."
-
-        lifecycleScope.launch {
-            try {
-                // PASO 1: Obtener la letra plana primero (Rápido)
-                val lyricsRes = repository.getLyrics(songTitle!!, songArtist!!)
-                
-                if (lyricsRes.isSuccessful && lyricsRes.body() != null) {
-                    originalLyricsText = lyricsRes.body()!!.lyrics
-                    
-                    // Mostramos la letra inmediatamente (en negro)
-                    tvLyrics.text = originalLyricsText
-                    
-                    // PASO 2: Enviar ESA letra a la IA para analizar (Lento)
-                    requestAIAnalysis(originalLyricsText)
-                } else {
-                    tvLyrics.text = "Letra no encontrada en Genius."
-                    progressBar.visibility = View.GONE
-                }
-            } catch (e: Exception) {
-                tvLyrics.text = "Error de conexión: ${e.message}"
-                progressBar.visibility = View.GONE
-            }
-        }
-    }
-
-    private suspend fun requestAIAnalysis(lyricsText: String) {
-        // Mostramos un mini aviso de que la IA está pensando, pero mantenemos la letra visible
-        Toast.makeText(this, "Analizando con IA...", Toast.LENGTH_SHORT).show()
-        
-        try {
-            val userLevel = getSharedPreferences("user_prefs", MODE_PRIVATE).getString("userLevel", "B1") ?: "B1"
-            
-            // 🔥 Enviamos la letra que acabamos de descargar
-            val aiResponse = repository.analyzeLyrics(songTitle!!, songArtist!!, userLevel, lyricsText)
-
-            if (aiResponse.isSuccessful && aiResponse.body() != null) {
-                // PASO 3: Pintar los colores sobre la letra existente
-                applyHighlights(aiResponse.body()!!)
-                Toast.makeText(this, "¡Análisis completado!", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "La IA no pudo analizar la letra (Error ${aiResponse.code()})", Toast.LENGTH_LONG).show()
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error conectando con IA: ${e.message}", Toast.LENGTH_SHORT).show()
-        } finally {
-            progressBar.visibility = View.GONE
-        }
-    }
-
     private fun applyHighlights(data: HighlightWordsResponse) {
-        // Usamos la letra que ya tenemos guardada
         val spannable = SpannableString(originalLyricsText)
         val lowerLyrics = originalLyricsText.lowercase()
 
-        // 1. Resaltar Palabras (Naranja)
         data.words.forEach { w -> highlightTerm(spannable, lowerLyrics, w.word, w, false) }
-        
-        // 2. Resaltar Expresiones (Azul/Cyan)
         data.expressions.forEach { e -> highlightTerm(spannable, lowerLyrics, e.expression, e, true) }
 
         tvLyrics.text = spannable
@@ -195,13 +168,15 @@ class SongLearningActivity : AppCompatActivity() {
     private fun highlightTerm(spannable: SpannableString, fullTextLower: String, term: String, itemData: Any, isExpression: Boolean) {
         val termLower = term.lowercase()
         var startIndex = fullTextLower.indexOf(termLower)
-        
         while (startIndex >= 0) {
             val endIndex = startIndex + termLower.length
-            val color = if (isExpression) ContextCompat.getColor(this, R.color.teal_200) else ContextCompat.getColor(this, R.color.purple_200)
-
+            
+            // Colores: Azulado para expresiones, Morado para palabras
+            val colorRes = if (isExpression) R.color.teal_200 else R.color.purple_200
+            val color = ContextCompat.getColor(this, colorRes)
+            
             val clickableSpan = object : ClickableSpan() {
-                override fun onClick(widget: View) { showDefinitionDialog(itemData, isExpression) }
+                override fun onClick(widget: View) { showDefinitionDialog(itemData) }
                 override fun updateDrawState(ds: TextPaint) {
                     super.updateDrawState(ds)
                     ds.isUnderlineText = true
@@ -214,38 +189,54 @@ class SongLearningActivity : AppCompatActivity() {
         }
     }
 
-    private fun showDefinitionDialog(item: Any, isExpression: Boolean) {
-        val word: String; val translation: String; val explanation: String; val example: String; val recommended: Boolean; val type: String
+    private fun showDefinitionDialog(itemData: Any) {
+        val builder = AlertDialog.Builder(this)
 
-        if (isExpression) {
-            val i = item as ExpressionHighlight
-            word = i.expression; translation = i.translation; explanation = i.explanation; example = i.example; recommended = i.recommended; type = i.type
-        } else {
-            val i = item as WordHighlight
-            word = i.word; translation = i.translation; explanation = i.explanation; example = i.example; recommended = i.recommended; type = i.type
+        var term = ""
+        var def = ""
+        var exampleOrTranslation = ""
+        var isExpr = false // ✅ Variable para saber qué es
+
+        if (itemData is WordDefinition) {
+            builder.setTitle("📖 ${itemData.word}")
+            builder.setMessage("Significado: ${itemData.definition}\n\nEjemplo: ${itemData.example}")
+            
+            term = itemData.word
+            def = itemData.definition
+            exampleOrTranslation = itemData.example
+            isExpr = false // Es palabra
+
+        } else if (itemData is ExpressionDefinition) {
+            builder.setTitle("🗣️ ${itemData.expression}")
+            builder.setMessage("Significado: ${itemData.meaning}\n\nTraducción: ${itemData.translation ?: "Sin traducción"}")
+            
+            term = itemData.expression
+            def = itemData.meaning
+            // ✅ CORREGIDO: Manejo seguro de nulos con ?:
+            exampleOrTranslation = itemData.translation ?: "" 
+            isExpr = true // Es expresión
         }
 
-        AlertDialog.Builder(this)
-            .setTitle(word.replaceFirstChar { it.uppercase() })
-            .setMessage("🇪🇸 $translation\n\n💡 $explanation\n\n📝 Ej: \"$example\"")
-            .setPositiveButton("Guardar (+)") { _, _ -> saveToDictionary(word, translation, explanation, type, example, recommended) }
-            .setNegativeButton("Cerrar", null)
-            .show()
-    }
+        builder.setPositiveButton("Cerrar") { dialog, _ -> dialog.dismiss() }
 
-    private fun saveToDictionary(word: String, translation: String, notes: String, type: String, example: String, isRecommended: Boolean) {
-        val request = AddWordRequest(word, translation, notes, type, example, isRecommended, songId)
-        lifecycleScope.launch {
-            try {
-                val response = repository.addWord(request)
-                if (response.isSuccessful) Toast.makeText(this@SongLearningActivity, "✅ Guardado", Toast.LENGTH_SHORT).show()
-                else Toast.makeText(this@SongLearningActivity, "Error guardando", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) { Toast.makeText(this@SongLearningActivity, "Error de red", Toast.LENGTH_SHORT).show() }
+        builder.setNeutralButton("Guardar en mi Vocabulario") { _, _ ->
+            // ✅ CORREGIDO: Pasamos el parámetro 'isExpression' que faltaba
+            viewModel.addToDictionary(term, def, exampleOrTranslation, isExpression = isExpr)
+            wordWasAdded = true // 🔥 Marcar que se añadió una palabra
+            Toast.makeText(this, "Guardado: $term", Toast.LENGTH_SHORT).show()
         }
-    }
 
+        builder.show()
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
+        
+        // 🔥 Si se añadió alguna palabra, devolver RESULT_OK para que se recargue el perfil
+        if (wordWasAdded) {
+            setResult(RESULT_OK)
+        }
+        
         mediaPlayer?.release()
         mediaPlayer = null
     }

@@ -109,8 +109,7 @@ async def identify_hiphop_terms(lyrics: str, native_lang: str = "es") -> dict:
     # pero highlight_by_level ya cubre expresiones)
     return {}
 
-# En backend/routers/ai_analysis.py, línea ~68-71
-raise HTTPException(
-    status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-    detail="La IA se está enfriando, disculpe las molestias y vuelva luego 🧊"
-)
+# Verificación de configuración
+if not settings.GEMINI_API_KEY:
+    logger.error("❌ GEMINI_API_KEY no está configurada en .env")
+    raise ValueError("GEMINI_API_KEY no configurada. Revisa tu archivo .env")

@@ -25,8 +25,7 @@
         android:layout_marginHorizontal="24dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="12dp"
-        app:cardBackgroundColor="@android:color/white"
-        android:theme="@style/Theme.MaterialComponents.Light"
+        app:cardBackgroundColor="@color/bg_card"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -45,7 +44,7 @@
                 android:text="Bienvenido"
                 android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="#333333"/>
+                android:textColor="@color/text_primary"/>
 
             <TextView
                 android:id="@+id/tvSubtitle"
@@ -53,7 +52,7 @@
                 android:layout_height="wrap_content"
                 android:text="Inicia sesión para fluir"
                 android:textSize="16sp"
-                android:textColor="#757575"
+                android:textColor="@color/text_secondary"
                 android:layout_marginBottom="24dp"/>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -71,6 +70,7 @@
                     android:id="@+id/etEmail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textEmailAddress" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -91,6 +91,7 @@
                     android:id="@+id/etPassword"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -106,7 +107,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Recordarme"
-                    android:textColor="#757575"/>
+                    android:textColor="@color/text_secondary"/>
 
                 <Space
                     android:layout_width="0dp"
@@ -119,7 +120,7 @@
                     android:layout_height="wrap_content"
                     android:text="¿Olvidaste tu contraseña?"
                     android:textStyle="bold"
-                    android:textColor="#6200EE"/>
+                    android:textColor="@color/purple_500"/>
             </LinearLayout>
 
             <Button
@@ -131,7 +132,7 @@
                 android:textSize="16sp"
                 android:layout_marginTop="24dp"
                 app:cornerRadius="30dp"
-                android:backgroundTint="#6200EE"/>
+                android:backgroundTint="@color/purple_500"/>
 
             <ProgressBar
                 android:id="@+id/progressBar"

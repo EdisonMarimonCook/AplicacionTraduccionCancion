@@ -123,7 +123,7 @@ async def get_due_flashcards(current_user: User = Depends(get_current_user)):
         logger.error(f"❌ Error obteniendo flashcards: {e}")
         raise HTTPException(status_code=500, detail="Error loading flashcards")
 
-@router.post("/review/{word_id}", response_model=FlashcardReviewResponse)
+@router.post("/review/{word_id}")
 async def review_flashcard(
     word_id: str,
     review: FlashcardReviewRequest,
@@ -181,6 +181,9 @@ async def review_flashcard(
         
         # 🆕 ACTUALIZAR RACHA DEL USUARIO (mismo comportamiento que guardar palabra)
         await db.update_user_activity(current_user.id)
+        
+        # 🔥 AÑADIR ESTA LÍNEA AL FINAL (antes del return)
+        await db.update_user_streak(str(current_user.id))
         
         # Mensaje de feedback
         if review.quality >= 4:

@@ -3,6 +3,10 @@ package com.example.diccionario_hiphop
 import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.*
+import okhttp3.MultipartBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import retrofit2.http.POST
 
 interface ApiService {
 
@@ -23,28 +27,27 @@ interface ApiService {
     // 2️⃣ GESTIÓN DE USUARIOS (/api/v1/users)
     // =================================================================================
 
-    // Obtener datos del perfil actual
+    // 🔥 CAMBIO 1: Usar 'User' en lugar de 'UserProfile' para que funcionen los contadores
     @GET("/api/v1/users/profile")
-    suspend fun getProfile(): Response<UserProfile>
+    suspend fun getProfile(): Response<User>
 
-    // Actualizar datos básicos (Nombre, Idioma...)
-    // Usa el modelo UpdateProfileRequest definido en Models.kt
+    // 🔥 CAMBIO 2: Usar 'User' aquí también
     @PUT("/api/v1/users/profile")
-    suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<UserProfile>
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<User>
 
-    // Cambiar Contraseña
-    // Usa el modelo ChangePasswordRequest
     @POST("/api/v1/users/change-password")
     suspend fun changePassword(@Body request: ChangePasswordRequest): Response<Void>
 
-    // Cambiar Email
-    // Usa el modelo ChangeEmailRequest
     @POST("/api/v1/users/change-email")
     suspend fun changeEmail(@Body request: ChangeEmailRequest): Response<Void>
 
-    // Obtener Progreso (Estadísticas)
     @GET("/api/v1/user/progress")
     suspend fun getUserProgress(): Response<ProgressResponse>
+    
+    // 🔥 CAMBIO 3: Usar 'AvatarUpdateResponse' porque el backend NO devuelve un User completo aquí
+    @Multipart
+    @POST("/api/v1/users/upload-avatar")
+    suspend fun uploadAvatar(@Part file: MultipartBody.Part): Response<AvatarUpdateResponse>
 
     // =================================================================================
     // 3️⃣ CANCIONES Y BÚSQUEDA

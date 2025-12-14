@@ -43,3 +43,10 @@ else:
 
 # Exportar
 __all__ = ['db', 'USE_MOCK']
+
+async def get_db():
+    """
+    Función puente para que users.py pueda usar Depends(get_db).
+    Simplemente devuelve la base de datos que ya hemos configurado arriba.
+    """
+    return db

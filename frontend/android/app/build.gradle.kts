@@ -43,7 +43,10 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation("io.coil-kt:coil:2.5.0")  
+    implementation("io.coil-kt:coil:2.5.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
+    implementation("com.github.yalantis:ucrop:2.2.8")
+    implementation(libs.ucrop) // 👈 AÑADIR ESTO
 
     // DEPENDENCIAS PARA BACKEND
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

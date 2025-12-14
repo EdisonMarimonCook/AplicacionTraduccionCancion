@@ -17,6 +17,7 @@ class LearningLanguage(BaseModel):
     level: str = "A1"
     started_at: Optional[datetime] = None
     last_tested: Optional[datetime] = None
+    words_learned: int = 0  # 🔥 AÑADIR ESTE CAMPO
 
 class Token(BaseModel):
     access_token: str
@@ -87,10 +88,14 @@ class UserProfileResponse(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     native_language: str
+    avatar_url: Optional[str] = None
     learning_languages: List[LearningLanguage] = []
     created_at: datetime
-    updated_at: Optional[datetime] = None  # 🔥 FIX: Agregado
-    is_active: bool = True  # 🔥 FIX: Agregado
+    is_active: bool = True
+    
+    streak: int = 0
+    reviews_count: int = 0
+    words_count: int = 0
 
 # ===============================================================================
 # 4️⃣ DICCIONARIO (Base de Datos)
@@ -212,3 +217,7 @@ class FlashcardReviewResponse(BaseModel):
     next_review_date: datetime
     interval_days: int
     message: str
+
+class AvatarUpdateResponse(BaseModel):
+    message: str
+    url: str
