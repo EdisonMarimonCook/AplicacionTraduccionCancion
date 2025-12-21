@@ -117,7 +117,7 @@ curl http://localhost:8000/health
 2. Genera una API key
 3. Añade a `.env`
 
-⚠️ **NUNCA** subas el archivo `.env` con credenciales a Git. Está en `.gitignore`.
+⚠️ **NUNCA** subas el archivo `.env` con credenciales a Git. Está en `.gitignore`. Lo mismo para local.properties, está en el gitignore. Hay que crear una variable de entorno del sistema de nombre ANDROID_HOME con la ruta del SDK de Android de tu dispositivo para que se cree tu local.properties automaticamente.
 
 ---
 

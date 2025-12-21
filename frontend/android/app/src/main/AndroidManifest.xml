@@ -1,52 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    package="com.example.diccionario_hiphop">
 
+    <!-- PERMISOS -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Diccionario_HipHop"
-        tools:targetApi="31">
-
-        <!-- Main Activity -->
+        android:theme="@style/Theme.DiccionarioHipHop"
+        android:usesCleartextTraffic="true">
+        
+        <!-- ACTIVIDADES -->
         <activity
-            android:name=".MainActivity"
-            android:exported="true">
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <!-- Song Selection Activity -->
-        <activity
-            android:name=".SongSelectionActivity"
-            android:exported="false"
-            android:label="@string/select_song"
-            android:parentActivityName=".MainActivity" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".RegisterActivity" android:exported="false" />
+        <activity android:name=".VerifyAccountActivity" android:exported="false" />
+        <activity android:name=".ForgotPasswordActivity" android:exported="false" />
+        <activity android:name=".ResetPasswordActivity" android:exported="false" />
+        <activity android:name=".SongSelectionActivity" android:exported="false" />
+        <activity android:name=".SongLearningActivity" android:exported="false" />
+        <activity android:name=".DictionaryActivity" android:exported="false" />
+        <activity android:name=".FlashcardsActivity" android:exported="false" />
+        <activity android:name=".ProfileActivity" 
+            android:exported="false" 
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+        <activity android:name=".EditProfileActivity" android:exported="false" />
+        <activity android:name=".SettingsActivity" android:exported="false" />
 
-        <!-- Song Learning Activity -->
+        <!-- Actividad para recortar imágenes (uCrop) -->
         <activity
-            android:name=".SongLearningActivity"
-            android:exported="false"
-            android:label="@string/song_learning"
-            android:parentActivityName=".SongSelectionActivity" />
-
-        <!-- Settings Activity -->
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:label="@string/settings"
-            android:parentActivityName=".MainActivity" />
-
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+        
     </application>
 
 </manifest>

@@ -105,3 +105,73 @@ build/
 *.json
 cache/
 
+# Android
+*.apk
+*.ap_
+*.dex
+*.class
+bin/
+gen/
+out/
+.gradle/
+build/
+local.properties
+.navigation/
+captures/
+.externalNativeBuild
+.cxx
+
+# Android Studio
+*.iml
+.idea/
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+*.hprof
+
+# Gradle
+.gradle/
+build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Android NDK
+obj/
+.externalNativeBuild/
+
+# IntelliJ
+*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+
+# Keystore files (CRÍTICO: No subir a Git)
+*.jks
+*.keystore
+
+# Google Services (contiene API keys)
+google-services.json
+
+# Android Profiler
+*.hprof
+
+# Kotlin
+*.kt.swp
+*.kt.swo
+
+# Navigation XML files (generated)
+.navigation/
+
+# Build intermediates
+/*/build/
+/app/build/
+/backend/__pycache__/
+/backend/routers/__pycache__/
+/backend/services/__pycache__/
+/backend/utils/__pycache__/
+

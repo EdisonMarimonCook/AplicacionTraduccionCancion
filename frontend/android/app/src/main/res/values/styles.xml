@@ -16,6 +16,12 @@
         <item name="android:padding">12dp</item>
     </style>
 
+    <style name="Widget.App.CircleImage" parent="">
+        <!-- radio alto para que la máscara sea perfectamente circular -->
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
     <!-- Text Styles -->
     <style name="TitleText">
         <item name="android:textSize">24sp</item>

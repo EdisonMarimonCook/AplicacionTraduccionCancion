@@ -16,6 +16,7 @@ top10_cache = {
 }
 """
 
+
 from typing import List, Dict, Optional
 
 # ===============================================================================
@@ -172,3 +173,47 @@ def get_cache_status() -> Dict:
         "languages": list(top10_cache.keys()),
         "songs_per_language": songs_per_language
     }
+
+# ===============================================================================
+# NUEVAS FUNCIONES
+# ===============================================================================
+
+def enrich_songs_batch(songs: List[Dict]) -> List[Dict]:
+    """
+    🎵 ENRIQUECE CANCIONES CON DATOS ADICIONALES
+    
+    PROPÓSITO:
+    Tomar lista de canciones de Spotify y enriquecerlas
+    con campos adicionales (aunque en este caso, Spotify ya
+    nos da todo lo que necesitamos)
+    
+    PARÁMETROS:
+    - songs: Lista de diccionarios de canciones
+    
+    RETORNA:
+    - Lista enriquecida (en este caso, sin cambios)
+    
+    LÓGICA:
+    1. Verifica que cada canción tenga campos requeridos
+    2. Agrega campos faltantes con valores por defecto
+    3. Retorna lista completa
+    """
+    
+    enriched = []
+    
+    for song in songs:
+        enriched_song = {
+            "id": song.get("id", "unknown"),
+            "name": song.get("name", "Unknown"),
+            "artist": song.get("artist", "Unknown"),
+            "preview_url": song.get("preview_url"),
+            "image_url": song.get("image_url"),
+            "popularity": song.get("popularity", 0),
+            "spotify_url": song.get("spotify_url", ""),
+            "duration_ms": song.get("duration_ms", 0),
+            "has_preview": song.get("has_preview", False),
+            "language": song.get("language", "en")
+        }
+        enriched.append(enriched_song)
+    
+    return enriched
