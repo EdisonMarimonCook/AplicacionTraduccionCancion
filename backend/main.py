@@ -141,7 +141,7 @@ async def shutdown_event():
 def read_root():
     return {
         "app": "MusicTransIAtor API", 
-        "version": "4.0", 
+        "version": "5.0", 
         "status": "online",
         "database": "MongoDB Atlas" if not USE_MOCK else "Mock DB (Memory)"
     }
@@ -149,6 +149,18 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok", "db_connected": True} # Simplificado
+
+# 🏥 Health Check para Render.com (con prefijo API v1)
+@app.get("/api/v1/health")
+def health_check_v1():
+    return {
+        "status": "healthy",
+        "service": "MusicTransIAtor API",
+        "version": "5.0",
+        "database": "MongoDB Atlas" if not USE_MOCK else "Mock DB",
+        "genius_configured": is_genius_configured(),
+        "gemini_configured": bool(settings.GEMINI_API_KEY)
+    }
 
 @app.get("/api/v1/languages", tags=["Info"])
 def get_supported_languages():
