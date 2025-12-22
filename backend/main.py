@@ -6,35 +6,18 @@ CONTIENE: Configuración, eventos, endpoints básicos y Registro de Routers
 
 import logging
 import asyncio
-import os # <--- 1. NECESARIO PARA CREAR LA CARPETA
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles # <--- 1. IMPORTAR ESTO
 
 # ===============================================================================
-# INICIALIZAR APP (Unificado aquí arriba)
+# INICIALIZAR APP
 # ===============================================================================
 app = FastAPI(
     title="MusicTransIAtor API",
-    description="Backend con Gemini 2.0 Flash + Spotify + Genius + MongoDB Atlas",
-    version="4.0.0"
+    description="Backend con Gemini 2.0 Flash + Spotify + Genius + MongoDB Atlas + Cloudinary",
+    version="5.0.0"
 )
-
-# ===============================================================================
-# CONFIGURACIÓN DE STATIC FILES (AVATARES)
-# ===============================================================================
-# 🔥 USAR RUTA ABSOLUTA PARA EVITAR ERRORES DE 404
-base_dir = os.path.dirname(os.path.abspath(__file__))
-static_dir = os.path.join(base_dir, "static")
-avatars_dir = os.path.join(static_dir, "avatars")
-
-if not os.path.exists(avatars_dir):
-    os.makedirs(avatars_dir)
-    print(f"📁 Carpeta creada: {avatars_dir}")
-
-# Montar usando la ruta absoluta
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # ===============================================================================
 # IMPORTS INTERNOS

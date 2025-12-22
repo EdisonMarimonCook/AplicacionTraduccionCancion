@@ -5,22 +5,20 @@ USA: auth.py (JWT), crud.py (BD)
 """
 
 import logging
-import os
-import shutil
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Depends, status, File, UploadFile, Request
 from email_validator import validate_email, EmailNotValidError 
 
 from models import User
-from database import db 
+from database import db  # 🔥 Aquí está la instancia de MongoDatabase
 from routers.schemas import (
     UserProfileUpdate,
-    UserProfileResponse,  # 🔥 CAMBIAR: UserProfile → UserProfileResponse
+    UserProfileResponse,
     PasswordChangeRequest,
     EmailChangeRequest,
     LoginRequest,
     AvatarUpdateResponse,
-    LearningLanguage  # 🔥 AÑADIR: Este es el nombre correcto (no SchemaLearningLanguage)
+    LearningLanguage
 )
 from routers.auth import get_current_user
 from auth import verify_password, hash_password
@@ -32,6 +30,7 @@ from crud import (
     change_user_password,
     change_user_email
 )
+from services.cloudinary_service import upload_avatar, delete_avatar
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
@@ -80,71 +79,77 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
         logger.error(f"❌ Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/upload-avatar", response_model=AvatarUpdateResponse)
-async def upload_avatar(
+@router.post("/upload-avatar")
+async def upload_user_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
     try:
-        logger.info(f"📸 Iniciando upload de avatar para user_id={current_user.id}")
-        logger.info(f"📸 Archivo recibido: {file.filename}, tipo: {file.content_type}")
+        # Validar tipo de archivo
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400, 
+                detail="El archivo debe ser una imagen (JPG, PNG, WebP)"
+            )
         
-        # 🔥 OBTENER AVATAR ANTERIOR PARA BORRARLO
-        user_data = await db.db["users"].find_one({"_id": ObjectId(str(current_user.id))})
-        old_avatar_url = user_data.get("avatar_url") if user_data else None
+        # Leer bytes del archivo
+        file_bytes = await file.read()
         
-        # Ruta absoluta a la carpeta static/avatars
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))  # backend/routers
-        backend_dir = os.path.dirname(current_file_dir)  # backend
-        static_dir = os.path.join(backend_dir, "static", "avatars")
+        # Validar tamaño (máximo 5MB)
+        max_size = 5 * 1024 * 1024
+        if len(file_bytes) > max_size:
+            raise HTTPException(
+                status_code=400, 
+                detail="La imagen no puede superar 5MB"
+            )
         
-        # Asegurar que exista
-        os.makedirs(static_dir, exist_ok=True)
+        user_id = str(current_user.id)
         
-        # 🔥 BORRAR AVATAR ANTERIOR SI EXISTE
-        if old_avatar_url and old_avatar_url.startswith("/static/avatars/"):
-            old_filename = old_avatar_url.split("/")[-1]
-            old_file_path = os.path.join(static_dir, old_filename)
-            if os.path.exists(old_file_path):
-                os.remove(old_file_path)
-                logger.info(f"🗑️ Avatar anterior eliminado: {old_filename}")
+        # Subir a Cloudinary
+        avatar_url = upload_avatar(file_bytes, user_id)
         
-        # Nombre único con timestamp
-        import time
-        timestamp = int(time.time())
-        file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
-        filename = f"avatar_{current_user.id}_{timestamp}.{file_extension}"
-        file_path = os.path.join(static_dir, filename)
+        # 🔥 USAR db (instancia de MongoDatabase) en lugar de importar la función
+        await db.update_user_avatar(user_id, avatar_url)
         
-        logger.info(f"📸 Guardando en: {file_path}")
+        logger.info(f"✅ Avatar actualizado para usuario {current_user.email}")
         
-        # Guardar archivo
-        await file.seek(0)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        return {
+            "message": "Avatar actualizado correctamente",
+            "avatar_url": avatar_url
+        }
         
-        # Verificar tamaño
-        file_size = os.path.getsize(file_path)
-        logger.info(f"✅ Archivo guardado correctamente ({file_size} bytes)")
-        logger.info(f"📁 Carpeta static: {static_dir}")
-        
-        # Actualizar en base de datos
-        avatar_url = f"/static/avatars/{filename}"
-        result = await db.db["users"].update_one(
-            {"_id": ObjectId(str(current_user.id))},
-            {"$set": {"avatar_url": avatar_url}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error al subir avatar: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error al subir imagen: {str(e)}"
         )
+
+@router.delete("/delete-avatar")
+async def delete_user_avatar(current_user: User = Depends(get_current_user)):
+    try:
+        user_id = str(current_user.id)
         
-        logger.info(f"📸 BD actualizada: matched={result.matched_count}, modified={result.modified_count}")
-        logger.info(f"🔗 URL guardada en BD: {avatar_url}")
+        # Eliminar de Cloudinary
+        delete_avatar(user_id)
         
-        return AvatarUpdateResponse(
-            url=avatar_url,
-            message="Avatar actualizado"
-        )
+        # Poner avatar por defecto
+        default_avatar = "https://res.cloudinary.com/demo/image/upload/v1/avatar.png"
+        
+        # 🔥 USAR db en lugar de importar la función
+        await db.update_user_avatar(user_id, default_avatar)
+        
+        logger.info(f"🗑️ Avatar eliminado para usuario {current_user.email}")
+        
+        return {
+            "message": "Avatar eliminado correctamente",
+            "avatar_url": default_avatar
+        }
         
     except Exception as e:
-        logger.error(f"❌ Error subiendo avatar: {e}", exc_info=True)
+        logger.error(f"❌ Error al eliminar avatar: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/profile", response_model=UserProfileResponse)

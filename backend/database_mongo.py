@@ -322,5 +322,33 @@ class MongoDatabase:
             logger.error(f"❌ Error actualizando racha: {e}", exc_info=True)
             return 0
 
+    async def update_user_avatar(self, user_id: str, avatar_url: str) -> bool:
+        """
+        Actualiza la URL del avatar del usuario en MongoDB.
+        
+        Args:
+            user_id: ID del usuario
+            avatar_url: Nueva URL del avatar en Cloudinary
+        
+        Returns:
+            bool: True si se actualizó correctamente
+        """
+        try:
+            result = await self.db["users"].update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"avatar_url": avatar_url}}
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"✅ Avatar actualizado en BD para usuario {user_id}")
+                return True
+            else:
+                logger.warning(f"⚠️ No se modificó el avatar (puede que ya fuera el mismo)")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Error actualizando avatar en BD: {e}")
+            raise
+
 # Instancia global
 mongo_db = MongoDatabase()

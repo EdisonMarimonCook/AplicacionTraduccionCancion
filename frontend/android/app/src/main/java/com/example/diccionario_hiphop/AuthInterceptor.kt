@@ -76,8 +76,9 @@ class AuthInterceptor(
                 val newRefreshToken = response.body()?.refreshToken ?: ""
                 val finalRefreshToken = if (newRefreshToken.isNotEmpty()) newRefreshToken else refreshToken
 
-                // Guardar los nuevos tokens
-                tokenManager.saveTokens(newAccessToken, finalRefreshToken)
+                // 🔥 IMPORTANTE: Guardar SOLO el access token (preserva el tipo de sesión)
+                // Si era temporal, sigue siendo temporal. Si era persistente, sigue persistente.
+                tokenManager.saveAccessToken(newAccessToken)
                 return newAccessToken
             }
         } catch (e: Exception) {

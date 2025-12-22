@@ -4,11 +4,17 @@ Contiene funciones reutilizables para JWT y contraseñas
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # 🔥 Solo añadir timezone
 from typing import Optional, Dict
 import bcrypt
 from jose import JWTError, jwt
-from config import settings
+from passlib.context import CryptContext
+from config import settings  # 🔥 Sin helpers
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+SECRET_KEY = settings.SECRET_KEY  # 🔥 Usar directamente (ya funciona)
+ALGORITHM = settings.JWT_ALGORITHM
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +57,8 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
+        SECRET_KEY,
+        algorithm=ALGORITHM
     )
     return encoded_jwt
 
@@ -70,8 +76,8 @@ def create_refresh_token(data: Dict, expires_delta: Optional[timedelta] = None) 
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
+        SECRET_KEY,
+        algorithm=ALGORITHM
     )
     logger.info(f"✅ Refresh token creado para: {data.get('sub')}")
     return encoded_jwt
@@ -83,8 +89,8 @@ def verify_refresh_token(token: str) -> Optional[Dict]:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
         )
         
         if payload.get("type") != "refresh":
@@ -109,8 +115,8 @@ def verify_token(token: str) -> Optional[Dict]:
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
         )
         
         email: str = payload.get("sub")

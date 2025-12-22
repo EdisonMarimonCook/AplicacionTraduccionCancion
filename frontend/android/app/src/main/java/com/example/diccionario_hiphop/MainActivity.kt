@@ -135,21 +135,21 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful && response.body() != null) {
                     val loginData = response.body()!!
 
-                    // Guardar tokens de forma persistente solo si "Remember Me" está activo
-                    if (rememberMe) {
-                        tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
+                    // 🔥 GUARDAR DATOS DE USUARIO (siempre necesario para funcionamiento de la app)
+                    val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
+                    prefs.edit().apply {
+                        putString("username", loginData.username)
+                        putString("USER_LEVEL", "B1")
+                        apply()
+                    }
 
-                        // Guardar datos de usuario
-                        val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
-                        prefs.edit().apply {
-                            putString("username", loginData.username)
-                            putString("USER_LEVEL", "B1")
-                            apply()
-                        }
-                    } else {
-                        // Si NO marca "Recuérdame", guardamos tokens solo para esta sesión
-                        // Los tokens se guardan temporalmente pero se limpiarán al cerrar la app
+                    // 🔥 LÓGICA "RECUÉRDAME" - Solo afecta a los TOKENS
+                    if (rememberMe) {
+                        // ✅ Guardar tokens de forma PERSISTENTE
                         tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
+                    } else {
+                        // 🔥 Guardar tokens TEMPORALES (se pierden al cerrar la app)
+                        tokenManager.saveTemporaryTokens(loginData.accessToken, loginData.refreshToken)
                     }
 
                     navigateToSongSelection()

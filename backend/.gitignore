@@ -175,3 +175,6 @@ google-services.json
 /backend/services/__pycache__/
 /backend/utils/__pycache__/
 
+# ☁️ CLOUDINARY: No usar carpeta static local (avatares en la nube)
+backend/static/
+

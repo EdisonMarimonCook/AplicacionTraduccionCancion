@@ -6,56 +6,116 @@ import android.content.SharedPreferences
 
 class TokenManager(private val context: Context) {
 
-    // Usamos SharedPreferences para guardar datos simples de forma segura
+    // SharedPreferences PERSISTENTE (sobrevive al cierre de la app)
     private var prefs: SharedPreferences = context.getSharedPreferences("prefs_diccionario_hiphop", Context.MODE_PRIVATE)
+    
+    // 🔥 COMPANION OBJECT: Variables estáticas compartidas entre TODAS las instancias
+    companion object {
+        // Tokens temporales en memoria (compartidos globalmente)
+        @Volatile private var tempAccessToken: String? = null
+        @Volatile private var tempRefreshToken: String? = null
+        @Volatile private var isUsingTempSession: Boolean = false
+    }
 
     /**
-     * Guarda AMBOS tokens al hacer Login o Registro exitoso.
+     * Guarda tokens de forma PERSISTENTE (con "Recuérdame" activo).
      */
     fun saveTokens(accessToken: String, refreshToken: String) {
         val editor = prefs.edit()
         editor.putString("USER_TOKEN", accessToken)
-        // Si el backend devuelve un refresh token, lo guardamos.
-        // Si viene vacío (algunas APIs no lo devuelven siempre), mantenemos el anterior o guardamos vacío según lógica.
         if (refreshToken.isNotEmpty()) {
             editor.putString("REFRESH_TOKEN", refreshToken)
         }
         editor.apply()
+        
+        // Limpiar sesión temporal si existía
+        tempAccessToken = null
+        tempRefreshToken = null
+        isUsingTempSession = false
+    }
+    
+    /**
+     * 🆕 Guarda tokens de forma TEMPORAL (sin "Recuérdame").
+     * Los tokens se pierden al cerrar la app.
+     */
+    fun saveTemporaryTokens(accessToken: String, refreshToken: String) {
+        tempAccessToken = accessToken
+        tempRefreshToken = refreshToken
+        isUsingTempSession = true
+        
+        // Asegurarse de que NO haya tokens persistentes
+        clearPersistedTokens()
     }
 
     /**
-     * Guarda solo el Access Token (útil tras un refresco exitoso donde el refresh token no cambia).
+     * Guarda solo el Access Token (útil tras un refresco).
      */
     fun saveAccessToken(token: String) {
-        prefs.edit().putString("USER_TOKEN", token).apply()
+        if (isUsingTempSession) {
+            tempAccessToken = token
+        } else {
+            prefs.edit().putString("USER_TOKEN", token).apply()
+        }
     }
 
     /**
-     * Recupera el token de acceso actual.
+     * Recupera el token de acceso (persistente o temporal).
      */
     fun getToken(): String? {
-        return prefs.getString("USER_TOKEN", null)
+        return if (isUsingTempSession) {
+            tempAccessToken
+        } else {
+            prefs.getString("USER_TOKEN", null)
+        }
     }
 
     /**
-     * Recupera el token de refresco para solicitar una nueva sesión.
+     * Recupera el token de refresco (persistente o temporal).
      */
     fun getRefreshToken(): String? {
-        return prefs.getString("REFRESH_TOKEN", null)
+        return if (isUsingTempSession) {
+            tempRefreshToken
+        } else {
+            prefs.getString("REFRESH_TOKEN", null)
+        }
+    }
+    
+    /**
+     * Verifica si hay una sesión activa (persistente o temporal).
+     */
+    fun hasActiveSession(): Boolean {
+        return getToken() != null
     }
 
     /**
-     * Borra los tokens de sesión (pero no datos de usuario como nivel).
+     * Borra SOLO los tokens persistentes de SharedPreferences.
      */
-    fun clearSession() {
+    private fun clearPersistedTokens() {
         val editor = prefs.edit()
         editor.remove("USER_TOKEN")
         editor.remove("REFRESH_TOKEN")
         editor.apply()
     }
+    
+    /**
+     * Borra SOLO los tokens temporales de memoria.
+     */
+    private fun clearTemporaryTokens() {
+        tempAccessToken = null
+        tempRefreshToken = null
+        isUsingTempSession = false
+    }
 
     /**
-     * Alias de clearSession() para mayor claridad en el código.
+     * Borra TODA la sesión (persistente y temporal).
+     */
+    fun clearSession() {
+        clearPersistedTokens()
+        clearTemporaryTokens()
+    }
+
+    /**
+     * Alias de clearSession() para mayor claridad.
      */
     fun clearTokens() {
         clearSession()
@@ -63,18 +123,18 @@ class TokenManager(private val context: Context) {
 
     /**
      * 🔥 FORCE LOGOUT: Borra TODO y redirige al Login.
-     * Se usa cuando el token expira y el refresco falla (401 final).
      */
     fun forceLogout() {
-        // 1. Borrar tokens de seguridad
+        // 1. Borrar tokens (persistentes y temporales)
         clearSession()
 
-        // 2. Borrar datos de perfil (nombre, nivel, etc.) guardados en otro archivo
-        context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        // 2. Borrar datos de perfil SOLO si es sesión temporal
+        // (Las sesiones persistentes mantienen username hasta próximo login)
+        if (isUsingTempSession) {
+            context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        }
 
-        // 3. Redirigir a la pantalla de inicio (MainActivity / Login)
-        // FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK borran la pila de actividades
-        // para que el usuario no pueda volver atrás con el botón "Back".
+        // 3. Redirigir al login
         val intent = Intent(context, MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         context.startActivity(intent)
