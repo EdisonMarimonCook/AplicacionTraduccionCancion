@@ -61,6 +61,25 @@ async def analyze_lyrics_endpoint(
             native_lang=native_lang
         )
         
+        # 🔥 5. MARCAR PALABRAS QUE YA ESTÁN EN EL DICCIONARIO
+        from database import db
+        user_dictionary = await db.get_user_dictionary(current_user.id)
+        
+        # Crear set de palabras ya guardadas (lowercase para comparación)
+        saved_words = {w.get("word", "").lower() for w in user_dictionary}
+        
+        # Marcar palabras ya guardadas
+        for word in result.words:
+            if word.word.lower() in saved_words:
+                word.already_saved = True
+                word.color = "gray"  # Cambiar color a gris
+        
+        # Marcar expresiones ya guardadas
+        for expr in result.expressions:
+            if expr.expression.lower() in saved_words:
+                expr.already_saved = True
+                expr.color = "gray"
+        
         return result
 
     except Exception as e:

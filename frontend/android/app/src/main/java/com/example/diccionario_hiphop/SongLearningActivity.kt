@@ -171,9 +171,21 @@ class SongLearningActivity : AppCompatActivity() {
         while (startIndex >= 0) {
             val endIndex = startIndex + termLower.length
             
-            // Colores: Azulado para expresiones, Morado para palabras
-            val colorRes = if (isExpression) R.color.teal_200 else R.color.purple_200
-            val color = ContextCompat.getColor(this, colorRes)
+            // 🔥 Obtener color del campo 'color' que viene del backend
+            val colorString = when {
+                itemData is WordDefinition -> itemData.color
+                itemData is ExpressionDefinition -> itemData.color
+                else -> "purple"
+            }
+            
+            // Mapear string a color Android
+            val color = when (colorString.lowercase()) {
+                "orange" -> android.graphics.Color.parseColor("#FF9800")  // Material Orange
+                "red" -> android.graphics.Color.parseColor("#F44336")     // Material Red
+                "green" -> android.graphics.Color.parseColor("#4CAF50")   // Material Green
+                "gray" -> android.graphics.Color.parseColor("#9E9E9E")    // Material Gray (palabras guardadas)
+                else -> ContextCompat.getColor(this, R.color.purple_200)  // Fallback morado
+            }
             
             val clickableSpan = object : ClickableSpan() {
                 override fun onClick(widget: View) { showDefinitionDialog(itemData) }
@@ -202,29 +214,49 @@ class SongLearningActivity : AppCompatActivity() {
             builder.setMessage("Significado: ${itemData.definition}\n\nEjemplo: ${itemData.example}")
             
             term = itemData.word
-            def = itemData.definition
+            def = itemData.definition  // Traducción literal
+            val explanation = itemData.explanation ?: "Sin explicación"
             exampleOrTranslation = itemData.example
             isExpr = false // Es palabra
+            
+            // 🔥 SI YA ESTÁ GUARDADA, CAMBIAR BOTÓN
+            if (itemData.alreadySaved) {
+                builder.setNeutralButton("✓ Ya guardado") { _, _ ->
+                    Toast.makeText(this, "Esta palabra ya está en tu diccionario", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                builder.setNeutralButton("Guardar en mi Vocabulario") { _, _ ->
+                    viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
+                    wordWasAdded = true
+                    Toast.makeText(this, "Guardado: $term", Toast.LENGTH_SHORT).show()
+                }
+            }
 
         } else if (itemData is ExpressionDefinition) {
             builder.setTitle("🗣️ ${itemData.expression}")
             builder.setMessage("Significado: ${itemData.meaning}\n\nTraducción: ${itemData.translation ?: "Sin traducción"}")
             
             term = itemData.expression
-            def = itemData.meaning
-            // ✅ CORREGIDO: Manejo seguro de nulos con ?:
-            exampleOrTranslation = itemData.translation ?: "" 
+            def = itemData.meaning  // Significado/traducción
+            val explanation = itemData.translation ?: ""  // Contexto adicional
+            exampleOrTranslation = itemData.example
             isExpr = true // Es expresión
+            
+            // 🔥 SI YA ESTÁ GUARDADA, CAMBIAR BOTÓN
+            if (itemData.alreadySaved) {
+                builder.setNeutralButton("✓ Ya guardado") { _, _ ->
+                    Toast.makeText(this, "Esta expresión ya está en tu diccionario", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                builder.setNeutralButton("Guardar en mi Vocabulario") { _, _ ->
+                    viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
+                    wordWasAdded = true
+                    Toast.makeText(this, "Guardado: $term", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         builder.setPositiveButton("Cerrar") { dialog, _ -> dialog.dismiss() }
-
-        builder.setNeutralButton("Guardar en mi Vocabulario") { _, _ ->
-            // ✅ CORREGIDO: Pasamos el parámetro 'isExpression' que faltaba
-            viewModel.addToDictionary(term, def, exampleOrTranslation, isExpression = isExpr)
-            wordWasAdded = true // 🔥 Marcar que se añadió una palabra
-            Toast.makeText(this, "Guardado: $term", Toast.LENGTH_SHORT).show()
-        }
 
         builder.show()
     }

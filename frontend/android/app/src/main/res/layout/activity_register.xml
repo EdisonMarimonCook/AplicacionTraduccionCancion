@@ -30,17 +30,11 @@
         android:layout_marginHorizontal="24dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="12dp"
-        app:cardBackgroundColor="@android:color/white"
-        android:theme="@style/Theme.MaterialComponents.Light"
+        app:cardBackgroundColor="@color/bg_card"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
-        <!--
-           👆 'android:theme' fuerza a que los inputs internos usen colores claros
-           (texto negro) para que se vean bien sobre el fondo blanco.
-        -->
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -54,7 +48,7 @@
                 android:layout_height="wrap_content"
                 android:text="Únete al flow"
                 android:textSize="18sp"
-                android:textColor="#757575"
+                android:textColor="@color/text_secondary"
                 android:layout_marginBottom="16dp"/>
 
             <!-- Nombre Completo -->
@@ -73,6 +67,7 @@
                     android:id="@+id/etFullName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textPersonName" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -93,6 +88,7 @@
                     android:id="@+id/etUsername"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textPersonName" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -113,6 +109,7 @@
                     android:id="@+id/etEmail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textEmailAddress" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -134,6 +131,7 @@
                     android:id="@+id/etPassword"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
                     android:inputType="textPassword" />
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -143,7 +141,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Tu nivel de inglés:"
-                android:textColor="#757575"
+                android:textColor="@color/text_secondary"
                 android:textStyle="bold"
                 android:layout_marginTop="16dp"/>
 

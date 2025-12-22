@@ -5,7 +5,7 @@ PROPÓSITO: Endpoints del diccionario personal
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models import User
 from routers.auth import get_current_user
@@ -45,13 +45,26 @@ async def add_word(
         # 4. Guardar en Base de Datos (Mongo o Mock)
         entry_id = await db.create_dictionary_entry(new_entry)
         
-        # ✅ 5. ACTUALIZAR ACTIVIDAD DEL USUARIO (PARA RACHA)
-        await db.update_user_activity(current_user.id)
+        # 🔥 5. SI TIENE EJEMPLO, CREAR FLASHCARD SRS INMEDIATAMENTE
+        if entry.example:
+            srs_data = {
+                "word_id": entry_id,
+                "easiness_factor": 2.5,
+                "interval": 0,
+                "repetitions": 0,
+                "next_review_date": datetime.now(timezone.utc),  # Disponible HOY
+                "last_reviewed": None,
+                "times_reviewed": 0,
+                "times_correct": 0,
+                "times_incorrect": 0
+            }
+            await db.create_flashcard_srs_data(srs_data)
+            logger.info(f"✅ Flashcard SRS creada para word_id={entry_id}")
         
-        # 🔥 AÑADIR ESTA LÍNEA AL FINAL (antes del return)
+        # ✅ 6. ACTUALIZAR RACHA DEL USUARIO
         await db.update_user_streak(str(current_user.id))
         
-        # 6. Responder
+        # 7. Responder
         new_entry["id"] = entry_id
         return new_entry
         

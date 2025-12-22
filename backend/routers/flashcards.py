@@ -80,7 +80,7 @@ async def get_due_flashcards(current_user: User = Depends(get_current_user)):
             
             if not srs_data:
                 # Primera vez: crear datos SRS
-                srs_data = {
+                new_srs = {
                     "word_id": word_id,
                     "easiness_factor": 2.5,
                     "interval": 0,
@@ -91,7 +91,9 @@ async def get_due_flashcards(current_user: User = Depends(get_current_user)):
                     "times_correct": 0,
                     "times_incorrect": 0
                 }
-                await db.create_flashcard_srs_data(srs_data)
+                await db.create_flashcard_srs_data(new_srs)
+                # 🔥 RECARGAR desde BD para obtener el ID generado
+                srs_data = await db.get_flashcard_srs_data(word_id)
             
             # Verificar si toca revisar hoy
             next_review = srs_data.get("next_review_date", today)
@@ -105,6 +107,7 @@ async def get_due_flashcards(current_user: User = Depends(get_current_user)):
                     word=word.get("word"),
                     translation=word.get("translation"),
                     example=word.get("example"),
+                    explanation=word.get("notes"),  # 🔥 Mapear 'notes' del diccionario a 'explanation'
                     type=word.get("type", "word"),
                     easiness_factor=srs_data.get("easiness_factor", 2.5),
                     interval=srs_data.get("interval", 0),
@@ -179,10 +182,7 @@ async def review_flashcard(
         
         await db.update_flashcard_srs_data(word_id, updated_data)
         
-        # 🆕 ACTUALIZAR RACHA DEL USUARIO (mismo comportamiento que guardar palabra)
-        await db.update_user_activity(current_user.id)
-        
-        # 🔥 AÑADIR ESTA LÍNEA AL FINAL (antes del return)
+        # 🆕 ACTUALIZAR RACHA DEL USUARIO
         await db.update_user_streak(str(current_user.id))
         
         # Mensaje de feedback

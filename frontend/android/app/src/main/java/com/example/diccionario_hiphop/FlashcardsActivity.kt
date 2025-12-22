@@ -22,6 +22,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var tvWord: TextView
     private lateinit var tvContextQuestion: TextView
     private lateinit var tvTranslation: TextView
+    private lateinit var tvExplanation: TextView
     private lateinit var divider: View
     private lateinit var tvTapHint: TextView
     private lateinit var touchOverlay: View
@@ -55,6 +56,7 @@ class FlashcardsActivity : AppCompatActivity() {
         tvWord = findViewById(R.id.tvWord)
         tvContextQuestion = findViewById(R.id.tvContextQuestion)
         tvTranslation = findViewById(R.id.tvTranslation)
+        tvExplanation = findViewById(R.id.tvExplanation)
         divider = findViewById(R.id.divider)
         tvTapHint = findViewById(R.id.tvTapHint)
         touchOverlay = findViewById(R.id.touchOverlay)
@@ -258,10 +260,12 @@ class FlashcardsActivity : AppCompatActivity() {
 
         tvWord.text = card.word.replaceFirstChar { it.uppercase() }
         tvContextQuestion.text = "\"${card.example}\""
-        tvTranslation.text = card.translation
+        tvTranslation.text = "📖 ${card.translation}"
+        tvExplanation.text = card.explanation ?: "Sin explicación disponible"
 
         // Ocultar respuesta y flechas
         tvTranslation.visibility = View.INVISIBLE
+        tvExplanation.visibility = View.INVISIBLE
         divider.visibility = View.INVISIBLE
         layoutSwipeArrows.visibility = View.INVISIBLE
         touchOverlay.visibility = View.VISIBLE
@@ -274,6 +278,7 @@ class FlashcardsActivity : AppCompatActivity() {
         isAnswerRevealed = true
 
         tvTranslation.visibility = View.VISIBLE
+        tvExplanation.visibility = View.VISIBLE
         divider.visibility = View.VISIBLE
         layoutSwipeArrows.visibility = View.VISIBLE
         touchOverlay.visibility = View.GONE

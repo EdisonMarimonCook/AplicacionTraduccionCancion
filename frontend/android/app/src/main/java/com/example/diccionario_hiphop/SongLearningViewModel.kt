@@ -28,6 +28,13 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     // Variables para guardar datos y no volver a pedir
     private var currentSongTitle: String? = null
     
+    // 🔥 TODO (FASE 3 - OPTIMIZACIÓN): Implementar caché con Room DB
+    // - Guardar última canción analizada (título, artista, letras, análisis IA)
+    // - Si el usuario vuelve a entrar a la misma canción, cargar desde caché
+    // - Evitar llamadas redundantes a Genius API y Gemini
+    // - Implementar TTL (Time To Live) de 24h para refrescar automáticamente
+    private var cachedAnalysis: HighlightWordsResponse? = null
+    private var cachedSongId: String? = null
     fun loadContent(title: String, artist: String, userLevel: String) {
         // SI YA TENEMOS DATOS, NO HACEMOS NADA (Así evitamos recargas al girar/modo oscuro)
         if (_lyricsState.value != null) return
@@ -63,31 +70,29 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    fun addToDictionary(term: String, definition: String, example: String, isExpression: Boolean) {
+    fun addToDictionary(
+        term: String, 
+        translation: String, 
+        explanation: String,
+        example: String, 
+        isExpression: Boolean
+    ) {
         viewModelScope.launch {
             try {
-                // Usamos TU clase existente (AddWordRequest)
                 val request = AddWordRequest(
                     word = term,
-                    
-                    // Como tu modelo pide "translation" pero la UI nos da "definition",
-                    // se lo pasamos aquí. Es lo mismo a efectos prácticos.
-                    translation = definition, 
-                    
-                    // Podemos poner una nota automática o dejarlo null
-                    notes = "Guardado desde: $currentSongTitle", 
-                    
+                    translation = translation,  // Traducción literal
+                    notes = explanation,         // 🔥 Explicación contextualizada (para REVERSO flashcard)
                     type = if (isExpression) "expression" else "word",
-                    example = example,
+                    example = example,           // Frase de uso (para FRENTE flashcard)
                     isRecommended = false,
-                    songId = null // Si no tenemos el ID de la canción a mano, mandamos null
+                    songId = null
                 )
 
-                // Llamamos al repositorio (que ya está conectado a Retrofit)
                 val response = repository.addWord(request)
 
                 if (response.isSuccessful) {
-                    // Éxito - La API de Python se encarga del resto
+                    // Éxito
                 } else {
                     _errorState.value = "Error al guardar: ${response.code()}"
                 }

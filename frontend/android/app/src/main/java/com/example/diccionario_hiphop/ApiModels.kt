@@ -133,7 +133,8 @@ data class WordDefinition(
     val example: String,
     val difficulty: String,
     val color: String,
-    val recommended: Boolean
+    val recommended: Boolean,
+    @SerializedName("already_saved") val alreadySaved: Boolean = false
 )
 
 data class ExpressionDefinition(
@@ -144,7 +145,8 @@ data class ExpressionDefinition(
     val example: String,
     val difficulty: String,
     val color: String,
-    val recommended: Boolean
+    val recommended: Boolean,
+    @SerializedName("already_saved") val alreadySaved: Boolean = false
 )
 
 // ===========================================================
@@ -194,6 +196,7 @@ data class FlashcardData(
     val word: String,
     val translation: String,
     val example: String,
+    val explanation: String?,
     val type: String,
     @SerializedName("easiness_factor") val easinessFactor: Float,
     val interval: Int,

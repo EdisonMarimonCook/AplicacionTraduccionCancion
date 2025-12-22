@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit
 class RetrofitService {
     companion object {
         // 🔥 CAMBIO: Quitar 'private' para que se pueda usar en ProfileActivity
-        const val BASE_URL = "http://192.168.1.141:8000/" // Reemplaza X con tu IP real
+        const val BASE_URL = "http://192.168.137.1:8000/" // Reemplaza X con tu IP real
 
         @Volatile private var INSTANCE: ApiService? = null
 

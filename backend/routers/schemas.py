@@ -152,6 +152,7 @@ class WordHighlight(BaseModel):
     difficulty: str   # A1-C2
     color: str        # orange, red, green
     recommended: bool = False  # ⭐ La estrellita
+    already_saved: bool = False  # ✅ Indica si ya está en el diccionario del usuario
 
 class ExpressionHighlight(BaseModel):
     """Expresión o Slang detectado por Gemini"""
@@ -163,6 +164,7 @@ class ExpressionHighlight(BaseModel):
     difficulty: str
     color: str
     recommended: bool = False
+    already_saved: bool = False  # ✅ Indica si ya está en el diccionario del usuario
 
 class HighlightWordsResponse(BaseModel):
     """Respuesta final de la IA al móvil"""
@@ -197,6 +199,7 @@ class FlashcardData(BaseModel):
     word: str
     translation: str
     example: str
+    explanation: Optional[str] = None  # 🔥 Explicación de la IA (mapeada desde 'notes')
     type: str
     
     # Datos SRS
