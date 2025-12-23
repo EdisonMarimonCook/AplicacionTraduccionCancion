@@ -89,6 +89,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
+            android:paddingBottom="150dp"
+            android:clipToPadding="false"
             android:textSize="18sp"
             android:lineSpacingExtra="4dp"
             android:textColor="@color/text_primary"
