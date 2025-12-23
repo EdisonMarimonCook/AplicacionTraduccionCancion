@@ -16,12 +16,32 @@ logger = logging.getLogger(__name__)
 # ✅ OBTENER EL TOKEN DE SETTINGS
 GENIUS_ACCESS_TOKEN = settings.GENIUS_API_TOKEN
 
-# Crear cliente de Genius
+# 🛡️ Headers para evitar bloqueo de Cloudflare
+BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Cache-Control": "max-age=0"
+}
+
+# Crear cliente de Genius con headers de navegador
 genius = lg.Genius(
     access_token=GENIUS_ACCESS_TOKEN,
     skip_non_songs=True,
-    excluded_terms=["(Remix)", "(Cover)"]
+    excluded_terms=["(Remix)", "(Cover)"],
+    timeout=15,
+    retries=3
 )
+
+# Aplicar headers personalizados a la sesión de requests
+genius._session.headers.update(BROWSER_HEADERS)
 
 # ===============================================================================
 # 🆕 FUNCIÓN: Detectar idioma
@@ -215,11 +235,16 @@ async def search_genius_songs(query: str, limit: int = 5) -> List[dict]:
     try:
         logger.info(f"🔍 Buscando en Genius: {query}")
         
-        # ✅ USAR EL TOKEN DEFINIDO ARRIBA
+        # ✅ USAR EL TOKEN DEFINIDO ARRIBA CON HEADERS DE NAVEGADOR
+        headers = {
+            "Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
         response = requests.get(
             "https://api.genius.com/search",
             params={"q": query},
-            headers={"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"},
+            headers=headers,
             timeout=10
         )
         response.raise_for_status()
