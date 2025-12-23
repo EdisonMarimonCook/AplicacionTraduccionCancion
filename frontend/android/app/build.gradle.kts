@@ -17,7 +17,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // 🔥 BuildConfig: Variables personalizadas
-        buildConfigField("String", "PRODUCTION_URL", "\"https://musictransiator-api.onrender.com/\"")
+        buildConfigField("String", "PRODUCTION_URL", "\"https://musictransiator.onrender.com/\"")
         buildConfigField("int", "LOCALHOST_PORT", "8000")
     }
 
