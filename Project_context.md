@@ -1,199 +1,225 @@
-# 🎵 MusicTransIAtor - Contexto del Proyecto
+🎵 MusicTransIAtor - Contexto del Proyecto
 
-**Versión:** 5.0 (Producto Final en Desarrollo)  
-**Estado:** 🎯 MVP COMPLETO (v4.5) → Transición a Producto Final  
-**Hito Reciente:** MVP entregado con vídeo demo. Preparando infraestructura de producción.
+Versión: 5.0 (Producto Final en Desarrollo) Fecha de Actualización: 23 de Diciembre de 2025 Estado: 🎯 MVP COMPLETO (v4.5) → Transición a Producto Final Distribución: 🏴‍☠️ Portal Propio (APK) (No Play Store - Sideloading)
 
----
+📌 VISIÓN DEL PROYECTO
 
-## 📌 VISIÓN DEL PROYECTO
+App Android 100% gratuita para aprender idiomas con música mediante análisis semántico de letras en tiempo real. Diferencial: Audio "Unleashed" (estilo Grayjay), Lyrics sincronizadas (LRCLIB) y Análisis IA gramatical. Público objetivo: Estudiantes universitarios (proyecto académico con potencial comercial).
 
-App Android **100% gratuita** para aprender idiomas con música mediante análisis semántico de letras en tiempo real.  
-**Arquitectura:** Cliente-Servidor (Android Nativo + Python FastAPI).  
-**Público objetivo:** Estudiantes universitarios (proyecto académico con potencial comercial).
+🏗️ ARQUITECTURA DEL SISTEMA (ACTUALIZADA)
 
----
+Fragmento de código
 
-## 🏗️ ARQUITECTURA DEL SISTEMA
+graph TD
 
-```
-┌─────────────────┐      HTTP/JSON       ┌──────────────────┐
-│   Android App   │ ◄─────────────────► │   FastAPI        │
-│   (Kotlin)      │   JWT Auth (15min)   │   (Python 3.11)  │
-│   + ExoPlayer   │                      │   + Render.com   │
-└─────────────────┘                      └──────────────────┘
-       │                                          │
-       │ Glide (Imágenes)                        │
-       │ uCrop (Avatar)                          ▼
-       │ TTS (Audio)                      ┌──────────────────┐
-       │                                   │  MongoDB Atlas   │
-       │                                   │  (Cloud DB)      │
-       │                                   └──────────────────┘
-       ▼                                          │
-┌─────────────────┐                              ▼
-│  Local Cache    │                      ┌──────────────────┐
-│  (SharedPrefs)  │                      │   Gemini AI      │
-│  + Room DB      │                      │  2.5 Flash Lite  │
-└─────────────────┘                      │  (o Groq)        │
-       │                                  └──────────────────┘
-       └─ Tokens JWT                              │
-       └─ Top Grammy                              └─ Análisis semántico
-       └─ Perfil Usuario
-       └─ Canciones Recomendadas
+User[Usuario Android] <--> App
 
-┌─────────────────┐
-│   Cloudinary    │ ◄── Avatares persistentes
-└─────────────────┘
+subgraph "Cliente (Android Nativo - XML)"
 
-┌─────────────────┐
-│  NewPipe/Grayjay│ ◄── Audio streaming (YouTube/SoundCloud)
-└─────────────────┘
-```
+App[App Kotlin]
 
----
+Exo[ExoPlayer + Audio Híbrido]
 
-## 📋 Roadmap y Tareas
+Views[XML Layouts + Glide + uCrop]
 
-### 🚨 ORDEN DE TAREAS (Roadmap)
+Cache[Room DB + SharedPrefs]
 
-#### 🟢 FASE 1: INFRAESTRUCTURA (CRÍTICO)
-- **Render.com:**
-  - ✅ Configurado Web Service en Render (repo GitHub, rama feature/lyrics-translation)
-  - 🔄 Genius lyrics bloqueado por Cloudflare (solo funciona en local)
-  - ✅ Health check, variables de entorno (MONGO_URI, GEMINI_API_KEY, etc.)
-- **Cloudinary:**
-  - ✅ Integrado en backend (avatars persistentes)
-  - ✅ users.py actualizado, credenciales en .env
-- **IP Automática en RetrofitService:**
-  - ✅ Detección automática de entorno (emulador, móvil, producción)
-  - ✅ APK universal, sin configuración manual de IP
+TTS[Text-To-Speech]
 
-#### 🔥 FASE 2: UX CORE (ALTO IMPACTO)
-- **Bottom Navigation + ViewPager2:**
-  - 🔄 3 Tabs (🏠 Inicio | 🔥 Grammys | 👤 Perfil)
-  - 🔄 Swipe horizontal, buscador global, modo oscuro/horizontal
-- **Diccionario Multinivel:**
-  - 📚 **Nueva Estructura:**
-    - **Nivel 1 (Idiomas Activos):** Carpetas por idioma (solo los que estudia el usuario)
-    - **Nivel 2 (Tipo de Contenido):** Subcategorías: 📝 Palabras | 💬 Expresiones
-    - **Nivel 3 (Contenido):** Lista de tarjetas finales
-  - 🔄 Frontend: ExpandableListAdapter con banderas
-  - 🔄 Backend: Endpoint con filtros por idioma y tipo
-- **Flashcards Mejoradas:**
-  - 🔄 Animación de volteo 3D (300ms)
-  - 🔄 Audio TTS automático al mostrar palabra
-  - 🔄 Fix: Las tarjetas se crean con next_review_date = hoy
-- **Fix Contadores en Tiempo Real:**
-  - 🔄 Implementar onResume y Pull-to-refresh para rachas y contadores
-- **Audio con NewPipe (Fase 2):**
-  - 🔄 Integrar librería NewPipeExtractor para reproducir previews/audio de YouTube
-  - 🔄 Alternativas: ExoPlayer + NewPipeExtractor, fallback a iTunes/Spotify preview
+end
 
-#### 🟡 FASE 3: OPTIMIZACIÓN (MEDIO)
-- **Room DB:**
-  - 🔄 Guardar Top Grammy, Perfil y Recomendaciones en base local (offline/instantáneo)
-- **Optimización de Tiempos de Carga:**
-  - 🔄 Precarga paralela en Splash Screen, índices en MongoDB
-- **Pantallas de Carga + Animaciones:**
-  - 🔄 LoadingDialog con animación Lottie, mensajes motivacionales
-  - 🔄 Ripple effects y confetti en logros/rachas
-- **Indicador Visual isRecommended:**
-  - 🔄 Estrella dorada o badge "IA Recomienda" en palabras importantes
+subgraph "Backend (Render.com + Python FastAPI)"
 
-#### 🔵 FASE 4: OPCIONALES (SI HAY TIEMPO)
-- **Groq como Fallback:**
-  - 🔄 Si Gemini falla, usar Groq (Llama 3) antes de dar error
-- **Gamificación Local:**
-  - 🔄 Logros guardados en local ("Primera racha", "50 palabras"), gráficos de progreso
-- **Soporte Pantalla Horizontal:**
-  - 🔄 Layouts land para tablet/proyector, activar rotación en Manifest
+API[FastAPI Service]
 
----
+Lyrics[Lyrics Engine Híbrido]
 
-### ✅ Tareas Completadas
-- Cloudinary avatars persistentes
-- RetrofitService con IP automática universal
-- Health check y variables en Render
-- APK universal (emulador, móvil, producción)
-- Diccionario multinivel: estructura y diseño definidos
+AudioService[Audio Logic (yt-dlp)]
 
-### 🔄 Tareas Pendientes/Criticas
-- Render: Genius lyrics bloqueado por Cloudflare (solo funciona en local)
-- Bottom Navigation + ViewPager2
-- Diccionario multinivel: implementación backend/frontend
-- Flashcards mejoradas (animación, audio TTS)
-- Audio con NewPipeExtractor (Fase 2)
-- Room DB cache, optimización de carga, animaciones UI
+end
 
----
+subgraph "Nube & Datos"
 
-## 📚 Diccionario Multinivel (Tarea 5)
+Mongo[(MongoDB Atlas)]
 
-**Nivel 1 (Idiomas Activos):**
-- El usuario ve primero sus "carpetas" de idiomas: 🇬🇧 Inglés, 🇫🇷 Francés, 🇩🇪 Alemán.
-- Solo aparecen los idiomas que el usuario esté estudiando o tenga guardados.
+Cloudinary[Gestión de Imágenes]
 
-**Nivel 2 (Tipo de Contenido):**
-- Al entrar (o desplegar) un idioma (ej. Inglés), ve dos sub-categorías claras:
-  - 📝 Palabras (Vocabulario suelto)
-  - 💬 Expresiones (Idioms, frases hechas)
+Gemini[IA: Gemini 2.0 Flash]
 
-**Nivel 3 (El Contenido):**
-- Dentro de cada sub-categoría está la lista de tarjetas final.
+end
 
----
+subgraph "Fuentes Externas"
 
-## 🚀 Roadmap Resumido
+LRC[LRCLIB API (Lyrics + Tiempos)]
 
-- **FASE 1: MVP (COMPLETO 100%) ✅**
-  - Registro con verificación por email
-  - Login + auto-login + "Recordarme"
-  - Top Grammy + búsqueda
-  - Análisis de letras con IA
-  - Diccionario personalizado
-  - Flashcards SRS
-  - Sistema de racha
-  - Perfil con avatar
-  - Cambio de contraseña/email
-  - Recuperación de contraseña
-  - Modo oscuro
-  - Swipe gestures
-  - Vídeo demo grabado
+Genius[Genius (Scraping Fallback)]
 
-- **FASE 2: Producto Final (Dic 2024 - Ene 2025)**
-  - Infraestructura: Render.com, Cloudinary, IP auto-detection, landing page
-  - UX Core: Bottom Navigation, Diccionario multinivel, Flashcards mejoradas, contadores en tiempo real, audio NewPipe
-  - Optimización: Room DB, pantallas de carga, animaciones
-  - Opcionales: Groq fallback, gamificación local, soporte horizontal
+YT[YouTube/Spotify (Audio Source)]
 
----
+end
 
-## 🛠️ Estado Técnico Actual
+App <--> API
 
-- **Backend:** FastAPI + MongoDB Atlas + Gemini + Cloudinary (completo, salvo Genius en Render)
-- **Frontend:** Android Kotlin, Retrofit, Room DB, ExoPlayer, uCrop, Glide, TTS
-- **Infraestructura:** Render.com, Cloudinary, MongoDB Atlas, Gemini, Groq
+API <--> Mongo
 
----
+API <--> Cloudinary
 
-## 📞 Contacto y Contribución
+API <--> Gemini
 
-- Edison Marimon Cook (@EdisonMarimonCook) - Propietario del repositorio
-- Hugo - Desarrollador principal
-- [Otros miembros] - Landing page y tareas adicionales
+API <--> Lyrics
 
-**Repositorio:** [GitHub - AplicacionTraduccionCancion](https://github.com/EdisonMarimonCook/AplicacionTraduccionCancion)
+Lyrics <--> LRC
 
-**Ramas:**
-- `main` - Versión estable (MVP 4.5)
-- `feature/lyrics-translation` - Desarrollo activo
-- `release/5.0` - Producto final (próximamente)
+Lyrics <--> Genius
 
-**Estado del Proyecto:**
-- ✅ MVP completado y demostrado
-- 🚧 Transición a producto final
-- 🎯 Objetivo: Lanzamiento público Enero 2026
+Exo <--> YT
 
----
+📋 Roadmap y Tareas
 
-**Última actualización:** 23 de Diciembre de 2025
+🚨 ORDEN DE TAREAS (Roadmap v5.0)
+
+🟢 FASE 1: INFRAESTRUCTURA (95% COMPLETADO)
+
+Render.com (Backend):
+
+✅ Configurado Web Service en Render (repo GitHub, rama feature/lyrics-translation).
+
+✅ SOLUCIONADO: Sistema de Lyrics Híbrido implementado (Prioridad LRCLIB + Fallback a Genius con curl-cffi para saltar Cloudflare).
+
+✅ Health check, variables de entorno (MONGO\_URI, GEMINI\_API\_KEY).
+
+🔄 Pendiente (UX): Pantalla "Wake Up" (Splash Screen) para despertar al servidor gratuito de Render (Ping inicial).
+
+Cloudinary:
+
+✅ Integrado en backend (avatars persistentes).
+
+✅ users.py actualizado, credenciales en .env.
+
+IP Automática en RetrofitService:
+
+✅ Detección automática de entorno (emulador, móvil, producción).
+
+✅ APK universal, sin configuración manual de IP.
+
+🔥 FASE 2: UX CORE & AUDIO (PRIORIDAD ACTUAL)
+
+Sistema de Audio "Pirata" (Estrategia Híbrida):
+
+🔄 Backend (Prototipo): Integración de yt-dlp en Python para validar lógica rápidamente.
+
+⏳ Frontend (Producción): Integrar librería nativa (tipo NewPipeExtractor) en la App para evitar bloqueos de IP de Render.
+
+⏳ OTA Updater: Sistema de auto-actualización de APK propio.
+
+Interfaz y Navegación (Legacy XML):
+
+🔄 Bottom Navigation: Implementar menú inferior (Inicio | Grammys | Perfil) reemplazando el actual.
+
+✅ Fix Visual Lyrics: Añadido paddingBottom="150dp" en tvLyrics (XML) para evitar texto cortado.
+
+⏳ Auditoría Visual: Revisar márgenes (layout\_margin) en buscadores y tarjetas.
+
+Diccionario Multinivel:
+
+🔄 Estructura Jerárquica: Nivel 1 (Idioma) → Nivel 2 (Tipo: Palabra/Expresión) → Nivel 3 (Lista).
+
+🔄 Frontend: ExpandableListAdapter con banderas.
+
+Flashcards Mejoradas:
+
+🔄 Animación de volteo 3D.
+
+🔄 Audio Dual: TTS (pronunciación) + Contexto Real (Audio de canción).
+
+🔄 Fix: next\_review\_date = hoy.
+
+🟡 FASE 3: OPTIMIZACIÓN (MEDIO PLAZO)
+
+Persistencia (Room DB):
+
+🔄 Guardar Top Grammy y Perfil en local (Offline First).
+
+Optimización de Tiempos de Carga:
+
+🔄 Precarga paralela en Splash Screen.
+
+Feedback Visual:
+
+🔄 LoadingDialog con Lottie, Ripple effects, Confetti en logros.
+
+Indicador Visual isRecommended:
+
+🔄 Estrella dorada/Badge para palabras recomendadas por IA.
+
+🔵 FASE 4: EXTRAS (OPCIONALES)
+
+Modo Karaoke Oculto (Easter Egg):
+
+⏳ Reproductor puro con .lrc sincronizado y servicio en segundo plano.
+
+Resiliencia IA:
+
+🔄 Groq (Llama 3) como Fallback si Gemini cae.
+
+Gamificación Local:
+
+🔄 Logros y gráficas de progreso.
+
+Soporte Pantalla Horizontal:
+
+🔄 Layouts land para tablets.
+
+📚 Diccionario Multinivel (Detalle Tarea 5)
+
+Nivel 1 (Idiomas Activos):
+
+Carpetas visuales: 🇬🇧 Inglés, 🇫🇷 Francés, 🇩🇪 Alemán.
+
+Filtrado dinámico según lo que estudia el usuario.
+
+Nivel 2 (Tipo de Contenido):
+
+Sub-categorías claras dentro del idioma:
+
+📝 Palabras (Vocabulario suelto).
+
+💬 Expresiones (Idioms, frases hechas).
+
+Nivel 3 (El Contenido):
+
+Lista final de tarjetas flashcards.
+
+🛠️ Estado Técnico Actual (Stack Tecnológico)
+
+Backend: Python FastAPI + MongoDB Atlas + Gemini 2.0 Flash + Cloudinary.
+
+Librerías clave: yt-dlp (Audio), curl-cffi (Genius Bypass).
+
+Frontend: Android Nativo (Kotlin) + XML Layouts (Legacy).
+
+Librerías clave: Retrofit (Red), Room (DB Local), ExoPlayer (Media), uCrop (Edición img), Glide (Carga img), Android TTS.
+
+Infraestructura: Render.com (Web Service Gratuito).
+
+📞 Contacto y Equipo
+
+Edison Marimon Cook (@EdisonMarimonCook) - Propietario del repositorio.
+
+Hugo - Desarrollador Backend/Arquitectura (Lyrics, Render, Audio).
+
+Frontend Dev - UI/UX, XML Layouts, Navegación.
+
+[Otros miembros] - Landing page y tareas adicionales.
+
+Repositorio: GitHub - AplicacionTraduccionCancion
+
+Ramas:
+
+main - Versión estable (MVP 4.5).
+
+feature/lyrics-translation - Desarrollo activo (Backend Render).
+
+release/5.0 - Producto final (próximamente).
+
+Última actualización: 23 de Diciembre de 2025
