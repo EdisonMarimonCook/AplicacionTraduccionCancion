@@ -15,9 +15,22 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // 🔥 BuildConfig: Variables personalizadas
+        buildConfigField("String", "PRODUCTION_URL", "\"https://musictransiator.onrender.com/\"")
+        buildConfigField("int", "LOCALHOST_PORT", "8000")
+    }
+
+    buildFeatures {
+        buildConfig = true  // 🔥 Habilitar BuildConfig
     }
 
     buildTypes {
+        debug {
+            isDebuggable = true
+            applicationIdSuffix = ".debug"  // app.debug vs app
+            versionNameSuffix = "-DEBUG"
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
