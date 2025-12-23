@@ -209,3 +209,11 @@ async def search_genius_songs(query: str, limit: int = 5) -> List[dict]:
         } for h in hits[:limit]]
     except:
         return []
+
+# ===============================================================================
+# 🛠️ HELPERS (Añadir al final del archivo)
+# ===============================================================================
+
+def is_genius_configured() -> bool:
+    """Verifica si el token de Genius está presente"""
+    return bool(GENIUS_ACCESS_TOKEN)
