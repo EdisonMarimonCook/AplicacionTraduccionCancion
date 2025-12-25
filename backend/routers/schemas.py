@@ -224,3 +224,17 @@ class FlashcardReviewResponse(BaseModel):
 class AvatarUpdateResponse(BaseModel):
     message: str
     url: str
+
+# ===============================================================================
+# 7️⃣ AUDIO STREAMING (Youtube Proxy)
+# ===============================================================================
+class AudioStreamResponse(BaseModel):
+    """
+    Respuesta para el streaming de audio.
+    Garantiza que el frontend siempre reciba una URL válida.
+    """
+    title: str
+    stream_url: str  # La URL real de GoogleVideo (.m4a/.webm)
+    duration: Optional[int] = None  # En segundos
+    thumbnail: Optional[str] = None
+    source: str = "YouTube"

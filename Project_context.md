@@ -1,225 +1,134 @@
-🎵 MusicTransIAtor - Contexto del Proyecto
+# 🎵 MusicTransIAtor - Contexto del Proyecto
 
-Versión: 5.0 (Producto Final en Desarrollo) Fecha de Actualización: 23 de Diciembre de 2025 Estado: 🎯 MVP COMPLETO (v4.5) → Transición a Producto Final Distribución: 🏴‍☠️ Portal Propio (APK) (No Play Store - Sideloading)
+**Versión:** 5.1 (Estabilización UI & Carga Paralela)  
+**Fecha de Actualización:** 25 de Diciembre de 2025  
+**Estado:** 🚀 Optimización SongLearning Completada → Próximo: UI Global & Diccionarios  
+**Distribución:** 🏴‍☠️ Portal Propio (APK) *(No Play Store - Sideloading)*
 
-📌 VISIÓN DEL PROYECTO
+---
 
-App Android 100% gratuita para aprender idiomas con música mediante análisis semántico de letras en tiempo real. Diferencial: Audio "Unleashed" (estilo Grayjay), Lyrics sincronizadas (LRCLIB) y Análisis IA gramatical. Público objetivo: Estudiantes universitarios (proyecto académico con potencial comercial).
+## 📌 Visión del Proyecto
 
-🏗️ ARQUITECTURA DEL SISTEMA (ACTUALIZADA)
+App Android **100% gratuita** para aprender idiomas con música mediante análisis semántico de letras en tiempo real.  
+**Diferencial:** Audio "Unleashed" (estilo Grayjay), lyrics sincronizadas (LRCLIB) y análisis IA gramatical.  
+**Público objetivo:** Estudiantes universitarios (proyecto académico con potencial comercial).
 
-Fragmento de código
+---
 
+## 🏗️ Arquitectura del Sistema
+
+```mermaid
 graph TD
-
-User[Usuario Android] <--> App
-
-subgraph "Cliente (Android Nativo - XML)"
-
-App[App Kotlin]
-
-Exo[ExoPlayer + Audio Híbrido]
-
-Views[XML Layouts + Glide + uCrop]
-
-Cache[Room DB + SharedPrefs]
-
-TTS[Text-To-Speech]
-
-end
-
-subgraph "Backend (Render.com + Python FastAPI)"
-
-API[FastAPI Service]
-
-Lyrics[Lyrics Engine Híbrido]
-
-AudioService[Audio Logic (yt-dlp)]
-
-end
-
-subgraph "Nube & Datos"
-
-Mongo[(MongoDB Atlas)]
-
-Cloudinary[Gestión de Imágenes]
-
-Gemini[IA: Gemini 2.0 Flash]
-
-end
-
-subgraph "Fuentes Externas"
-
-LRC[LRCLIB API (Lyrics + Tiempos)]
-
-Genius[Genius (Scraping Fallback)]
-
-YT[YouTube/Spotify (Audio Source)]
-
-end
-
-App <--> API
-
-API <--> Mongo
-
-API <--> Cloudinary
-
-API <--> Gemini
-
-API <--> Lyrics
-
-Lyrics <--> LRC
-
-Lyrics <--> Genius
-
-Exo <--> YT
-
-📋 Roadmap y Tareas
-
-🚨 ORDEN DE TAREAS (Roadmap v5.0)
-
-🟢 FASE 1: INFRAESTRUCTURA (95% COMPLETADO)
-
-Render.com (Backend):
-
-✅ Configurado Web Service en Render (repo GitHub, rama feature/lyrics-translation).
-
-✅ SOLUCIONADO: Sistema de Lyrics Híbrido implementado (Prioridad LRCLIB + Fallback a Genius con curl-cffi para saltar Cloudflare).
-
-✅ Health check, variables de entorno (MONGO\_URI, GEMINI\_API\_KEY).
-
-🔄 Pendiente (UX): Pantalla "Wake Up" (Splash Screen) para despertar al servidor gratuito de Render (Ping inicial).
-
-Cloudinary:
-
-✅ Integrado en backend (avatars persistentes).
-
-✅ users.py actualizado, credenciales en .env.
-
-IP Automática en RetrofitService:
-
-✅ Detección automática de entorno (emulador, móvil, producción).
-
-✅ APK universal, sin configuración manual de IP.
-
-🔥 FASE 2: UX CORE & AUDIO (PRIORIDAD ACTUAL)
-
-Sistema de Audio "Pirata" (Estrategia Híbrida):
-
-🔄 Backend (Prototipo): Integración de yt-dlp en Python para validar lógica rápidamente.
-
-⏳ Frontend (Producción): Integrar librería nativa (tipo NewPipeExtractor) en la App para evitar bloqueos de IP de Render.
-
-⏳ OTA Updater: Sistema de auto-actualización de APK propio.
-
-Interfaz y Navegación (Legacy XML):
-
-🔄 Bottom Navigation: Implementar menú inferior (Inicio | Grammys | Perfil) reemplazando el actual.
-
-✅ Fix Visual Lyrics: Añadido paddingBottom="150dp" en tvLyrics (XML) para evitar texto cortado.
-
-⏳ Auditoría Visual: Revisar márgenes (layout\_margin) en buscadores y tarjetas.
-
-Diccionario Multinivel:
-
-🔄 Estructura Jerárquica: Nivel 1 (Idioma) → Nivel 2 (Tipo: Palabra/Expresión) → Nivel 3 (Lista).
-
-🔄 Frontend: ExpandableListAdapter con banderas.
-
-Flashcards Mejoradas:
-
-🔄 Animación de volteo 3D.
-
-🔄 Audio Dual: TTS (pronunciación) + Contexto Real (Audio de canción).
-
-🔄 Fix: next\_review\_date = hoy.
-
-🟡 FASE 3: OPTIMIZACIÓN (MEDIO PLAZO)
-
-Persistencia (Room DB):
-
-🔄 Guardar Top Grammy y Perfil en local (Offline First).
-
-Optimización de Tiempos de Carga:
-
-🔄 Precarga paralela en Splash Screen.
-
-Feedback Visual:
-
-🔄 LoadingDialog con Lottie, Ripple effects, Confetti en logros.
-
-Indicador Visual isRecommended:
-
-🔄 Estrella dorada/Badge para palabras recomendadas por IA.
-
-🔵 FASE 4: EXTRAS (OPCIONALES)
-
-Modo Karaoke Oculto (Easter Egg):
-
-⏳ Reproductor puro con .lrc sincronizado y servicio en segundo plano.
-
-Resiliencia IA:
-
-🔄 Groq (Llama 3) como Fallback si Gemini cae.
-
-Gamificación Local:
-
-🔄 Logros y gráficas de progreso.
-
-Soporte Pantalla Horizontal:
-
-🔄 Layouts land para tablets.
-
-📚 Diccionario Multinivel (Detalle Tarea 5)
-
-Nivel 1 (Idiomas Activos):
-
-Carpetas visuales: 🇬🇧 Inglés, 🇫🇷 Francés, 🇩🇪 Alemán.
-
-Filtrado dinámico según lo que estudia el usuario.
-
-Nivel 2 (Tipo de Contenido):
-
-Sub-categorías claras dentro del idioma:
-
-📝 Palabras (Vocabulario suelto).
-
-💬 Expresiones (Idioms, frases hechas).
-
-Nivel 3 (El Contenido):
-
-Lista final de tarjetas flashcards.
-
-🛠️ Estado Técnico Actual (Stack Tecnológico)
-
-Backend: Python FastAPI + MongoDB Atlas + Gemini 2.0 Flash + Cloudinary.
-
-Librerías clave: yt-dlp (Audio), curl-cffi (Genius Bypass).
-
-Frontend: Android Nativo (Kotlin) + XML Layouts (Legacy).
-
-Librerías clave: Retrofit (Red), Room (DB Local), ExoPlayer (Media), uCrop (Edición img), Glide (Carga img), Android TTS.
-
-Infraestructura: Render.com (Web Service Gratuito).
-
-📞 Contacto y Equipo
-
-Edison Marimon Cook (@EdisonMarimonCook) - Propietario del repositorio.
-
-Hugo - Desarrollador Backend/Arquitectura (Lyrics, Render, Audio).
-
-Frontend Dev - UI/UX, XML Layouts, Navegación.
-
-[Otros miembros] - Landing page y tareas adicionales.
-
-Repositorio: GitHub - AplicacionTraduccionCancion
-
-Ramas:
-
-main - Versión estable (MVP 4.5).
-
-feature/lyrics-translation - Desarrollo activo (Backend Render).
-
-release/5.0 - Producto final (próximamente).
-
-Última actualización: 23 de Diciembre de 2025
+    User[Usuario Android] <--> App
+    subgraph "Cliente (Android Nativo - XML)"
+        App[App Kotlin]
+        Exo[ExoPlayer + Audio Híbrido]
+        Views[XML Layouts + Glide + uCrop]
+        Cache[Room DB + SharedPrefs]
+        TTS[Text-To-Speech]
+        Async[Coroutines + Parallel Loading]
+    end
+    subgraph "Backend (Render.com + Python FastAPI)"
+        API[FastAPI Service]
+        Lyrics[Lyrics Engine Híbrido]
+        AudioService[Audio Logic (yt-dlp)]
+    end
+    subgraph "Nube & Datos"
+        Mongo[(MongoDB Atlas)]
+        Cloudinary[Gestión de Imágenes]
+        Gemini[IA: Gemini 2.0 Flash]
+    end
+    subgraph "Fuentes Externas"
+        LRC[LRCLIB API (Lyrics + Tiempos)]
+        Genius[Genius (Scraping Fallback)]
+        YT[YouTube/Spotify (Audio Source)]
+    end
+    App <--> API
+    API <--> Mongo
+    API <--> Cloudinary
+    API <--> Gemini
+    API <--> Lyrics
+    Lyrics <--> LRC
+    Lyrics <--> Genius
+    Exo <--> YT
+```
+
+---
+
+## 📋 Roadmap y Tareas
+
+### 🚨 Orden de Tareas (Roadmap v5.1)
+
+#### 🟢 Fase 1: Infraestructura (Estado: Estable)
+- **Render.com (Backend):** ✅ Configurado y operativo (Rama `feature/lyrics-translation`).
+- **Lyrics Engine:** ✅ Híbrido (LRCLIB + Fallback Genius con curl-cffi).
+- **Cloudinary:** ✅ Integrado para avatares persistentes.
+- **Networking:** ✅ Detección IP automática (Retrofit) para APK universal.
+
+#### 🔥 Fase 2: UX Core & Reproductor (Prioridad Inmediata)
+1. **Optimización SongLearning (✅ COMPLETADO HOY):**
+   - ✅ Carga Paralela: Letra + Análisis IA + Audio cargan simultáneamente (Coroutines async).
+   - ✅ UI Limpia: Spinner de IA reubicado (encima de la letra), eliminación de bugs visuales (Toast fantasma negro).
+   - ✅ Fix Lyrics: Padding inferior añadido para evitar corte de texto.
+2. **Audio & Control (🚧 EN PROCESO):**
+   - ⏳ SeekBar: Implementar barra de progreso arrastrable en SongLearningActivity.
+   - ❓ Estabilidad Audio: Pendiente testear caducidad de enlaces de YouTube tras pausas largas/bloqueo de pantalla.
+   - 🔄 Sistema "Pirata": Mantener integración yt-dlp en backend por ahora.
+3. **Interfaz y Navegación (PRÓXIMO PASO):**
+   - 🔄 Bottom Navigation: Implementar menú inferior estándar (Inicio | Grammys | Perfil).
+   - ⏳ Auditoría Visual: Revisar márgenes y consistencia en todas las pantallas.
+4. **Diccionario Multinivel & Flashcards:**
+   - 🔄 Estructura Jerárquica: Idioma (Banderas) → Tipo (Palabra/Expresión) → Lista.
+   - 🔄 Flashcards 2.0: Animación 3D, Audio Dual (TTS + Clip Canción).
+
+#### 🟡 Fase 3: Optimización & Wake-Up (Medio Plazo)
+*(A realizar tras completar la UI Global y Diccionarios)*
+1. **Super Wake-Up Screen (Carga Paralela Masiva):**
+   - Implementar WakeUpActivity que sirva de Splash Screen inteligente.
+   - Objetivo: Paralelizar la carga de:
+     - Ping a Render (Despertar servidor)
+     - Perfil de Usuario completo
+     - Top Grammys (Cachear datos)
+     - Canciones Random: Precargar sugerencias basadas en el nivel e idioma del usuario
+2. **Persistencia (Offline First):**
+   - 🔄 Guardar Top Grammy y Perfil en Room DB para acceso sin conexión.
+3. **Feedback Visual:**
+   - 🔄 LoadingDialog con Lottie y efectos de confeti en logros.
+   - 🔄 Indicador visual (estrella/badge) para palabras recomendadas por IA en la letra.
+
+#### 🔵 Fase 4: Extras (Opcionales)
+- Modo Karaoke Oculto (Easter Egg)
+- Resiliencia IA (Groq/Llama 3 como fallback)
+- Gamificación (Logros y gráficas)
+
+---
+
+## 📚 Diccionario Multinivel (Detalle Tarea)
+- **Nivel 1 (Idiomas Activos):**
+  - Carpetas visuales: 🇬🇧 Inglés, 🇫🇷 Francés, 🇩🇪 Alemán
+  - Filtrado dinámico según lo que estudia el usuario
+- **Nivel 2 (Tipo de Contenido):**
+  - 📝 Palabras: Vocabulario suelto
+  - 💬 Expresiones: Idioms, frases hechas (Phrasal verbs)
+- **Nivel 3 (El Contenido):**
+  - Lista final de tarjetas para repaso (Flashcards)
+
+---
+
+## 🛠️ Estado Técnico Actual (Stack)
+- **Backend:** Python FastAPI + MongoDB Atlas + Gemini 2.0 Flash + Cloudinary
+- **Tools:** yt-dlp, curl-cffi
+- **Frontend:** Android Nativo (Kotlin) + XML Layouts
+- **Libs:** Retrofit, Room, ExoPlayer, Coil (Imágenes), Coroutines
+- **Infraestructura:** Render.com (Web Service Gratuito)
+
+---
+
+## 📞 Contacto y Equipo
+- Edison Marimon Cook (@EdisonMarimonCook) - Owner
+- Hugo - Backend/Arquitectura/AI
+- Frontend Dev - UI/UX, XML, Navegación
+- Repositorio: GitHub - AplicacionTraduccionCancion
+- Rama actual: `feature/lyrics-translation` (Mergeada funcionalidades SongLearning)
+- Próxima Rama: `feature/ui-navigation-update`
+- Última actualización: 25 de Diciembre de 2025

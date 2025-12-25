@@ -23,30 +23,49 @@ class AuthInterceptor(
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
 
-        val response = chain.proceed(requestBuilder.build())
+        var response = chain.proceed(requestBuilder.build())
 
-        // 2. 🔥 VIGILANCIA: Si falla con 401 (Token Caducado) -> Intentar Refrescar
-        if (response.code == 401) {
-            response.close() // Cerrar respuesta fallida para liberar recursos
+        if (response.code != 401) {
+            return response
+        }
 
-            synchronized(this) {
-                // Intentar obtener nuevo token
-                val newToken = refreshToken()
+        // 🚨 ALERTA 401: Aquí empieza la magia Thread-Safe
+        synchronized(this) {
+            // Cierre preventivo: Antes de hacer nada, cerramos la respuesta fallida 
+            response.close()
 
-                if (newToken != null) {
-                    // ✅ ÉXITO: Reintentar la petición original con el nuevo token
-                    val newRequest = originalRequest.newBuilder()
-                        .header("Authorization", "Bearer $newToken")
-                        .build()
-                    return chain.proceed(newRequest)
-                } else {
-                    // ❌ FRACASO: El refresh también caducó o es inválido -> Logout forzoso
-                    tokenManager.forceLogout()
-                }
+            // 🕵️ DOUBLE-CHECK LOCKING
+            val currentToken = tokenManager.getToken()
+            val tokenFromRequest = originalRequest.header("Authorization")?.replace("Bearer ", "")
+
+            if (currentToken != null && currentToken != tokenFromRequest) {
+                // ¡Alguien ya hizo el trabajo sucio! Reintentamos con el token nuevo.
+                val newRequest = originalRequest.newBuilder()
+                    .header("Authorization", "Bearer $currentToken")
+                    .build()
+                return chain.proceed(newRequest)
+            }
+
+            // SI ES IGUAL: Soy el primero en entrar (o el token sigue caducado). Toca refrescar.
+            val newToken = refreshToken()
+
+            if (newToken != null) {
+                // Éxito: Guardamos y reintentamos
+                val newRequest = originalRequest.newBuilder()
+                    .header("Authorization", "Bearer $newToken")
+                    .build()
+                return chain.proceed(newRequest)
+            } else {
+                // ❌ FRACASO: El refresh también caducó o es inválido -> Logout forzoso
+                tokenManager.forceLogout()
             }
         }
 
-        return response
+        // Si llegamos aquí, es que no se pudo refrescar (Login caducado del todo).
+        // Devolvemos una nueva respuesta 401 limpia o redirigimos a LoginActivity.
+        // Como cerramos la 'response' original arriba, no podemos devolverla. 
+        // Normalmente OkHttp necesita que devuelvas algo.
+        return chain.proceed(originalRequest)
     }
 
     // Lógica síncrona para refrescar el token

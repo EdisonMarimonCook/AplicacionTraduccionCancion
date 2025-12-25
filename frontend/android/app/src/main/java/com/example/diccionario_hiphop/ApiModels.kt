@@ -102,6 +102,16 @@ data class SongItem(
 )
 
 // ===========================================================
+// 🔥 NUEVO: STREAMING DE AUDIO
+// ===========================================================
+data class AudioStreamResponse(
+    val title: String,
+    @SerializedName("stream_url") val streamUrl: String, // La URL mágica de GoogleVideo
+    val duration: Int,
+    val thumbnail: String,
+    val source: String
+)
+// ===========================================================
 // 4️⃣ LETRAS Y ANÁLISIS IA
 // ===========================================================
 data class LyricsResponse(

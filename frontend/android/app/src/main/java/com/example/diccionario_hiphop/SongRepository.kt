@@ -11,6 +11,22 @@ class SongRepository(context: Context) {
         return apiService.searchSongs(query)
     }
 
+    // 🔥 NUEVO: Función para obtener solo la URL del audio
+    suspend fun getStreamUrl(query: String): String? {
+        return try {
+            val response = apiService.getAudioStream(query)
+            if (response.isSuccessful && response.body() != null) {
+                // Devolvemos la URL directa para que el ViewModel la use
+                response.body()!!.streamUrl 
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     suspend fun getTopGrammy(language: String = "en"): Response<List<SongItem>> {
         return apiService.getTopGrammy(language)
     }

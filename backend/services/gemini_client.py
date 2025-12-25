@@ -46,10 +46,15 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
     1. Single words suitable for {user_level} level (vocabulary building).
     2. Idioms, slang, or phrasal verbs (Expressions).
 
+    CRITICAL TOKENIZATION RULES:
+    - **COMPOUND WORDS:** If you select a compound word (e.g., "bloodstains", "sunflower"), YOU MUST RETURN THE FULL WORD. 
+    - **DO NOT SPLIT:** If the text says "bloodstains", return "bloodstains". DO NOT return "stains".
+    - **EXACT MATCH:** The extracted word must exist EXACTLY as written in the lyrics.
+
     CRITICAL OUTPUT RULES:
     - Contextual Translation: Translate based on the specific meaning in these lyrics.
     - Explanation: Explain WHY it means that in this context (in {native_lang_name}).
-    - Example: Provide a very short usage sentence (can be from lyrics or new) for Flashcards.
+    - Example: Provide a very short usage sentence.
     - Recommended: Mark 'true' if it's a key term for {user_level}.
     - Type: For words use 'noun', 'verb', 'adj'. For expressions use 'expression'.
 

@@ -32,20 +32,17 @@ from utils.genius_client import is_genius_configured
 # ===============================================================================
 
 # 1. Routers básicos
-from routers import auth_router, songs_router, lyrics_router
-
-# 2. Router de IA (Gemini V3)
-from routers.ai_analysis import router as ai_router 
-
-# 3. Routers de usuario y datos
-from routers.users import router as users_router
-from routers.dictionary import router as dictionary_router
-
-# 🔥 IMPORTANTE: El router de progreso (Para ProfileActivity)
-from routers.progress import router as progress_router
-
-# 4. Router de Flashcards
-from routers.flashcards import router as flashcards_router
+from routers import (
+    auth_router,
+    songs_router,
+    lyrics_router,
+    ai_router,
+    users_router,
+    dictionary_router,
+    progress_router,
+    flashcards_router,
+    audio_router  # 👈 Importamos el OBJETO router, no el archivo
+)
 
 # ===============================================================================
 # CONFIGURAR LOGGING
@@ -166,9 +163,10 @@ app.include_router(ai_router)
 app.include_router(dictionary_router)
 app.include_router(users_router)
 app.include_router(progress_router) 
-app.include_router(flashcards_router) 
+app.include_router(flashcards_router)
+app.include_router(audio_router)
 
-# ===============================================================================
+app.include_router(audio_router)
 # MANEJO DE ERRORES
 # ===============================================================================
 

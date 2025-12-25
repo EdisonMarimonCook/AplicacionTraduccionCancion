@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="bg_toast">#CC222222</color>
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#BB86FC</color>
     <color name="purple_700">#3700B3</color>
@@ -16,4 +17,6 @@
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#B0B0B0</color>
     <color name="icon_tint">#BB86FC</color>
+    <color name="loading_overlay_bg">#99000000</color>
+    <color name="loading_text_color">#E0E0E0</color>
 </resources>

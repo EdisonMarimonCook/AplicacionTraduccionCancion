@@ -58,6 +58,12 @@ interface ApiService {
 
     @GET("/api/v1/songs/search")
     suspend fun searchSongs(@Query("query") query: String): Response<List<SongItem>>
+    
+    // 🔥 NUEVO: Endpoint para obtener el audio real
+    @GET("/api/v1/audio/stream")
+    suspend fun getAudioStream(
+        @Query("q") query: String
+    ): Response<AudioStreamResponse>
 
     // =================================================================================
     // 4️⃣ LETRAS E IA

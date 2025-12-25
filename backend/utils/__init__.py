@@ -23,6 +23,10 @@ from utils.spotify import (
         enrich_single_song,
         get_top_tracks_by_language
     )
+
+# Audio extractor
+from utils.audio_extractor import get_youtube_audio_url
+
 # Exportar para que otros archivos puedan hacer:
 # from utils import get_song_lyrics, get_line_lyrics, etc.
 __all__ = [
@@ -32,5 +36,6 @@ __all__ = [
     "search_songs_spotify",
     "get_grammy_songs",
     "enrich_single_song",
-    "get_top_tracks_by_language"
+    "get_top_tracks_by_language",
+    "get_youtube_audio_url"
 ]

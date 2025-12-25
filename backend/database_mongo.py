@@ -254,72 +254,87 @@ class MongoDatabase:
 
     async def update_user_streak(self, user_id: str) -> int:
         """
-        Actualiza la racha del usuario (solo incrementa UNA VEZ al día)
+        Refuerza y actualiza la racha del usuario (solo incrementa UNA VEZ al día, UTC estricto).
+        - Siempre usa UTC para fechas y horas.
+        - Evita doble incremento diario.
+        - Actualiza récord de racha si corresponde.
+        - Devuelve siempre el valor actualizado de la racha.
+        - Logs claros para debug y doble llamada.
         """
+        from datetime import datetime, timezone, timedelta
         try:
-            from datetime import datetime, timezone, timedelta
-            
             user = await self.db["users"].find_one({"_id": ObjectId(user_id)})
             if not user:
+                logger.warning(f"[Racha] Usuario no encontrado: {user_id}")
                 return 0
-            
+
             now = datetime.now(timezone.utc)
-            today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            
-            # Obtener última actividad y racha actual
+            today_utc = now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
             last_activity = user.get("last_activity_date")
             current_streak = user.get("current_streak", 0)
-            
+            longest_streak = user.get("longest_streak", 0)
+
             # Si no hay actividad previa, iniciar racha
             if not last_activity:
                 await self.db["users"].update_one(
                     {"_id": ObjectId(user_id)},
                     {"$set": {
                         "current_streak": 1,
+                        "longest_streak": max(1, longest_streak),
                         "last_activity_date": now
                     }}
                 )
-                logger.info(f"🔥 Racha iniciada para usuario {user_id}: 1 día")
+                logger.info(f"🔥 [Racha] Iniciada para usuario {user_id}: 1 día (UTC)")
                 return 1
-            
-            # Convertir last_activity a datetime si es necesario
+
+            # Convertir last_activity a datetime UTC si es necesario
             if isinstance(last_activity, str):
-                last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
-            
-            last_activity_day = last_activity.replace(hour=0, minute=0, second=0, microsecond=0)
-            
+                try:
+                    last_activity = datetime.fromisoformat(last_activity.replace('Z', '+00:00'))
+                except Exception:
+                    logger.warning(f"[Racha] last_activity malformateada para usuario {user_id}, usando now")
+                    last_activity = now
+            if last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+
+            last_activity_day = last_activity.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+
             # YA HIZO ACTIVIDAD HOY → No incrementar
-            if last_activity_day == today:
-                logger.info(f"🔥 Usuario {user_id}: Ya hizo actividad hoy. Racha={current_streak}")
+            if last_activity_day == today_utc:
+                logger.info(f"🔥 [Racha] Usuario {user_id}: Ya hizo actividad hoy. Racha={current_streak}")
                 return current_streak
-            
+
             # AYER hizo actividad → Incrementar racha
-            yesterday = today - timedelta(days=1)
-            if last_activity_day == yesterday:
+            yesterday_utc = today_utc - timedelta(days=1)
+            if last_activity_day == yesterday_utc:
                 new_streak = current_streak + 1
+                new_longest = max(new_streak, longest_streak)
                 await self.db["users"].update_one(
                     {"_id": ObjectId(user_id)},
                     {"$set": {
                         "current_streak": new_streak,
+                        "longest_streak": new_longest,
                         "last_activity_date": now
                     }}
                 )
-                logger.info(f"🔥 Racha incrementada para usuario {user_id}: {new_streak} días")
+                logger.info(f"🔥 [Racha] Incrementada para usuario {user_id}: {new_streak} días (UTC)")
                 return new_streak
-            
-            # Más de 1 día sin actividad → Reiniciar racha
+
+            # Más de 1 día sin actividad → Reiniciar racha (pero actualizar récord si corresponde)
+            new_longest = max(1, longest_streak)
             await self.db["users"].update_one(
                 {"_id": ObjectId(user_id)},
                 {"$set": {
                     "current_streak": 1,
+                    "longest_streak": new_longest,
                     "last_activity_date": now
                 }}
             )
-            logger.info(f"🔥 Racha reiniciada para usuario {user_id}: 1 día")
+            logger.info(f"🔥 [Racha] Reiniciada para usuario {user_id}: 1 día (UTC)")
             return 1
-            
+
         except Exception as e:
-            logger.error(f"❌ Error actualizando racha: {e}", exc_info=True)
+            logger.error(f"❌ [Racha] Error actualizando racha: {e}", exc_info=True)
             return 0
 
     async def update_user_avatar(self, user_id: str, avatar_url: str) -> bool:

@@ -28,13 +28,19 @@ class SongLearningActivity : AppCompatActivity() {
     private lateinit var tvTitle: TextView
     private lateinit var tvArtist: TextView
     private lateinit var btnBack: ImageButton
-    private lateinit var ivCover: ImageView 
+    private lateinit var ivCover: ImageView
+    // 👇 NUEVO: Overlay de carga y mensaje
+    private lateinit var loadingOverlay: FrameLayout
+    private lateinit var tvLoadingMessage: TextView
+    // 👇 NUEVO: Spinner discreto IA
+    private lateinit var layoutAiStatus: LinearLayout
+    
 
     private var originalLyricsText: String = ""
     private var mediaPlayer: MediaPlayer? = null
     private var isPlaying = false
     private var wordWasAdded = false // 🔥 Flag para saber si se añadió alguna palabra
-    
+
     // Datos recibidos
     private var songTitle: String = ""
     private var songArtist: String = ""
@@ -55,6 +61,12 @@ class SongLearningActivity : AppCompatActivity() {
         setupUI()     // Pone textos y CARGA LA IMAGEN
         setupPlayer() // Prepara el audio
 
+        // 👇 Inicializar overlay y mensaje
+        loadingOverlay = findViewById(R.id.loadingOverlay)
+        tvLoadingMessage = findViewById(R.id.tvLoadingMessage)
+        layoutAiStatus = findViewById(R.id.layoutAiStatus)
+        
+
         // 2. Observar ViewModel
         viewModel.lyricsState.observe(this) { lyrics ->
             originalLyricsText = lyrics
@@ -65,12 +77,42 @@ class SongLearningActivity : AppCompatActivity() {
             if (analysis != null) applyHighlights(analysis)
         }
 
+        // 👇 1. CONTROL DE LA PANTALLA DE CARGA Y FAB/LOGO
         viewModel.loadingState.observe(this) { isLoading ->
-            progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            if (isLoading) {
+                loadingOverlay.visibility = View.VISIBLE
+               
+            } else {
+                loadingOverlay.visibility = View.GONE
+                
+            }
         }
-        
+
+        // 👇 2. SPINNER DISCRETO IA
+        viewModel.isAiAnalyzing.observe(this) { isAnalyzing ->
+            layoutAiStatus.visibility = if (isAnalyzing) View.VISIBLE else View.GONE
+        }
+
+        // 👇 3. MENSAJES INFORMATIVOS (TOASTS) - CORREGIDO
+        viewModel.statusMessage.observe(this) { message ->
+            // Solo mostramos el Toast si el mensaje NO es nulo Y NO está vacío
+            if (!message.isNullOrBlank()) {
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // 👇 4. AUDIO STREAM (YouTube)
+        viewModel.audioStreamState.observe(this) { streamUrl ->
+            if (!streamUrl.isNullOrEmpty()) {
+                prepareMediaPlayer(streamUrl)
+            }
+        }
+
         viewModel.errorState.observe(this) { errorMsg ->
-            Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+            // Protegemos también los errores para que no salgan vacíos
+            if (!errorMsg.isNullOrBlank()) {
+                Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+            }
         }
 
         // 3. Cargar datos si no existen (Llama a la IA)
@@ -107,37 +149,63 @@ class SongLearningActivity : AppCompatActivity() {
     }
 
     private fun setupPlayer() {
-        if (previewUrl.isNullOrEmpty()) {
+        // Configuración inicial (si venía preview del Intent)
+        if (!previewUrl.isNullOrEmpty()) {
+            prepareMediaPlayer(previewUrl!!)
+        } else {
+            // Si no hay preview, deshabilitamos hasta que llegue el de YouTube
             btnPlay.isEnabled = false
             btnPlay.alpha = 0.5f
-            return
-        }
-
-        mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .build()
-            )
-            try {
-                setDataSource(previewUrl)
-                prepareAsync() 
-                setOnPreparedListener { 
-                    btnPlay.isEnabled = true 
-                    btnPlay.alpha = 1.0f
-                }
-                setOnCompletionListener {
-                    this@SongLearningActivity.isPlaying = false
-                    btnPlay.setImageResource(android.R.drawable.ic_media_play)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
         }
 
         btnPlay.setOnClickListener {
             togglePlay()
+        }
+    }
+
+    // 🔥 NUEVO: Función reutilizable para cargar cualquier URL
+    private fun prepareMediaPlayer(url: String) {
+        try {
+            // Si ya existía, lo reseteamos para cargar la nueva URL
+            if (mediaPlayer == null) {
+                mediaPlayer = MediaPlayer().apply {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .build()
+                    )
+                }
+            } else {
+                mediaPlayer?.reset()
+            }
+
+            mediaPlayer?.apply {
+                setDataSource(url)
+                prepareAsync() // Carga en segundo plano
+                
+                setOnPreparedListener {
+                    btnPlay.isEnabled = true
+                    btnPlay.alpha = 1.0f
+                    // Opcional: Auto-play si quieres que arranque solo
+                    // start() 
+                    // isPlaying = true
+                    // btnPlay.setImageResource(android.R.drawable.ic_media_pause)
+                }
+                
+                setOnCompletionListener {
+                    this@SongLearningActivity.isPlaying = false
+                    btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                }
+                
+                setOnErrorListener { _, what, extra ->
+                    Toast.makeText(this@SongLearningActivity, "Error audio: $what", Toast.LENGTH_SHORT).show()
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error cargando audio", Toast.LENGTH_SHORT).show()
         }
     }
 

@@ -20,6 +20,7 @@ class TokenManager(private val context: Context) {
     /**
      * Guarda tokens de forma PERSISTENTE (con "Recuérdame" activo).
      */
+    @Synchronized
     fun saveTokens(accessToken: String, refreshToken: String) {
         val editor = prefs.edit()
         editor.putString("USER_TOKEN", accessToken)
@@ -27,7 +28,6 @@ class TokenManager(private val context: Context) {
             editor.putString("REFRESH_TOKEN", refreshToken)
         }
         editor.apply()
-        
         // Limpiar sesión temporal si existía
         tempAccessToken = null
         tempRefreshToken = null
@@ -38,11 +38,11 @@ class TokenManager(private val context: Context) {
      * 🆕 Guarda tokens de forma TEMPORAL (sin "Recuérdame").
      * Los tokens se pierden al cerrar la app.
      */
+    @Synchronized
     fun saveTemporaryTokens(accessToken: String, refreshToken: String) {
         tempAccessToken = accessToken
         tempRefreshToken = refreshToken
         isUsingTempSession = true
-        
         // Asegurarse de que NO haya tokens persistentes
         clearPersistedTokens()
     }
@@ -50,6 +50,7 @@ class TokenManager(private val context: Context) {
     /**
      * Guarda solo el Access Token (útil tras un refresco).
      */
+    @Synchronized
     fun saveAccessToken(token: String) {
         if (isUsingTempSession) {
             tempAccessToken = token
@@ -61,6 +62,7 @@ class TokenManager(private val context: Context) {
     /**
      * Recupera el token de acceso (persistente o temporal).
      */
+    @Synchronized
     fun getToken(): String? {
         return if (isUsingTempSession) {
             tempAccessToken
@@ -72,6 +74,7 @@ class TokenManager(private val context: Context) {
     /**
      * Recupera el token de refresco (persistente o temporal).
      */
+    @Synchronized
     fun getRefreshToken(): String? {
         return if (isUsingTempSession) {
             tempRefreshToken
@@ -83,6 +86,7 @@ class TokenManager(private val context: Context) {
     /**
      * Verifica si hay una sesión activa (persistente o temporal).
      */
+    @Synchronized
     fun hasActiveSession(): Boolean {
         return getToken() != null
     }
@@ -90,6 +94,7 @@ class TokenManager(private val context: Context) {
     /**
      * Borra SOLO los tokens persistentes de SharedPreferences.
      */
+    @Synchronized
     private fun clearPersistedTokens() {
         val editor = prefs.edit()
         editor.remove("USER_TOKEN")
@@ -100,6 +105,7 @@ class TokenManager(private val context: Context) {
     /**
      * Borra SOLO los tokens temporales de memoria.
      */
+    @Synchronized
     private fun clearTemporaryTokens() {
         tempAccessToken = null
         tempRefreshToken = null
@@ -109,6 +115,7 @@ class TokenManager(private val context: Context) {
     /**
      * Borra TODA la sesión (persistente y temporal).
      */
+    @Synchronized
     fun clearSession() {
         clearPersistedTokens()
         clearTemporaryTokens()
@@ -117,6 +124,7 @@ class TokenManager(private val context: Context) {
     /**
      * Alias de clearSession() para mayor claridad.
      */
+    @Synchronized
     fun clearTokens() {
         clearSession()
     }
@@ -124,6 +132,7 @@ class TokenManager(private val context: Context) {
     /**
      * 🔥 FORCE LOGOUT: Borra TODO y redirige al Login.
      */
+    @Synchronized
     fun forceLogout() {
         // 1. Borrar tokens (persistentes y temporales)
         clearSession()
