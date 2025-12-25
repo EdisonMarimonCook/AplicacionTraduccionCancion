@@ -1,115 +1,152 @@
 """
-MÓDULO: CRUD (Create, Read, Update, Delete)
-Operaciones de base de datos centralizadas
+CRUD - Operaciones de Base de Datos
+Abstrae la lógica de base de datos (sea Mock o Mongo)
 """
 
 import logging
-from datetime import datetime
-from typing import Optional, List
-from database import get_database
+from database import db
 
 logger = logging.getLogger(__name__)
 
-# ===============================================================================
+# ================================================================
 # USUARIOS
-# ===============================================================================
+# ================================================================
 
-async def create_user(user_data: dict) -> dict:
-    """
-    Crea un nuevo usuario en BD
-    
-    Args:
-        user_data: Datos del usuario
-    
-    Returns:
-        dict: Usuario creado
-    """
-    db = get_database()
-    users_collection = db.get("users", [])
-    
-    new_user = {
-        "id": str(datetime.now().timestamp()),
-        **user_data,
-        "created_at": datetime.now().isoformat(),
-        "updated_at": datetime.now().isoformat()
-    }
-    
-    users_collection.append(new_user)
-    db["users"] = users_collection
-    
-    logger.info(f"✅ Usuario creado: {user_data.get('email')}")
-    return new_user
+async def create_user(user_data: dict) -> str:
+    """Crear usuario"""
+    return await db.create_user(user_data)
 
-async def get_user_by_email(email: str) -> Optional[dict]:
-    """Busca usuario por email"""
-    db = get_database()
-    users_collection = db.get("users", [])
-    return next((u for u in users_collection if u.get("email") == email), None)
-
-async def get_user_by_id(user_id: str) -> Optional[dict]:
-    """Busca usuario por ID"""
-    db = get_database()
-    users_collection = db.get("users", [])
-    return next((u for u in users_collection if u.get("id") == user_id), None)
+async def get_user_by_email(email: str) -> dict:
+    """Obtener usuario por email"""
+    return await db.get_user_by_email(email)
 
 async def user_exists(email: str) -> bool:
-    """Verifica si un usuario existe"""
-    user = await get_user_by_email(email)
-    return user is not None
+    """Verificar si usuario existe"""
+    return await db.user_exists(email)
 
-# ===============================================================================
+async def get_user_by_id(user_id: str) -> dict:
+    """Obtener usuario por ID"""
+    return await db.get_user_by_id(user_id)
+
+async def username_exists(username: str, exclude_email: str = None) -> bool:
+    """
+    Verificar si username está en uso.
+    
+    Args:
+        username: Username a verificar
+        exclude_email: Email del usuario actual (para ignorarlo al actualizar su propio perfil)
+    
+    Returns:
+        True si el username ya existe (y NO pertenece a exclude_email)
+    """
+    # Buscar si existe algún usuario con ese username
+    user = await db.get_user_by_username(username)
+    
+    if not user:
+        return False
+    
+    # Si existe pero es del usuario actual (exclude_email), no cuenta como "existente"
+    if exclude_email and user.get("email") == exclude_email:
+        return False
+    
+    return True 
+
+async def email_exists(email: str) -> bool:
+    """Verificar si email está disponible"""
+    return await db.user_exists(email)
+
+async def change_user_email(current_email: str, new_email: str) -> bool:
+    """
+    Cambiar email del usuario.
+    
+    IMPORTANTE: Si usas Mock DB (diccionario Python), hay que:
+    1. Copiar el usuario con la nueva clave (nuevo email)
+    2. Borrar la clave vieja
+    3. Si usas MongoDB, esto no es problema (actualiza directo)
+    
+    Returns:
+        True si se cambió exitosamente, False si new_email ya existe
+    """
+    # Verificar que nuevo email no esté en uso
+    if await user_exists(new_email):
+        return False
+    
+    # Actualizar en BD (esto maneja Mock DB y MongoDB correctamente)
+    await db.update_user_email(current_email, new_email)
+    return True
+
+async def update_user_profile(
+    email: str,
+    username: str = None,
+    full_name: str = None,
+    native_language: str = None,
+    learning_languages: list = None
+) -> dict:
+    """Actualizar perfil del usuario"""
+    update_data = {}
+    
+    if username is not None: update_data["username"] = username
+    if full_name is not None: update_data["full_name"] = full_name
+    if native_language is not None: update_data["native_language"] = native_language
+    
+    # Si quisieras actualizar idiomas, aquí iría la lógica
+    
+    return await db.update_user(email, update_data)
+
+async def change_user_password(email: str, new_password_hash: str) -> bool:
+    try:
+        await db.update_user(email, {"password_hash": new_password_hash})
+        return True
+    except:
+        return False
+
+# ================================================================
 # DICCIONARIO
-# ===============================================================================
+# ================================================================
 
-async def add_word_to_dictionary(user_id: str, word_data: dict) -> dict:
-    """Añade palabra al diccionario personal del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    
-    new_entry = {
-        "id": str(datetime.now().timestamp()),
-        "user_id": user_id,
-        **word_data,
-        "created_at": datetime.now().isoformat()
-    }
-    
-    dictionary.append(new_entry)
-    db["dictionary"] = dictionary
-    
-    logger.info(f"✅ Palabra guardada: {word_data.get('word')} para usuario {user_id}")
-    return new_entry
+async def create_dictionary_entry(entry_data: dict) -> str:
+    """Crear palabra en diccionario"""
+    return await db.create_dictionary_entry(entry_data)
 
-async def get_user_dictionary(user_id: str) -> List[dict]:
-    """Obtiene diccionario completo del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    return [d for d in dictionary if d.get("user_id") == user_id]
+async def get_user_dictionary(user_id: str, language: str = None) -> list:
+    """Obtener diccionario crudo (Legacy)"""
+    return await db.get_user_dictionary(user_id, language)
 
-async def get_word_from_dictionary(user_id: str, word: str) -> Optional[dict]:
-    """Busca una palabra en diccionario del usuario"""
-    db = get_database()
-    dictionary = db.get("dictionary", [])
-    return next((d for d in dictionary if d.get("user_id") == user_id and d.get("word").lower() == word.lower()), None)
+# 🔥 ESTA ES LA FUNCIÓN QUE FALTABA Y QUE ARREGLA EL ERROR
+async def list_user_dictionary(
+    user_id: str, 
+    q: str = None,
+    language: str = None,
+    level_system: str = None,
+    difficulty_level: str = None,
+    is_hiphop_term: bool = None,
+    type: str = None, # Filtro de carpetas
+    page: int = 1,
+    page_size: int = 50
+) -> list:
+    """
+    Obtener diccionario con filtros y paginación.
+    """
+    # 1. Obtener todo de la BD
+    items = await db.get_user_dictionary(user_id, language)
+    
+    # 2. Filtrado en memoria (Python) para el MVP
+    if q:
+        q = q.lower()
+        items = [i for i in items if q in i.get("word", "").lower() or q in i.get("translation", "").lower()]
+    
+    if type:
+        items = [i for i in items if i.get("type") == type]
 
-# ===============================================================================
-# SESIONES
-# ===============================================================================
+    if is_hiphop_term is not None:
+        items = [i for i in items if i.get("is_hiphop_term") == is_hiphop_term]
 
-async def create_song_session(user_id: str, song_id: str) -> dict:
-    """Crea una sesión de estudio con una canción"""
-    db = get_database()
-    sessions = db.get("song_sessions", [])
+    # Implementar paginación simple
+    start = (page - 1) * page_size
+    end = start + page_size
     
-    new_session = {
-        "id": str(datetime.now().timestamp()),
-        "user_id": user_id,
-        "song_id": song_id,
-        "started_at": datetime.now().isoformat(),
-        "words_learned": 0,
-        "score": 0
-    }
-    
-    sessions.append(new_session)
-    db["song_sessions"] = sessions
-    
-    return new_session
+    return items[start:end]
+
+async def delete_dictionary_entry(user_id: str, entry_id: str) -> bool:
+    """Borrar entrada"""
+    return await db.delete_dictionary_entry(entry_id)

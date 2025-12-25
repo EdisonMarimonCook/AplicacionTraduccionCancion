@@ -1,58 +1,56 @@
-package com.example.diccionario_hiphop  // ⬅️ USA TU PACKAGE REAL
+package com.example.diccionario_hiphop
 
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 
-// Modelo de datos para canciones - ESTO VA ARRIBA DEL ADAPTER
-data class Song(
-    val id: Int,
-    val title: String,
-    val artist: String,
-    val difficulty: String,
-    val lyrics: String
-)
+class SongAdapter(
+    private var songs: List<SongItem>,
+    private val onSongClick: (SongItem) -> Unit
+) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
-class SongAdapter(private val onItemClick: (Song) -> Unit) :
-    ListAdapter<Song, SongAdapter.SongViewHolder>(DiffCallback) {
+    class SongViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvTitle: TextView = view.findViewById(R.id.tvSongTitle)
+        val tvArtist: TextView = view.findViewById(R.id.tvSongArtist)
+        val ivCover: ImageView = view.findViewById(R.id.ivSongCover)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
-        // Usamos un layout simple de Android (no necesitamos crear XML)
         val view = LayoutInflater.from(parent.context)
-            .inflate(android.R.layout.simple_list_item_2, parent, false)
+            .inflate(R.layout.item_song, parent, false)
         return SongViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
-        val song = getItem(position)
-        holder.bind(song)
-    }
+        val song = songs[position]
 
-    inner class SongViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val text1: TextView = itemView.findViewById(android.R.id.text1)
-        private val text2: TextView = itemView.findViewById(android.R.id.text2)
+        holder.tvTitle.text = song.title
+        holder.tvArtist.text = song.artist
 
-        fun bind(song: Song) {
-            text1.text = "${song.title} - ${song.artist}"
-            text2.text = "Nivel: ${song.difficulty.capitalize()}"
+        // Carga segura de imagen con Glide
+        if (!song.imageUrl.isNullOrEmpty()) {
+            Glide.with(holder.itemView.context)
+                .load(song.imageUrl)
+                .placeholder(R.drawable.ic_launcher_foreground)
+                .into(holder.ivCover)
+        } else {
+            // Imagen por defecto si no hay URL
+            holder.ivCover.setImageResource(R.drawable.ic_launcher_foreground)
+        }
 
-            itemView.setOnClickListener {
-                onItemClick(song)
-            }
+        holder.itemView.setOnClickListener {
+            onSongClick(song)
         }
     }
 
-    companion object DiffCallback : DiffUtil.ItemCallback<Song>() {
-        override fun areItemsTheSame(oldItem: Song, newItem: Song): Boolean {
-            return oldItem.id == newItem.id
-        }
+    override fun getItemCount() = songs.size
 
-        override fun areContentsTheSame(oldItem: Song, newItem: Song): Boolean {
-            return oldItem == newItem
-        }
+    fun updateData(newSongs: List<SongItem>) {
+        songs = newSongs
+        notifyDataSetChanged()
     }
 }

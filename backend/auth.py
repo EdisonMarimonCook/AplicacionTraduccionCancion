@@ -4,11 +4,17 @@ Contiene funciones reutilizables para JWT y contraseñas
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone  # 🔥 Solo añadir timezone
 from typing import Optional, Dict
 import bcrypt
 from jose import JWTError, jwt
-from config import settings
+from passlib.context import CryptContext
+from config import settings  # 🔥 Sin helpers
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+SECRET_KEY = settings.SECRET_KEY  # 🔥 Usar directamente (ya funciona)
+ALGORITHM = settings.JWT_ALGORITHM
 
 logger = logging.getLogger(__name__)
 
@@ -19,33 +25,18 @@ logger = logging.getLogger(__name__)
 def hash_password(password: str) -> str:
     """
     🔐 HASHEA UNA CONTRASEÑA CON BCRYPT
-    
-    IMPORTANTE: Bcrypt solo acepta máximo 72 bytes
-    Si la contraseña es más larga, la truncamos ANTES de hashear
+    IMPORTANTE: Truncamos a 72 bytes para evitar errores de Bcrypt.
     """
-    
-    # ✅ TRUNCAR A 72 BYTES ANTES DE HASHEAR
     password_bytes = password.encode('utf-8')[:72]
-    
-    # Hashear
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password_bytes, salt)
-    
     return hashed.decode('utf-8')
-
-# ===============================================================================
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     ✅ VERIFICA UNA CONTRASEÑA CONTRA SU HASH
-    
-    IMPORTANTE: También truncar aquí para ser consistente
     """
-    
-    # ✅ TRUNCAR A 72 BYTES ANTES DE VERIFICAR (mismo que en hash)
     plain_bytes = plain_password.encode('utf-8')[:72]
-    
-    # Verificar
     return bcrypt.checkpw(plain_bytes, hashed_password.encode('utf-8'))
 
 # ===============================================================================
@@ -54,11 +45,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
     """
-    🎫 CREA UN TOKEN JWT
+    🎫 CREA UN ACCESS TOKEN (Para peticiones cortas)
     """
-    
     to_encode = data.copy()
-    
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
@@ -68,24 +57,66 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
     
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.SECRET_KEY,
-        algorithm=settings.ALGORITHM
+        SECRET_KEY,
+        algorithm=ALGORITHM
     )
-    
     return encoded_jwt
 
-# ===============================================================================
-
-def verify_token(token: str) -> Optional[Dict]:
+def create_refresh_token(data: Dict, expires_delta: Optional[timedelta] = None) -> str:
     """
-    ✅ VERIFICA UN TOKEN JWT
+    🔄 CREA UN REFRESH TOKEN (Para mantener sesión, válido 7 días)
     """
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(days=7)
     
+    to_encode.update({"exp": expire, "type": "refresh"})
+    
+    encoded_jwt = jwt.encode(
+        to_encode,
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+    logger.info(f"✅ Refresh token creado para: {data.get('sub')}")
+    return encoded_jwt
+
+def verify_refresh_token(token: str) -> Optional[Dict]:
+    """
+    ✅ VERIFICA UN REFRESH TOKEN
+    """
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        
+        if payload.get("type") != "refresh":
+            logger.warning("⚠️  Token no es de tipo refresh")
+            return None
+        
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+            
+        logger.info(f"✅ Refresh token verificado para: {email}")
+        return {"email": email} # El router de refresh busca "email", así que este está bien
+    
+    except JWTError:
+        logger.warning("⚠️  Refresh token inválido o expirado")
+        return None
+
+def verify_token(token: str) -> Optional[Dict]:
+    """
+    ✅ VERIFICA UN ACCESS TOKEN
+    """
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
         )
         
         email: str = payload.get("sub")
@@ -93,7 +124,9 @@ def verify_token(token: str) -> Optional[Dict]:
         if email is None:
             return None
         
-        return {"email": email}
+        # ⚠️ CORRECCIÓN CLAVE AQUÍ:
+        # Devolvemos 'sub' porque routers/auth.py busca token_data.get("sub")
+        return {"sub": email} 
     
     except JWTError:
         return None

@@ -1,54 +1,83 @@
 """
-Configuración centralizada de la aplicación
-Lee variables del archivo .env
+MÓDULO: Configuración
+PROPÓSITO: Gestionar variables de entorno y configuraciones
 """
-from pydantic_settings import BaseSettings
-from pydantic import Field
-import logging
-from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from pydantic_settings import BaseSettings
+from typing import Optional
 
 class Settings(BaseSettings):
-    """Configuración de la aplicación"""
+    """Configuración de la aplicación basada en variables de entorno (.env)"""
     
-    # MongoDB
-    MONGODB_URL: str = Field(default="mongodb://localhost:27017")
-    MONGODB_DB_NAME: str = Field(default="music_translator")
-    MONGODB_USER: str = Field(default="")
-    MONGODB_PASSWORD: str = Field(default="")
-    USE_MOCK_DB: bool = Field(default=True)
+    # ===== ENTORNO =====
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
     
-    # Spotify
-    SPOTIFY_CLIENT_ID: str = Field(default="")
-    SPOTIFY_CLIENT_SECRET: str = Field(default="")
+    # ===== BASE DE DATOS - MONGODB =====
+    MONGODB_URL: str = "mongodb://localhost:27017"  # Para desarrollo local
+    MONGO_URI: Optional[str] = None  # Para MongoDB Atlas (producción) - OPCIONAL
+    MONGODB_DB_NAME: str = "music_translator"
+    USE_MOCK_DB: bool = False
     
-    # JWT
-    SECRET_KEY: str = Field(default="your-super-secret-key-change-in-production")
-    ALGORITHM: str = Field(default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
+    # ===== AUTENTICACIÓN JWT =====
+    SECRET_KEY: str = "your-secret-key-change-in-production"  # Deprecado
+    JWT_SECRET_KEY: Optional[str] = None  # Usar este - OPCIONAL (fallback a SECRET_KEY)
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas
     
-    # OpenAI
-    OPENAI_API_KEY: str = Field(default="")
+    # ===== APIs EXTERNAS - SPOTIFY =====
+    SPOTIFY_CLIENT_ID: Optional[str] = None
+    SPOTIFY_CLIENT_SECRET: Optional[str] = None
     
-    # GENIUS API
-    GENIUS_API_TOKEN: str = Field(
-        default="your-genius-api-token",
-        description="Token de Genius API para extraer letras"
-    )
+    # ===== APIs EXTERNAS - GENIUS =====
+    GENIUS_API_TOKEN: Optional[str] = None
     
-    # Entorno
-    ENVIRONMENT: str = Field(default="development")
-    DEBUG: bool = Field(default=True)
+    # ===== IA - GEMINI =====
+    USE_GEMINI: bool = True
+    GEMINI_API_KEY: Optional[str] = None
     
+    # ===== IA - OLLAMA (Alternativa local) =====
+    USE_OLLAMA: bool = False
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama2"
+    
+    # ===== EMAIL (Para recuperación de contraseña) =====
+    MAIL_USERNAME: str = ""
+    MAIL_PASSWORD: str = ""  # Deprecado
+    EMAIL_PASSWORD: Optional[str] = None  # Usar este - OPCIONAL
+    MAIL_FROM: str = ""
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    
+    # ===== CLOUDINARY (Subida de avatares) =====
+    CLOUDINARY_URL: Optional[str] = None
+    
+    # ===== URLs DE FRONTEND =====
+    FRONTEND_URL: str = "http://localhost:3000"
+    ANDROID_BASE_URL: str = "http://10.0.2.2:8000"
+    
+    # ===== LOGGING =====
+    LOG_LEVEL: str = "INFO"
+    
+    # ===== CACHE =====
+    CACHE_TTL_MINUTES: int = 120
+
     class Config:
         env_file = ".env"
-        case_sensitive = True
+        extra = "allow"  # Permite campos extra del .env
 
+# Instanciar configuración
 settings = Settings()
 
-# Log configuración
-logger.info(f"⚙️  Entorno: {settings.ENVIRONMENT}")
-logger.info(f"🐛 Debug: {settings.DEBUG}")
-logger.info(f"💾 Mock BD: {settings.USE_MOCK_DB}")
+def get_settings():
+    return settings
+
+# Helper para obtener JWT_SECRET_KEY con fallback
+def get_jwt_secret() -> str:
+    """Devuelve JWT_SECRET_KEY si existe, sino SECRET_KEY"""
+    return settings.JWT_SECRET_KEY or settings.SECRET_KEY
+
+# Helper para obtener EMAIL_PASSWORD con fallback
+def get_email_password() -> str:
+    """Devuelve EMAIL_PASSWORD si existe, sino MAIL_PASSWORD"""
+    return settings.EMAIL_PASSWORD or settings.MAIL_PASSWORD

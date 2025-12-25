@@ -1,71 +1,52 @@
 """
-Configuración de la base de datos MongoDB
-Con fallback a BD simulada (mock) para desarrollo
+DATABASE - Conexión a MongoDB o MOCK si no está disponible
 """
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
-from config import settings
+
 import logging
-import asyncio
+from config import settings
 
 logger = logging.getLogger(__name__)
 
-mongodb_client = None
-database = None
+"""
+DATABASE - Gestor de Conexión (Mock vs Real)
+"""
 
-# BD simulada (para desarrollo)
-mock_db = {
-    "users": [],
-    "dictionary_entries": [],
-    "song_sessions": [],
-    "user_progress": []
-}
+import logging
+from config import settings
 
-async def connect_to_mongo():  # ← CAMBIAR A async
-    """
-    Conecta a MongoDB cuando inicia la app
-    """
-    global mongodb_client, database
+logger = logging.getLogger(__name__)
+
+# Variable global que exportaremos
+db = None
+
+# ✅ LOGICA DE SELECCIÓN
+USE_MOCK = settings.USE_MOCK_DB
+
+if USE_MOCK:
+    logger.warning("⚠️  MODO: MOCK DATABASE (Datos en memoria)")
+    from database_mock import mock_db
+    db = mock_db
+else:
+    logger.info("🌍 MODO: MONGODB ATLAS (Base de datos real)")
+    from database_mongo import mongo_db
     
-    if settings.USE_MOCK_DB:
-        logger.warning("⚠️  USANDO BASE DE DATOS SIMULADA (MOCK)")
-        logger.warning("⚠️  Los datos NO se guardarán después de reiniciar")
-        return
-    
+    # Conectamos explícitamente
     try:
-        # Correr en thread para no bloquear
-        def _connect():
-            global mongodb_client, database
-            mongodb_url = settings.MONGODB_URL
-            mongodb_client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
-            mongodb_client.admin.command("ping")
-            database = mongodb_client[settings.MONGODB_DB_NAME]
-        
-        await asyncio.to_thread(_connect)
-        
-        logger.info("✅ Conectado a MongoDB exitosamente")
-        logger.info(f"📊 Base de datos: {settings.MONGODB_DB_NAME}")
-        logger.info(f"🌐 Servidor: {settings.MONGODB_URL}")
-        
-    except ConnectionFailure as e:
-        logger.error(f"❌ Error conectando a MongoDB: {e}")
-        logger.warning("⚠️  Usando BASE DE DATOS SIMULADA (MOCK)")
+        mongo_db.connect()
+        db = mongo_db
+    except Exception as e:
+        logger.critical(f"❌ FALLO CONEXIÓN MONGO: {e}")
+        # Fallback de emergencia al Mock si Mongo falla
+        logger.warning("⚠️  Activando Mock DB de emergencia...")
+        from database_mock import mock_db
+        db = mock_db
 
-async def close_mongo_connection():  # ← CAMBIAR A async
-    """Cierra conexión a MongoDB"""
-    global mongodb_client
-    if mongodb_client:
-        mongodb_client.close()
-        logger.info("🛑 Desconectado de MongoDB")
-    else:
-        logger.info("🛑 BD Simulada cerrada")
+# Exportar
+__all__ = ['db', 'USE_MOCK']
 
-def get_database():
-    """Retorna BD real o mock"""
-    if settings.USE_MOCK_DB or database is None:
-        return mock_db
-    return database
-
-def is_using_mock_db():
-    """Indica si se usa BD simulada"""
-    return settings.USE_MOCK_DB or database is None
+async def get_db():
+    """
+    Función puente para que users.py pueda usar Depends(get_db).
+    Simplemente devuelve la base de datos que ya hemos configurado arriba.
+    """
+    return db

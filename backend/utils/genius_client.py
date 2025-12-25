@@ -1,219 +1,219 @@
 """
-MÓDULO: Cliente de Genius API
-PROPÓSITO: Extraer letras de canciones desde Genius
-USA: lyricsgenius (librería oficial)
+MÓDULO: Cliente de Letras Híbrido (LRCLIB + Genius Fallback)
+PROPÓSITO: Obtener letras de forma robusta evitando bloqueos de Cloudflare.
+ESTRATEGIA:
+1. Intentar API abierta LRCLIB (Sin bloqueo, rápido).
+2. Si falla, intentar Genius con curl_cffi (Impersonate Browser).
 """
 
 import logging
 from typing import Optional, List, Dict
-import lyricsgenius as lg
+import requests  # Para LRCLIB (API amigable)
+from curl_cffi import requests as cffi_requests  # 🚀 EL ARMA SECRETA ANTI-CLOUDFLARE
+from bs4 import BeautifulSoup
+from langdetect import detect, LangDetectException
 from config import settings
-import requests
 
 logger = logging.getLogger(__name__)
 
-# ✅ OBTENER EL TOKEN DE SETTINGS
+# Token de Genius (Solo se usa para la búsqueda inicial en la API oficial)
 GENIUS_ACCESS_TOKEN = settings.GENIUS_API_TOKEN
 
-# Crear cliente de Genius
-genius = lg.Genius(
-    access_token=GENIUS_ACCESS_TOKEN,
-    skip_non_songs=True,
-    excluded_terms=["(Remix)", "(Cover)"]
-)
+# ===============================================================================
+# 🛠️ UTILIDADES
+# ===============================================================================
+
+def detect_language_from_text(text: str, min_length: int = 50) -> str:
+    """Detecta idioma del texto, default 'en' si falla o es muy corto"""
+    try:
+        if not text or len(text) < min_length: 
+            return "en"
+        # Limpiamos headers tipo [Chorus] para no confundir al detector
+        clean_lines = [line for line in text.split("\n") if not line.strip().startswith("[")]
+        clean_text = "\n".join(clean_lines)[:500] 
+        
+        if not clean_text.strip():
+            return "en"
+            
+        return detect(clean_text)
+    except Exception:
+        return "en"
 
 # ===============================================================================
-# FUNCIONES PRINCIPALES
+# 🚀 ESTRATEGIA 1: LRCLIB (Prioridad Alta)
+# ===============================================================================
+
+def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
+    """
+    Busca letras en LRCLIB.net
+    Ventajas: Gratis, Open Source, Sin Cloudflare, Muy rápido.
+    """
+    try:
+        url = "https://lrclib.net/api/get"
+        params = {
+            "artist_name": artist,
+            "track_name": title
+        }
+        
+        # Usamos requests normal porque esta API es amigable
+        response = requests.get(url, params=params, timeout=8)
+        
+        if response.status_code == 404:
+            return None
+            
+        response.raise_for_status()
+        data = response.json()
+        
+        plain_lyrics = data.get("plainLyrics")
+        if not plain_lyrics:
+            return None
+
+        # Detectar idioma
+        lang = detect_language_from_text(plain_lyrics)
+        lines = [line.strip() for line in plain_lyrics.split("\n") if line.strip()]
+
+        logger.info(f"✅ [LRCLIB] Letra encontrada: {title} ({len(lines)} líneas)")
+        
+        return {
+            "source": "LRCLIB",
+            "title": data.get("trackName", title),
+            "artist": data.get("artistName", artist),
+            "url": None, 
+            "lyrics": plain_lyrics,
+            "lines": lines,
+            "line_count": len(lines),
+            "language": lang,
+            "synced_lyrics": data.get("syncedLyrics") # 🎁 Guardado para futuro karaoke
+        }
+
+    except Exception as e:
+        logger.warning(f"⚠️ [LRCLIB] No encontrado o error: {e}")
+        return None
+
+# ===============================================================================
+# 🛡️ ESTRATEGIA 2: Genius con Stealth Mode (Fallback)
+# ===============================================================================
+
+def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
+    """
+    Intenta rascar Genius simulando ser Chrome 120 (curl_cffi).
+    Esto salta la pantalla 'Verify you are human'.
+    """
+    try:
+        # 1. Buscar la URL en la API oficial (esto no suele tener bloqueo fuerte)
+        search_url = "https://api.genius.com/search"
+        headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+        
+        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=5)
+        
+        if resp.status_code != 200:
+            return None
+            
+        hits = resp.json().get("response", {}).get("hits", [])
+        if not hits:
+            return None
+            
+        hit = hits[0]["result"]
+        song_url = hit["url"]
+        
+        logger.info(f"🕵️ [Genius] URL hallada, iniciando extracción stealth: {song_url}")
+
+        # 2. Descargar HTML simulando navegador real (Bypass Cloudflare)
+        response = cffi_requests.get(
+            song_url, 
+            impersonate="chrome120",  # 👈 Aquí ocurre la magia
+            timeout=15
+        )
+
+        if response.status_code != 200:
+            logger.error(f"❌ [Genius] Bloqueo persistente (Status {response.status_code})")
+            return None
+
+        # 3. Parsear HTML
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        # Genius usa contenedores con data-lyrics-container="true"
+        lyrics_containers = soup.find_all("div", attrs={"data-lyrics-container": "true"})
+        
+        text = ""
+        if lyrics_containers:
+            for container in lyrics_containers:
+                for br in container.find_all("br"):
+                    br.replace_with("\n")
+                text += container.get_text() + "\n"
+        else:
+            # Fallback a selectores antiguos
+            lyrics_div = soup.find("div", class_="lyrics")
+            if lyrics_div:
+                text = lyrics_div.get_text()
+            else:
+                logger.warning("⚠️ [Genius] HTML descargado pero estructura desconocida")
+                return None
+
+        cleaned_text = text.strip()
+        lines = [line.strip() for line in cleaned_text.split("\n") if line.strip()]
+        lang = detect_language_from_text(cleaned_text)
+
+        logger.info(f"✅ [Genius] Scraping exitoso: {len(lines)} líneas")
+
+        return {
+            "source": "Genius",
+            "title": hit["title"],
+            "artist": hit["primary_artist"]["name"],
+            "url": song_url,
+            "lyrics": cleaned_text,
+            "lines": lines,
+            "line_count": len(lines),
+            "language": lang
+        }
+
+    except Exception as e:
+        logger.error(f"❌ [Genius] Error scraping avanzado: {e}")
+        return None
+
+# ===============================================================================
+# 🚦 ENTRY POINT (Función Principal)
 # ===============================================================================
 
 async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     """
-    🎵 EXTRAE LA LETRA DE UNA CANCIÓN
-    
-    LÓGICA:
-    1. Recibe título y artista
-    2. Busca en Genius API
-    3. Si existe, retorna la letra
-    4. Si no existe, retorna None
+    Orquestador: Intenta LRCLIB primero, luego Genius.
     """
-    
-    try:
-        logger.info(f"🔍 Buscando letra en Genius: '{song_title}' - {artist_name}")
-        
-        song = genius.search_song(
-            title=song_title,
-            artist=artist_name
-        )
-        
-        if song is None:
-            logger.warning(f"⚠️  Letra no encontrada: {song_title} - {artist_name}")
-            return None
-        
-        raw_lyrics = song.lyrics
-        lines = [line.strip() for line in raw_lyrics.split("\n") if line.strip()]
-        
-        result = {
-            "title": song.title,
-            "artist": song.artist,
-            "url": song.url,
-            "lyrics": raw_lyrics,
-            "lines": lines,
-            "line_count": len(lines)
-        }
-        
-        logger.info(f"✅ Letra encontrada: {song.title} ({len(lines)} líneas)")
-        
+    logger.info(f"🎵 Buscando letra: '{song_title}' - {artist_name}")
+
+    # Prioridad 1: LRCLIB
+    result = get_lyrics_lrclib(song_title, artist_name)
+    if result:
         return result
+        
+    # Prioridad 2: Genius Stealth
+    logger.warning("⚠️ LRCLIB falló. Activando protocolo Genius Stealth...")
+    result = get_lyrics_genius_advanced(song_title, artist_name)
     
-    except Exception as e:
-        logger.error(f"❌ Error extrayendo letra de Genius: {str(e)}")
-        return None
+    return result
 
-# ===============================================================================
-
-async def get_song_verses(song_title: str, artist_name: str) -> Optional[List[Dict]]:
-    """
-    📖 EXTRAE LOS VERSÍCULOS (SECCIONES) DE UNA CANCIÓN
-    """
-    
-    try:
-        song_data = await get_song_lyrics(song_title, artist_name)
-        
-        if not song_data:
-            return None
-        
-        lyrics = song_data["lyrics"]
-        sections = []
-        
-        current_section = None
-        
-        for line in song_data["lines"]:
-            if line.startswith("[") and line.endswith("]"):
-                if current_section:
-                    sections.append(current_section)
-                
-                header = line.strip("[]")
-                parts = header.split()
-                
-                section_type = parts[0]
-                section_number = parts[1] if len(parts) > 1 else "1"
-                
-                current_section = {
-                    "type": section_type,
-                    "number": section_number,
-                    "text": "",
-                    "lines": []
-                }
-            
-            else:
-                if current_section:
-                    current_section["lines"].append(line)
-        
-        if current_section:
-            current_section["text"] = "\n".join(current_section["lines"])
-            sections.append(current_section)
-        
-        logger.info(f"✅ Se extrajeron {len(sections)} secciones")
-        
-        return sections
-    
-    except Exception as e:
-        logger.error(f"❌ Error extrayendo versículos: {str(e)}")
-        return None
-
-# ===============================================================================
-
-async def get_line_lyrics(song_title: str, artist_name: str) -> Optional[List[str]]:
-    """
-    📝 RETORNA SOLO LAS LÍNEAS (sin headers de secciones)
-    """
-    
-    try:
-        song_data = await get_song_lyrics(song_title, artist_name)
-        
-        if not song_data:
-            return None
-        
-        lines = [
-            line for line in song_data["lines"]
-            if not (line.startswith("[") and line.endswith("]"))
-        ]
-        
-        logger.info(f"✅ Se obtuvieron {len(lines)} líneas de letra")
-        
-        return lines
-    
-    except Exception as e:
-        logger.error(f"❌ Error obteniendo líneas: {str(e)}")
-        return None
-
-# ===============================================================================
-
+# Mantener compatibilidad si se llama desde otro lado
 async def search_genius_songs(query: str, limit: int = 5) -> List[dict]:
-    """
-    🔍 Busca canciones en Genius y devuelve MÚLTIPLES RESULTADOS
-    """
-    
-    if not is_genius_configured():
-        logger.warning("⚠️  Genius no está configurado")
-        return []
-    
+    # Esta función usa la API oficial para BUSCAR (no ver letras), suele funcionar bien con requests normal
+    if not GENIUS_ACCESS_TOKEN: return []
     try:
-        logger.info(f"🔍 Buscando en Genius: {query}")
-        
-        # ✅ USAR EL TOKEN DEFINIDO ARRIBA
-        response = requests.get(
-            "https://api.genius.com/search",
-            params={"q": query},
-            headers={"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"},
-            timeout=10
-        )
-        response.raise_for_status()
-        
-        data = response.json()
-        hits = data.get("response", {}).get("hits", [])
-        
-        if not hits:
-            logger.warning(f"⚠️  Sin resultados en Genius para: {query}")
-            return []
-        
-        # Formatear resultados
-        results = []
-        for hit in hits[:limit]:
-            song = hit.get("result", {})
-            
-            result_item = {
-                "title": song.get("title", "Unknown"),
-                "artist": song.get("primary_artist", {}).get("name", "Unknown"),
-                "url": song.get("url", ""),
-                "image_url": song.get("song_art_image_url", ""),
-                "genius_id": song.get("id")
-            }
-            results.append(result_item)
-        
-        logger.info(f"✅ Se encontraron {len(results)} canciones en Genius")
-        
-        return results
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Error conectando con Genius: {str(e)}")
-        return []
-    except Exception as e:
-        logger.error(f"❌ Error procesando resultados: {str(e)}")
+        headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+        res = requests.get("https://api.genius.com/search", params={"q": query}, headers=headers)
+        res.raise_for_status()
+        hits = res.json()["response"]["hits"]
+        return [{
+            "title": h["result"]["title"], 
+            "artist": h["result"]["primary_artist"]["name"],
+            "url": h["result"]["url"],
+            "image_url": h["result"]["song_art_image_url"]
+        } for h in hits[:limit]]
+    except:
         return []
 
+# ===============================================================================
+# 🛠️ HELPERS (Añadir al final del archivo)
 # ===============================================================================
 
 def is_genius_configured() -> bool:
-    """
-    ✅ VERIFICA SI GENIUS ESTÁ CONFIGURADO
-    """
-    
-    token = getattr(settings, "GENIUS_API_TOKEN", None)
-    
-    if not token or token == "your-genius-api-token":
-        logger.warning("⚠️  GENIUS_API_TOKEN no configurado. Lyrics no disponibles.")
-        return False
-    
-    logger.info("✅ Genius API configurado correctamente")
-    return True
+    """Verifica si el token de Genius está presente"""
+    return bool(GENIUS_ACCESS_TOKEN)

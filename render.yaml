@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: musictransiator-api
+    runtime: python
+    plan: free
+    
+    # 🔥 Rama de desarrollo activa
+    branch: feature/lyrics-translation
+    
+    # 🔥 Render construye desde la raíz, pero ejecuta desde backend
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    
+    # 🔥 Endpoint de health que SÍ existe
+    healthCheckPath: /api/v1/health
+    
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      
+      # Variables secretas (configurar manualmente en Render UI)
+      - key: MONGO_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: GENIUS_API_TOKEN
+        sync: false
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
