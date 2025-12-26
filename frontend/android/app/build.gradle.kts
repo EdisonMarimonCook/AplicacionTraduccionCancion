@@ -59,7 +59,13 @@ dependencies {
     implementation("io.coil-kt:coil:2.5.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     implementation("com.github.yalantis:ucrop:2.2.8")
-    implementation(libs.ucrop) // 👈 AÑADIR ESTO
+    implementation(libs.ucrop)
+    // 📺 Extractor de YouTube (El motor)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.0")
+// 🕸️ Ayuda para leer webs
+    implementation("org.jsoup:jsoup:1.15.3")
+// ⚡ Coroutines Android (ya las tendrás, pero asegúrate)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
     // DEPENDENCIAS PARA BACKEND
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
