@@ -17,13 +17,13 @@
         app:tint="@color/icon_tint"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        android:layout_margin="16dp" />
+        android:layout_margin="8dp" />
 
     <ImageView
         android:id="@+id/ivAlbumCover"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:layout_margin="16dp"
+        android:layout_width="90dp"
+        android:layout_height="90dp"
+        android:layout_margin="12dp"
         android:background="@color/bg_card"
         app:layout_constraintTop_toBottomOf="@id/btnBack"
         app:layout_constraintStart_toStartOf="parent"
@@ -37,7 +37,7 @@
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="@color/text_primary"
-        android:layout_marginStart="16dp"
+        android:layout_marginStart="12dp"
         android:layout_marginEnd="16dp"
         app:layout_constraintStart_toEndOf="@id/ivAlbumCover"
         app:layout_constraintEnd_toEndOf="parent"
@@ -49,8 +49,8 @@
         android:layout_height="wrap_content"
         android:text="Artista"
         android:textColor="@color/text_secondary"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="2dp"
         app:layout_constraintStart_toEndOf="@id/ivAlbumCover"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/tvHeaderTitle" />
@@ -62,46 +62,27 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="@drawable/bg_rounded_toast"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="6dp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
         android:visibility="gone"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"
-        app:layout_constraintTop_toBottomOf="@id/ivAlbumCover"
-        app:layout_constraintStart_toStartOf="parent">
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="12dp"
+        app:layout_constraintTop_toBottomOf="@id/tvHeaderArtist"
+        app:layout_constraintStart_toEndOf="@id/ivAlbumCover">
 
         <ProgressBar
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:indeterminateTint="@color/purple_200" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Analizando letra..."
-            android:textSize="12sp"
+            android:text="Analizando..."
+            android:textSize="11sp"
             android:textColor="@android:color/white"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="6dp"/>
     </LinearLayout>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:fitsSystemWindows="true"
-        app:layout_constraintTop_toBottomOf="@id/layoutAiStatus"
-        app:layout_constraintBottom_toTopOf="@id/layoutPlayerControls"> 
-
-        <TextView
-            android:id="@+id/tvLyrics"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp"
-            android:textSize="18sp"
-            android:lineSpacingExtra="4dp"
-            android:textColor="@color/text_primary"
-            android:text="Cargando letra..." />
-    </ScrollView>
 
     <LinearLayout
         android:id="@+id/layoutPlayerControls"
@@ -109,34 +90,35 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="16dp"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp" 
         android:visibility="gone"
-        android:background="@color/bg_card" 
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:background="@android:color/transparent"
+        android:layout_marginTop="4dp"
+        app:layout_constraintTop_toBottomOf="@id/ivAlbumCover" 
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <ImageButton
             android:id="@+id/btnPlayPause"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_play" 
             app:tint="@color/icon_tint"
             android:scaleType="fitCenter"
-            android:padding="8dp"/>
+            android:padding="6dp"/>
 
         <TextView
             android:id="@+id/tvCurrentTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="4dp"
             android:text="00:00"
             android:textColor="@color/text_primary"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:fontFamily="sans-serif-medium"/>
 
         <SeekBar
@@ -144,8 +126,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
             android:progressTint="@color/purple_200"
             android:thumbTint="@color/purple_500"/>
 
@@ -155,9 +137,29 @@
             android:layout_height="wrap_content"
             android:text="--:--"
             android:textColor="@color/text_secondary"
-            android:textSize="12sp"/>
-
+            android:textSize="11sp"/>
     </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="0dp"
+        android:fitsSystemWindows="true"
+        app:layout_constraintTop_toBottomOf="@id/layoutPlayerControls"
+        app:layout_constraintBottom_toBottomOf="parent"> 
+
+        <TextView
+            android:id="@+id/tvLyrics"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="20dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="48dp"
+            android:textSize="18sp"
+            android:lineSpacingExtra="5dp"
+            android:textColor="@color/text_primary"
+            android:text="Afinando los instrumentos..." />
+    </ScrollView>
 
     <FrameLayout
         android:id="@+id/loadingOverlay"

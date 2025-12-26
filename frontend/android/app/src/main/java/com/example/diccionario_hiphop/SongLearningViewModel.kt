@@ -91,24 +91,33 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     }
 
     private fun fetchFullAudioGrayjay(title: String, artist: String) {
-        viewModelScope.launch(Dispatchers.IO) { // ⚡ HILO DE RED
+        viewModelScope.launch(Dispatchers.IO) { // ⚡ HILO SEGUNDO PLANO
             try {
-                val query = "$artist - $title audio"
+                // Truco: Añadir "official audio" mejora mucho la puntería de Piped/Invidious
+                val query = "$artist - $title official audio"
+                
+                Log.d("ViewModel", "🔍 Buscando audio en GrayjayEngine: '$query'")
+                
+                // Llamamos a nuestro extractor blindado
                 val fullUrl = GrayjayAudioExtractor.getAudioStreamUrl(query)
 
                 withContext(Dispatchers.Main) { // ⚡ VOLVER A UI
                     if (fullUrl != null) {
-                        Log.d("ViewModel", "🎉 AUDIO COMPLETO OBTENIDO: $fullUrl")
-                        // Esto "pisa" la preview y pone la canción entera
+                        Log.d("ViewModel", "🎉 AUDIO ENCONTRADO: $fullUrl")
+                        
+                        // Actualizamos el LiveData que observa la Activity
                         _audioStreamState.value = fullUrl 
+                        
+                        // Quitamos modo preview y avisamos al usuario
                         _isPreviewOnly.value = false
                         _statusMessage.value = "✅ Audio Completo Listo"
                     } else {
-                        Log.w("ViewModel", "⚠️ No se pudo sacar audio full. Seguimos con preview.")
+                        Log.w("ViewModel", "⚠️ No se encontró audio full. Nos quedamos con lo que haya.")
+                        // No tocamos _audioStreamState para no romper la preview si ya estaba sonando
                     }
                 }
             } catch (e: Exception) {
-                Log.e("ViewModel", "Error crítico Grayjay", e)
+                Log.e("ViewModel", "💥 Error en motor de audio", e)
             }
         }
     }
