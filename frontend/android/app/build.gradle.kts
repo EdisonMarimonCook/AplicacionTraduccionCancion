@@ -63,6 +63,9 @@ dependencies {
     implementation(libs.ucrop)
     // implementation("com.github.yalantis:ucrop:2.2.8") // ❌ Comentado para evitar duplicados
 
+    // 📺 Extractor de YouTube (Versión corregida y sintaxis Kotlin DSL)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.22.6")
+
     // 🕸️ Ayuda para leer webs
     implementation ("org.jsoup:jsoup:1.16.1")
 

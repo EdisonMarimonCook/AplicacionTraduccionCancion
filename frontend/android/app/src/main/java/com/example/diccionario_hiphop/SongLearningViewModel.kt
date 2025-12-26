@@ -7,6 +7,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class SongLearningViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -40,7 +41,7 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private var currentSongTitle: String? = null
 
     /**
-     * 🔥 LÓGICA MEJORADA CON INVIDIOUS/COBALT
+     * 🔥 ESTRATEGIA FINAL: NewPipe Local (como Grayjay) + Fallback iTunes
      */
     fun loadContent(title: String, artist: String, userLevel: String, fallbackPreviewUrl: String?) {
         if (_lyricsState.value != null && currentSongTitle == title) return
@@ -49,68 +50,27 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             // 1. TELÓN ABAJO
             _loadingState.value = true
-            _statusMessage.value = "Cargando letra y audio..."
+            _statusMessage.value = "Cargando letra..."
             _errorState.value = ""
             _isAiAnalyzing.value = false
             _isPreviewOnly.value = false
             _audioStreamState.value = null
 
             try {
-                // LLAMADA AL BACKEND (trae letra + full_audio_url + preview_url)
+                // PASO 1: OBTENER LETRAS (Backend solo para esto)
                 val response = repository.getLyrics(title, artist)
 
                 if (response.isSuccessful && response.body() != null) {
                     val data = response.body()!!
 
-                    // 1. SETEAR LETRA
+                    // Setear letra inmediatamente
                     _lyricsState.value = data.lyrics
+                    _loadingState.value = false // ✅ Mostrar letra YA
 
-                    // 2. JERARQUÍA DE AUDIO
-                    val fullAudio = data.fullAudioUrl
-                    val previewAudio = data.previewUrl
-                    
-                    var finalUrl: String? = null
-                    var sourceLabel = ""
+                    // PASO 2: BUSCAR AUDIO (EN PARALELO, sin bloquear UI)
+                    searchAudioInBackground(title, artist, data.previewUrl, fallbackPreviewUrl)
 
-                    when {
-                        // A. Prioridad Máxima: Audio Completo (Invidious/Cobalt)
-                        !fullAudio.isNullOrEmpty() -> {
-                            finalUrl = fullAudio
-                            _isPreviewOnly.value = false
-                            sourceLabel = "YouTube (Completo)"
-                            Log.d("ViewModel", "✅ Audio Source: Backend Full (Invidious/Cobalt)")
-                        }
-                        // B. Preview del Backend (iTunes 30s)
-                        !previewAudio.isNullOrEmpty() -> {
-                            finalUrl = previewAudio
-                            _isPreviewOnly.value = true
-                            sourceLabel = "Preview 30s (iTunes)"
-                            Log.d("ViewModel", "⚠️ Audio Source: Backend Preview")
-                        }
-                        // C. Último recurso: Preview del Intent anterior
-                        !fallbackPreviewUrl.isNullOrEmpty() -> {
-                            finalUrl = fallbackPreviewUrl
-                            _isPreviewOnly.value = true
-                            sourceLabel = "Preview 30s (Fallback)"
-                            Log.d("ViewModel", "⚠️ Audio Source: Fallback Intent")
-                        }
-                        else -> {
-                            sourceLabel = "Sin audio disponible"
-                            Log.e("ViewModel", "❌ Audio Source: None")
-                        }
-                    }
-
-                    _audioStreamState.value = finalUrl
-                    _statusMessage.value = if (finalUrl != null) {
-                        "Reproduciendo: $sourceLabel"
-                    } else {
-                        "No se encontró audio para esta canción"
-                    }
-
-                    // 🚀 ABRIR TELÓN (Letra y Audio listos)
-                    _loadingState.value = false
-
-                    // FASE 3: IA EN LA SOMBRA
+                    // PASO 3: IA EN LA SOMBRA
                     analyzeLyricsInBackground(title, artist, userLevel, data.lyrics)
 
                 } else {
@@ -123,6 +83,64 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                 _errorState.value = "Error de conexión: ${e.message}"
                 _loadingState.value = false
             }
+        }
+    }
+
+    /**
+     * 🎧 BÚSQUEDA DE AUDIO EN SEGUNDO PLANO (No bloquea la letra)
+     */
+    private fun searchAudioInBackground(
+        title: String, 
+        artist: String, 
+        backendPreview: String?,
+        intentPreview: String?
+    ) {
+        viewModelScope.launch {
+            _statusMessage.value = "Buscando audio..."
+            
+            // NIVEL 1: NEWPIPE LOCAL (Como Grayjay)
+            val youtubeUrl = withTimeoutOrNull(12000L) {
+                try {
+                    Log.d("ViewModel", "🔍 Intentando NewPipe local...")
+                    YoutubeStreamExtractor.getStreamUrl(
+                        context = getApplication(),
+                        query = "$artist - $title audio"
+                    )
+                } catch (e: Exception) {
+                    Log.e("ViewModel", "❌ NewPipe falló: ${e.message}")
+                    null
+                }
+            }
+
+            if (youtubeUrl != null) {
+                _audioStreamState.value = youtubeUrl
+                _isPreviewOnly.value = false
+                _statusMessage.value = "Reproduciendo audio completo (YouTube)"
+                Log.d("ViewModel", "✅ Audio Source: NewPipe Local")
+                return@launch
+            }
+
+            // NIVEL 2: PREVIEW BACKEND (iTunes 30s)
+            if (!backendPreview.isNullOrEmpty()) {
+                _audioStreamState.value = backendPreview
+                _isPreviewOnly.value = true
+                _statusMessage.value = "Reproduciendo preview (30s)"
+                Log.d("ViewModel", "⚠️ Audio Source: Backend Preview")
+                return@launch
+            }
+
+            // NIVEL 3: PREVIEW INTENT (Fallback final)
+            if (!intentPreview.isNullOrEmpty()) {
+                _audioStreamState.value = intentPreview
+                _isPreviewOnly.value = true
+                _statusMessage.value = "Reproduciendo preview (30s)"
+                Log.d("ViewModel", "⚠️ Audio Source: Intent Preview")
+                return@launch
+            }
+
+            // SIN AUDIO
+            _statusMessage.value = "No se encontró audio para esta canción"
+            Log.e("ViewModel", "❌ Audio Source: None")
         }
     }
 
