@@ -31,32 +31,19 @@ async def get_lyrics(
         if not lyrics_data:
             raise HTTPException(status_code=404, detail="Lyrics not found")
 
-        # 2. Tareas en Paralelo:
-        #    a) Buscar Preview en iTunes/Spotify (Rápido)
-        #    b) Buscar Audio Completo (Invidious/Cobalt)
-        
-        youtube_query = f"{artist} - {title} audio"
-        loop = asyncio.get_event_loop()
-        
-        task_preview = enrich_single_song(title, artist)
-        task_full_audio = loop.run_in_executor(None, get_youtube_audio_url, youtube_query)
+        # 2. Solo buscar Preview en iTunes/Spotify (Rápido)
+        song_meta = await enrich_single_song(title, artist)
 
-        # Esperamos a ambos
-        song_meta, audio_data = await asyncio.gather(task_preview, task_full_audio)
-
-        # 3. Construir Respuesta
+        # 3. Construir Respuesta SOLO con preview
         return {
             "title": lyrics_data.get("title"),
             "artist": lyrics_data.get("artist"),
             "lyrics": lyrics_data.get("lyrics"),
-            
             # Imagen: Prioridad Genius > Spotify
             "image_url": lyrics_data.get("image_url") or song_meta.get("image_url"),
             "genius_url": lyrics_data.get("url"),
-            
-            # 🎵 AUDIOS
-            "preview_url": song_meta.get("preview_url"),  # iTunes (30s)
-            "full_audio_url": audio_data["stream_url"] if audio_data else None  # Invidious/Cobalt
+            # 🎵 SOLO PREVIEW
+            "preview_url": song_meta.get("preview_url")
         }
     
     except HTTPException:

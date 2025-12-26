@@ -63,8 +63,6 @@ dependencies {
     implementation(libs.ucrop)
     // implementation("com.github.yalantis:ucrop:2.2.8") // ❌ Comentado para evitar duplicados
 
-    // 📺 Extractor de YouTube (Versión corregida y sintaxis Kotlin DSL)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.22.6")
 
     // 🕸️ Ayuda para leer webs
     implementation ("org.jsoup:jsoup:1.16.1")
@@ -73,6 +71,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // ✅ ÚNICA VERSIÓN de Corrutinas (La más reciente que tenías)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

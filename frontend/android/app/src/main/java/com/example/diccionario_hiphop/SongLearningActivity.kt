@@ -106,21 +106,32 @@ class SongLearningActivity : AppCompatActivity() {
 
         // MENSAJES (TOASTS)
         viewModel.statusMessage.observe(this) { message ->
-            if (!message.isNullOrBlank()) {
+            if (message == "¡Análisis inteligente completado!") {
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
         }
 
         // AUDIO STREAM (YouTube)
-        viewModel.audioStreamState.observe(this) { streamUrl ->
-            if (!streamUrl.isNullOrEmpty()) {
-                prepareMediaPlayer(streamUrl)
-            }
+        viewModel.audioStreamState.observe(this) { url ->
+    val playerLayout = findViewById<LinearLayout>(R.id.layoutPlayerControls) // O como se llame
+    
+    if (!url.isNullOrEmpty()) {
+        // 🔥 FORZAR VISIBILIDAD
+        playerLayout.visibility = View.VISIBLE 
+        btnPlay.visibility = View.VISIBLE
+        sbProgress.visibility = View.VISIBLE // Asegúrate de que la seekbar se ve
+        
+        prepareMediaPlayer(url)
+    } else {
+        // Solo ocultar si NO estamos cargando
+        if (viewModel.loadingState.value == false) {
+             // playerLayout.visibility = View.GONE (Opcional, a veces es mejor dejarlo invisible pero ocupando espacio)
         }
-
+    }
+}
         viewModel.errorState.observe(this) { errorMsg ->
-            if (!errorMsg.isNullOrBlank()) {
-                Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+            if (!errorMsg.isNullOrBlank() && errorMsg.contains("IA")) {
+                Toast.makeText(this, "La IA se está enfriando... Intenta de nuevo en unos segundos.", Toast.LENGTH_LONG).show()
             }
         }
 
@@ -163,11 +174,18 @@ class SongLearningActivity : AppCompatActivity() {
     }
 
     private fun setupPlayer() {
+        // El layout de controles siempre se muestra, pero los controles pueden estar deshabilitados
         if (!previewUrl.isNullOrEmpty()) {
             prepareMediaPlayer(previewUrl!!)
+            btnPlay.isEnabled = true
+            btnPlay.alpha = 1.0f
+            sbProgress.isEnabled = true
+            sbProgress.alpha = 1.0f
         } else {
             btnPlay.isEnabled = false
             btnPlay.alpha = 0.5f
+            sbProgress.isEnabled = false
+            sbProgress.alpha = 0.5f
         }
 
         btnPlay.setOnClickListener {
@@ -194,7 +212,21 @@ class SongLearningActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
                 isUserSeeking = false // Reanudamos el reloj automático
                 mediaPlayer?.let { player ->
-                    player.seekTo(seekBar?.progress ?: 0)
+                    val targetProgress = seekBar?.progress ?: 0
+                    // Asegurarse de no buscar más allá del final
+                    if (targetProgress >= player.duration) {
+                        player.seekTo(player.duration)
+                        player.pause()
+                        isPlaying = false
+                        btnPlay.setImageResource(android.R.drawable.ic_media_play)
+                    } else {
+                        player.seekTo(targetProgress)
+                        // Si estaba reproduciendo antes de arrastrar, seguir reproduciendo
+                        if (isPlaying) {
+                            player.start()
+                            startSeekBarUpdater()
+                        }
+                    }
                 }
             }
         })
@@ -202,6 +234,7 @@ class SongLearningActivity : AppCompatActivity() {
 
     private fun prepareMediaPlayer(url: String) {
         try {
+            android.util.Log.d("SongLearningActivity", "prepareMediaPlayer: $url")
             if (mediaPlayer == null) {
                 mediaPlayer = MediaPlayer().apply {
                     setAudioAttributes(
@@ -216,13 +249,18 @@ class SongLearningActivity : AppCompatActivity() {
             }
 
             mediaPlayer?.apply {
+                setOnErrorListener { _, what, extra ->
+                    android.util.Log.e("SongLearningActivity", "Error al reproducir audio: $url (code: $what)")
+                    Toast.makeText(this@SongLearningActivity, "No se pudo reproducir el audio.", Toast.LENGTH_LONG).show()
+                    false
+                }
                 setDataSource(url)
-                prepareAsync() 
-                
+                prepareAsync()
+
                 setOnPreparedListener {
                     btnPlay.isEnabled = true
                     btnPlay.alpha = 1.0f
-                    
+
                     // 🔥 ACTUALIZAR BARRA AL CARGAR
                     val duration = it.duration
                     if (duration > 0) {
@@ -231,21 +269,16 @@ class SongLearningActivity : AppCompatActivity() {
                     }
                     startSeekBarUpdater() // Arrancar el reloj
                 }
-                
+
                 setOnCompletionListener {
                     this@SongLearningActivity.isPlaying = false
                     btnPlay.setImageResource(android.R.drawable.ic_media_play)
                     sbProgress.progress = 0
                     tvCurrentTime.text = "00:00"
                 }
-                
-                setOnErrorListener { _, what, extra ->
-                    Toast.makeText(this@SongLearningActivity, "Error audio: $what", Toast.LENGTH_SHORT).show()
-                    false
-                }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("SongLearningActivity", "Excepción en prepareMediaPlayer: $url", e)
             Toast.makeText(this, "Error cargando audio", Toast.LENGTH_SHORT).show()
         }
     }
