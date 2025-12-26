@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 
 class SongLearningViewModel(application: Application) : AndroidViewModel(application) {
     
-    // 👇 Estado IA
     private val _isAiAnalyzing = MutableLiveData<Boolean>()
     val isAiAnalyzing: LiveData<Boolean> get() = _isAiAnalyzing
    
@@ -35,14 +34,13 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> get() = _statusMessage
 
-    // Nuevo: Estado para indicar si solo hay preview
     private val _isPreviewOnly = MutableLiveData<Boolean>()
     val isPreviewOnly: LiveData<Boolean> get() = _isPreviewOnly
 
     private var currentSongTitle: String? = null
 
     /**
-     * 🔥 NUEVA LÓGICA SIMPLIFICADA (Vía Cobalt Backend)
+     * 🔥 LÓGICA MEJORADA CON INVIDIOUS/COBALT
      */
     fun loadContent(title: String, artist: String, userLevel: String, fallbackPreviewUrl: String?) {
         if (_lyricsState.value != null && currentSongTitle == title) return
@@ -55,11 +53,10 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
             _errorState.value = ""
             _isAiAnalyzing.value = false
             _isPreviewOnly.value = false
-            _audioStreamState.value = null // Reseteamos audio previo
+            _audioStreamState.value = null
 
             try {
-                // --- LLAMADA ÚNICA AL BACKEND ---
-                // Ahora getLyrics trae la letra Y el audio completo (fullAudioUrl)
+                // LLAMADA AL BACKEND (trae letra + full_audio_url + preview_url)
                 val response = repository.getLyrics(title, artist)
 
                 if (response.isSuccessful && response.body() != null) {
@@ -68,43 +65,52 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                     // 1. SETEAR LETRA
                     _lyricsState.value = data.lyrics
 
-                    // 2. LOGICA DE SELECCIÓN DE AUDIO (Jerarquía de calidad)
+                    // 2. JERARQUÍA DE AUDIO
                     val fullAudio = data.fullAudioUrl
                     val previewAudio = data.previewUrl
                     
                     var finalUrl: String? = null
+                    var sourceLabel = ""
 
                     when {
-                        // A. Prioridad Máxima: Audio Completo de Cobalt
+                        // A. Prioridad Máxima: Audio Completo (Invidious/Cobalt)
                         !fullAudio.isNullOrEmpty() -> {
                             finalUrl = fullAudio
                             _isPreviewOnly.value = false
-                            _statusMessage.value = "Reproduciendo versión completa (YouTube)"
-                            Log.d("ViewModel", "✅ Audio Source: Cobalt Full Audio")
+                            sourceLabel = "YouTube (Completo)"
+                            Log.d("ViewModel", "✅ Audio Source: Backend Full (Invidious/Cobalt)")
+                        }
+                        // B. Preview del Backend (iTunes 30s)
+                        !previewAudio.isNullOrEmpty() -> {
+                            finalUrl = previewAudio
                             _isPreviewOnly.value = true
-                            _statusMessage.value = "Solo preview disponible (30s)"
+                            sourceLabel = "Preview 30s (iTunes)"
                             Log.d("ViewModel", "⚠️ Audio Source: Backend Preview")
                         }
-                        // C. Último recurso: Preview que venía de la pantalla anterior (Spotify)
+                        // C. Último recurso: Preview del Intent anterior
                         !fallbackPreviewUrl.isNullOrEmpty() -> {
                             finalUrl = fallbackPreviewUrl
                             _isPreviewOnly.value = true
-                            _statusMessage.value = "Solo preview disponible (30s)"
+                            sourceLabel = "Preview 30s (Fallback)"
                             Log.d("ViewModel", "⚠️ Audio Source: Fallback Intent")
                         }
                         else -> {
-                            _statusMessage.value = "No se encontró audio para esta canción."
+                            sourceLabel = "Sin audio disponible"
                             Log.e("ViewModel", "❌ Audio Source: None")
                         }
                     }
 
                     _audioStreamState.value = finalUrl
+                    _statusMessage.value = if (finalUrl != null) {
+                        "Reproduciendo: $sourceLabel"
+                    } else {
+                        "No se encontró audio para esta canción"
+                    }
 
-                    // 🚀 ¡ABRIR TELÓN! (Letra y Audio listos)
+                    // 🚀 ABRIR TELÓN (Letra y Audio listos)
                     _loadingState.value = false
 
-                    // --- FASE 3: LA IA TRABAJA EN LA SOMBRA ---
-                    // Iniciamos el análisis después de mostrar la letra para no bloquear la UI
+                    // FASE 3: IA EN LA SOMBRA
                     analyzeLyricsInBackground(title, artist, userLevel, data.lyrics)
 
                 } else {
@@ -120,7 +126,6 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Separé la IA en una función privada para limpiar loadContent
     private fun analyzeLyricsInBackground(title: String, artist: String, level: String, lyrics: String) {
         _isAiAnalyzing.value = true 
         viewModelScope.launch {
@@ -138,7 +143,6 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    // Funcionalidad de Diccionario (Manteniendo tu lógica original)
     fun addToDictionary(term: String, definition: String, explanation: String, example: String, isExpression: Boolean) {
        viewModelScope.launch {
             try {
@@ -154,7 +158,6 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                 val response = repository.addWord(request)
                 
                 if (response.isSuccessful) {
-                    // Actualizar UI (Poner palabra en gris)
                     val current = _analysisState.value
                     if (current != null) {
                          if (isExpression) {
