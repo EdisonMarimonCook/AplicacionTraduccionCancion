@@ -6,7 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 class SongLearningViewModel(application: Application) : AndroidViewModel(application) {
@@ -15,7 +14,6 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private val _isAiAnalyzing = MutableLiveData<Boolean>()
     val isAiAnalyzing: LiveData<Boolean> get() = _isAiAnalyzing
    
-    // Mantenemos tu repositorio (SongRepository) para la IA y base de datos
     private val repository = SongRepository(application)
 
     // Estados UI
@@ -37,11 +35,14 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private val _statusMessage = MutableLiveData<String?>()
     val statusMessage: LiveData<String?> get() = _statusMessage
 
+    // Nuevo: Estado para indicar si solo hay preview
+    private val _isPreviewOnly = MutableLiveData<Boolean>()
+    val isPreviewOnly: LiveData<Boolean> get() = _isPreviewOnly
+
     private var currentSongTitle: String? = null
 
     /**
-     * 🔥 NUEVA LÓGICA HÍBRIDA:
-     * Aceptamos 'fallbackPreviewUrl' (lo que viene de Spotify/iTunes)
+     * 🔥 NUEVA LÓGICA SIMPLIFICADA (Vía Cobalt Backend)
      */
     fun loadContent(title: String, artist: String, userLevel: String, fallbackPreviewUrl: String?) {
         if (_lyricsState.value != null && currentSongTitle == title) return
@@ -50,92 +51,97 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
         viewModelScope.launch {
             // 1. TELÓN ABAJO
             _loadingState.value = true
-            _statusMessage.value = null
+            _statusMessage.value = "Cargando letra y audio..."
             _errorState.value = ""
-            _isAiAnalyzing.value = false 
+            _isAiAnalyzing.value = false
+            _isPreviewOnly.value = false
+            _audioStreamState.value = null // Reseteamos audio previo
 
             try {
-                // --- FASE 1: PARALELISMO REAL (Audio Local + Letra Backend) ---
-                
-                // A) Buscar Audio en YouTube (Localmente con NewPipe)
-                val audioDeferred = async {
-                    val audioQuery = "$artist - $title audio" // "Nas NY State of Mind audio"
-                    Log.d("ViewModel", "🔍 Buscando en YouTube: $audioQuery")
-                    YoutubeStreamExtractor.getStreamUrl(getApplication(), audioQuery)
-                }
+                // --- LLAMADA ÚNICA AL BACKEND ---
+                // Ahora getLyrics trae la letra Y el audio completo (fullAudioUrl)
+                val response = repository.getLyrics(title, artist)
 
-                // B) Buscar Letra (Backend Python) - ESTO SE MANTIENE
-                val lyricsDeferred = async {
-                    repository.getLyrics(title, artist)
-                }
+                if (response.isSuccessful && response.body() != null) {
+                    val data = response.body()!!
 
-                // Esperamos resultados
-                val youtubeUrl = audioDeferred.await()
-                val lyricsResponse = lyricsDeferred.await()
+                    // 1. SETEAR LETRA
+                    _lyricsState.value = data.lyrics
 
-                // --- FASE 2: GESTIÓN DE AUDIO (Híbrido) ---
-                if (youtubeUrl != null) {
-                    // ✅ Éxito: Canción completa de YouTube
-                    Log.d("ViewModel", "✅ Audio encontrado en YouTube")
-                    _audioStreamState.value = youtubeUrl
-                    _statusMessage.value = "Reproduciendo versión completa (YouTube)"
-                } else {
-                    // ❌ Fallo YouTube: Usamos el plan B (Preview de 30s)
-                    Log.d("ViewModel", "⚠️ YouTube falló. Usando fallback.")
-                    if (!fallbackPreviewUrl.isNullOrEmpty()) {
-                        _audioStreamState.value = fallbackPreviewUrl
-                        _statusMessage.value = "YouTube no disponible. Usando preview (30s)."
-                    } else {
-                        _statusMessage.value = "Audio no disponible por el momento."
-                    }
-                }
+                    // 2. LOGICA DE SELECCIÓN DE AUDIO (Jerarquía de calidad)
+                    val fullAudio = data.fullAudioUrl
+                    val previewAudio = data.previewUrl
+                    
+                    var finalUrl: String? = null
 
-                // --- FASE 3: GESTIÓN DE LETRA ---
-                var lyricsText = ""
-                if (lyricsResponse.isSuccessful && lyricsResponse.body() != null) {
-                    lyricsText = lyricsResponse.body()!!.lyrics
-                    _lyricsState.value = lyricsText
-                } else {
-                    _errorState.value = "No se encontró la letra."
-                    _loadingState.value = false
-                    return@launch 
-                }
-
-                // 🚀 ¡ABRIR TELÓN!
-                _loadingState.value = false
-
-                // --- FASE 4: LA IA TRABAJA EN LA SOMBRA ---
-                _isAiAnalyzing.value = true 
-                launch {
-                    try {
-                        val aiRes = repository.analyzeLyrics(title, artist, userLevel, lyricsText)
-                        if (aiRes.isSuccessful && aiRes.body() != null) {
-                            _analysisState.value = aiRes.body()
-                            _statusMessage.value = "¡Análisis inteligente completado!"
+                    when {
+                        // A. Prioridad Máxima: Audio Completo de Cobalt
+                        !fullAudio.isNullOrEmpty() -> {
+                            finalUrl = fullAudio
+                            _isPreviewOnly.value = false
+                            _statusMessage.value = "Reproduciendo versión completa (YouTube)"
+                            Log.d("ViewModel", "✅ Audio Source: Cobalt Full Audio")
+                            _isPreviewOnly.value = true
+                            _statusMessage.value = "Solo preview disponible (30s)"
+                            Log.d("ViewModel", "⚠️ Audio Source: Backend Preview")
                         }
-                    } catch (e: Exception) {
-                        Log.e("ViewModel", "Fallo IA background: ${e.message}")
-                    } finally {
-                        _isAiAnalyzing.value = false
+                        // C. Último recurso: Preview que venía de la pantalla anterior (Spotify)
+                        !fallbackPreviewUrl.isNullOrEmpty() -> {
+                            finalUrl = fallbackPreviewUrl
+                            _isPreviewOnly.value = true
+                            _statusMessage.value = "Solo preview disponible (30s)"
+                            Log.d("ViewModel", "⚠️ Audio Source: Fallback Intent")
+                        }
+                        else -> {
+                            _statusMessage.value = "No se encontró audio para esta canción."
+                            Log.e("ViewModel", "❌ Audio Source: None")
+                        }
                     }
+
+                    _audioStreamState.value = finalUrl
+
+                    // 🚀 ¡ABRIR TELÓN! (Letra y Audio listos)
+                    _loadingState.value = false
+
+                    // --- FASE 3: LA IA TRABAJA EN LA SOMBRA ---
+                    // Iniciamos el análisis después de mostrar la letra para no bloquear la UI
+                    analyzeLyricsInBackground(title, artist, userLevel, data.lyrics)
+
+                } else {
+                    _errorState.value = "No se encontró la letra (Error ${response.code()})"
+                    _loadingState.value = false
                 }
 
             } catch (e: Exception) {
                 e.printStackTrace()
-                _errorState.value = "Error general: ${e.message}"
+                _errorState.value = "Error de conexión: ${e.message}"
                 _loadingState.value = false
             }
         }
     }
 
-    // (Tu función addToDictionary sigue igual, no la toco)
+    // Separé la IA en una función privada para limpiar loadContent
+    private fun analyzeLyricsInBackground(title: String, artist: String, level: String, lyrics: String) {
+        _isAiAnalyzing.value = true 
+        viewModelScope.launch {
+            try {
+                val aiRes = repository.analyzeLyrics(title, artist, level, lyrics)
+                if (aiRes.isSuccessful && aiRes.body() != null) {
+                    _analysisState.value = aiRes.body()
+                    _statusMessage.value = "¡Análisis inteligente completado!"
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModel", "Fallo IA background: ${e.message}")
+            } finally {
+                _isAiAnalyzing.value = false
+            }
+        }
+    }
+
+    // Funcionalidad de Diccionario (Manteniendo tu lógica original)
     fun addToDictionary(term: String, definition: String, explanation: String, example: String, isExpression: Boolean) {
-       // ... código original de guardado ...
        viewModelScope.launch {
             try {
-                // Simulamos la llamada (necesitaría ver tu AddWordRequest original para copiarlo exacto, 
-                // pero asumo que tu SongRepository lo maneja bien como lo tenías)
-                // Aquí va tu código original de addToDictionary que me pasaste
                  val request = AddWordRequest(
                     word = term,
                     translation = definition,
@@ -146,11 +152,11 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                     songId = null
                 )
                 val response = repository.addWord(request)
-                // ... resto de tu lógica de actualización de estado ...
-                 if (response.isSuccessful) {
+                
+                if (response.isSuccessful) {
+                    // Actualizar UI (Poner palabra en gris)
                     val current = _analysisState.value
                     if (current != null) {
-                        // (Tu lógica de actualizar colores a gris)
                          if (isExpression) {
                             val updatedExpressions = current.expressions.map {
                                 if (it.expression.equals(term, ignoreCase = true))

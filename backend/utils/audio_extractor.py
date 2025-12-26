@@ -1,53 +1,79 @@
-"""
-ARCHIVO: utils/audio_extractor.py
-PROPÓSITO: Buscar canciones en YouTube y extraer la URL directa de audio (streaming).
-"""
-import yt_dlp
+import requests
 import logging
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
 def get_youtube_audio_url(query: str):
     """
-    Busca una canción en YouTube y devuelve la URL directa de audio.
-    USA: yt-dlp con búsqueda 'ytsearch1:'
+    Busca una canción en YouTube y extrae la URL directa de audio usando Cobalt API.
+    Ventaja: Evita bloqueos de IP de Google y no requiere cookies.
     """
-    ydl_opts = {
-        'format': 'bestaudio[ext=m4a]/bestaudio/best',  # Priorizamos m4a (AAC) que Android ama
-        'noplaylist': True,
-        'quiet': True,
-        'default_search': 'ytsearch1:',  # Busca el primer resultado
-        'geo_bypass': True,
-        'socket_timeout': 10,
-    }
-
     try:
-        logger.info(f"🎧 Buscando audio para: {query}")
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Extraemos info sin descargar nada (download=False)
-            info = ydl.extract_info(query, download=False)
+        logger.info(f"🎧 Cobalt Extractor: Buscando '{query}'...")
 
-            if 'entries' in info:
-                # Si es una búsqueda, cogemos el primer resultado
-                video_data = info['entries'][0]
-            else:
-                video_data = info
+        # 1. Construimos la URL de búsqueda de YouTube
+        # Cobalt es listo: si le das una búsqueda, coge el primer video.
+        encoded_query = urllib.parse.quote(query)
+        youtube_search_url = f"https://www.youtube.com/results?search_query={encoded_query}"
 
-            audio_url = video_data.get('url')
-            title = video_data.get('title')
-            duration = video_data.get('duration')
-            thumbnail = video_data.get('thumbnail')
+        # 2. Configuración del Payload para Cobalt
+        payload = {
+            "url": youtube_search_url,
+            "vCodec": "h264",
+            "vQuality": "720",
+            "aFormat": "mp3",      # Pedimos MP3 para máxima compatibilidad
+            "isAudioOnly": True    # Solo queremos el stream de audio
+        }
 
-            logger.info(f"✅ Audio encontrado: {title}")
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "MusicTranslatorBot/1.0"
+        }
+
+        # 3. Llamada a la API (Instancia pública principal)
+        response = requests.post(
+            "https://api.cobalt.tools/api/json",
+            json=payload,
+            headers=headers,
+            timeout=15 
+        )
+
+        if response.status_code == 200:
+            data = response.json()
             
-            return {
-                "title": title,
-                "stream_url": audio_url,
-                "duration": duration,
-                "thumbnail": thumbnail,
-                "source": "YouTube (Backend Proxy)"
-            }
+            # Cobalt devuelve la url directa en 'url'
+            stream_url = data.get("url")
+            
+            # Verificamos que sea un stream válido
+            if data.get("status") in ["stream", "redirect"] and stream_url:
+                logger.info(f"✅ Audio encontrado vía Cobalt")
+                return {
+                    "title": query, # Cobalt a veces no devuelve título en búsqueda, usamos la query
+                    "stream_url": stream_url,
+                    "duration": None, # Cobalt búsqueda no siempre da duración
+                    "thumbnail": None,
+                    "source": "YouTube (Cobalt API)"
+                }
+            elif data.get("status") == "picker":
+                # Si devuelve una lista, cogemos el primero
+                if data.get("picker") and len(data["picker"]) > 0:
+                    stream_url = data["picker"][0].get("url")
+                    logger.info(f"✅ Audio seleccionado del picker Cobalt")
+                    return {
+                        "title": query,
+                        "stream_url": stream_url,
+                        "source": "YouTube (Cobalt API)"
+                    }
+            
+            logger.warning(f"⚠️ Cobalt no devolvió stream directo: {data.get('text')}")
+            return None
+
+        else:
+            logger.error(f"❌ Error Cobalt API: {response.status_code}")
+            return None
 
     except Exception as e:
-        logger.error(f"❌ Error extrayendo audio con yt-dlp: {e}")
+        logger.error(f"❌ Error crítico en extractor Cobalt: {e}")
         return None

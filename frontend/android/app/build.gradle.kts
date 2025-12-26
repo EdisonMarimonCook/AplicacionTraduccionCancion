@@ -49,7 +49,7 @@ android {
 }
 
 dependencies {
-    // TUS LIBRERÍAS ACTUALES (version catalog)
+    // TUS LIBRERÍAS ACTUALES
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -58,20 +58,22 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("io.coil-kt:coil:2.5.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    implementation("com.github.yalantis:ucrop:2.2.8")
-    implementation(libs.ucrop)
-    // 📺 Extractor de YouTube (El motor)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.0")
-// 🕸️ Ayuda para leer webs
-    implementation("org.jsoup:jsoup:1.15.3")
-// ⚡ Coroutines Android (ya las tendrás, pero asegúrate)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
-    // DEPENDENCIAS PARA BACKEND
+    // Si usas ucrop desde libs o directo, deja solo uno. Asumo que libs.ucrop funciona:
+    implementation(libs.ucrop)
+    // implementation("com.github.yalantis:ucrop:2.2.8") // ❌ Comentado para evitar duplicados
+
+    // 🕸️ Ayuda para leer webs
+    implementation ("org.jsoup:jsoup:1.16.1")
+
+    // DEPENDENCIAS PARA BACKEND (Retrofit + Corrutinas unificadas)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // ✅ ÚNICA VERSIÓN de Corrutinas (La más reciente que tenías)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 
     // TESTS
