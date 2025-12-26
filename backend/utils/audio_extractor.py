@@ -12,7 +12,7 @@ COBALT_INSTANCES = [
     "https://cobalt.xyx.host"
 ]
 
-def get_audio_url(query: str):
+def get_youtube_audio_url(query: str):
     """
     1. Busca el video en YouTube para obtener el enlace real.
     2. Usa Cobalt para extraer el MP3 de ese enlace.
