@@ -29,10 +29,10 @@ class RetrofitService {
          */
         private fun getBaseUrl(): String {
             // 1️⃣ Verificar si estamos en PRODUCCIÓN (BuildConfig)
-            if (!BuildConfig.DEBUG) {
+            //if (!BuildConfig.DEBUG) {
                 Log.i(TAG, "🌐 Modo PRODUCCIÓN → ${BuildConfig.PRODUCTION_URL}")
                 return BuildConfig.PRODUCTION_URL
-            }
+            //}
 
             // 2️⃣ Modo DESARROLLO: Detectar emulador vs dispositivo físico
             return if (isEmulator()) {
