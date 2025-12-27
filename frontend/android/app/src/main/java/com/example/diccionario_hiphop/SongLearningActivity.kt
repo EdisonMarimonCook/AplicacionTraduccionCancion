@@ -68,6 +68,16 @@ class SongLearningActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_learning)
 
+        // 🔥 INICIALIZAR EL MOTOR NUCLEAR AQUÍ
+        try {
+            com.yausername.youtubedl_android.YoutubeDL.getInstance().init(applicationContext)
+            // Opcional: inicializar FFmpeg si fuera necesario, pero para sacar URL suele sobrar
+            // com.yausername.youtubedl_android.FFmpeg.getInstance().init(applicationContext)
+            android.util.Log.d("YoutubeDL", "Motor iniciado correctamente 🚀")
+        } catch (e: Exception) {
+            android.util.Log.e("YoutubeDL", "Error fatal al iniciar motor", e)
+        }
+
         // 1. Recoger datos del Intent
         songTitle = intent.getStringExtra("song_title") ?: "Desconocido"
         songArtist = intent.getStringExtra("song_artist") ?: "Desconocido"
@@ -97,12 +107,12 @@ class SongLearningActivity : AppCompatActivity() {
 
         // CONTROL DE CARGA
         viewModel.loadingState.observe(this) { isLoading ->
-                if (isLoading) {
-                    loadingOverlay.visibility = View.VISIBLE
-                    tvLoadingMessage.text = "Afinando los instrumentos..."
-                } else {
-                    loadingOverlay.visibility = View.GONE
-                }
+            if (isLoading) {
+                loadingOverlay.visibility = View.VISIBLE
+                // El mensaje se actualizará por el observer de statusMessage
+            } else {
+                loadingOverlay.visibility = View.GONE
+            }
         }
 
         // SPINNER DISCRETO IA
@@ -115,34 +125,34 @@ class SongLearningActivity : AppCompatActivity() {
             if (message == "¡Análisis inteligente completado!") {
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
-            // Actualizar mensaje de carga si estamos cargando
-            if (loadingOverlay.visibility == View.VISIBLE) {
-                tvLoadingMessage.text = "Afinando instrumentos..."
+            // Actualizar mensaje de carga dinámicamente
+            if (loadingOverlay.visibility == View.VISIBLE && !message.isNullOrEmpty()) {
+                tvLoadingMessage.text = message
             }
         }
 
         // AUDIO STREAM (YouTube / Preview)
         viewModel.audioStreamState.observe(this) { url ->
-                android.util.Log.d("SongLearningActivity", "[audioStreamState] url: $url")
-                android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility BEFORE: ${layoutPlayerControls.visibility}")
-                layoutPlayerControls.visibility = View.VISIBLE
-                if (!url.isNullOrEmpty()) {
-                    btnPlay.visibility = View.VISIBLE
-                    sbProgress.visibility = View.VISIBLE
-                    btnPlay.isEnabled = true
-                    btnPlay.alpha = 1.0f
-                    sbProgress.isEnabled = true
-                    sbProgress.alpha = 1.0f
-                    android.util.Log.d("SongLearningActivity", "Intentando reproducir: $url")
-                    android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility SET TO VISIBLE")
-                    prepareMediaPlayer(url)
-                } else {
-                    btnPlay.isEnabled = false
-                    btnPlay.alpha = 0.5f
-                    sbProgress.isEnabled = false
-                    sbProgress.alpha = 0.5f
-                }
-                android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility AFTER: ${layoutPlayerControls.visibility}")
+            android.util.Log.d("SongLearningActivity", "[audioStreamState] url: $url")
+            android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility BEFORE: ${layoutPlayerControls.visibility}")
+            layoutPlayerControls.visibility = View.VISIBLE
+            if (!url.isNullOrEmpty()) {
+                btnPlay.visibility = View.VISIBLE
+                sbProgress.visibility = View.VISIBLE
+                btnPlay.isEnabled = false
+                btnPlay.alpha = 0.5f
+                sbProgress.isEnabled = false
+                sbProgress.alpha = 0.5f
+                android.util.Log.d("SongLearningActivity", "Intentando reproducir: $url")
+                android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility SET TO VISIBLE")
+                prepareMediaPlayer(url)
+            } else {
+                btnPlay.isEnabled = false
+                btnPlay.alpha = 0.5f
+                sbProgress.isEnabled = false
+                sbProgress.alpha = 0.5f
+            }
+            android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility AFTER: ${layoutPlayerControls.visibility}")
         }
         
         // Llamar a loadContent fuera del observer
@@ -234,13 +244,11 @@ class SongLearningActivity : AppCompatActivity() {
     private fun prepareMediaPlayer(url: String) {
         try {
             android.util.Log.d("SongLearningActivity", "prepareMediaPlayer: $url")
-            
             // Liberar anterior si existe
             if (mediaPlayer != null) {
                 mediaPlayer?.release()
                 mediaPlayer = null
             }
-            
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(
                     AudioAttributes.Builder()
@@ -250,27 +258,44 @@ class SongLearningActivity : AppCompatActivity() {
                 )
                 setOnErrorListener { _, what, extra ->
                     android.util.Log.e("SongLearningActivity", "Error al reproducir audio: $url (code: $what)")
-                    Toast.makeText(this@SongLearningActivity, "Error de audio ($what)", Toast.LENGTH_SHORT).show()
-                    false
+                    if (what == -38) {
+                        tvLoadingMessage.text = "Cargando audio... (esperando buffer)"
+                        // No ocultar loadingOverlay ni mostrar Toast
+                        return@setOnErrorListener true
+                    } else {
+                        loadingOverlay.visibility = View.GONE
+                        return@setOnErrorListener false
+                    }
                 }
                 setDataSource(url)
                 prepareAsync() // Async para no bloquear UI
 
                 setOnPreparedListener { mp ->
-                    btnPlay.isEnabled = true
-                    btnPlay.alpha = 1.0f
-
-                    // 🔥 ACTUALIZAR BARRA AL CARGAR
-                    val duration = mp.duration
-                    if (duration > 0) {
-                        sbProgress.max = duration
-                        tvTotalTime.text = formatTime(duration.toLong())
+                // 🔥 ACTUALIZAR BARRA AL CARGAR
+                val duration = mp.duration
+                if (duration > 0) {
+                    sbProgress.max = duration
+                    tvTotalTime.text = formatTime(duration.toLong())
+                }
+                // Solo ocultar loadingOverlay y habilitar controles cuando el buffer esté listo y el cronómetro (tvCurrentTime) muestra tiempo real
+                fun checkAndHideLoading() {
+                    val formatted = tvTotalTime.text?.toString() ?: "00:00"
+                    if (mp.duration > 0 && formatted != "00:00" && formatted != "-:--") {
+                        loadingOverlay.visibility = View.GONE
+                        btnPlay.isEnabled = true
+                        btnPlay.alpha = 1.0f
+                        sbProgress.isEnabled = true
+                        sbProgress.alpha = 1.0f
+                    } else {
+                        handler.postDelayed({ checkAndHideLoading() }, 300)
                     }
-                    // Si ya estábamos reproduciendo (cambio de preview a full), reanudar
-                    if (isPlaying) {
-                        mp.start()
-                        startSeekBarUpdater()
-                    }
+                }
+                handler.postDelayed({ checkAndHideLoading() }, 300)
+                // Si ya estábamos reproduciendo (cambio de preview a full), reanudar
+                if (isPlaying) {
+                    mp.start()
+                    startSeekBarUpdater()
+                }
                 }
 
                 setOnCompletionListener {

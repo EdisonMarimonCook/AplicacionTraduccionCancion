@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.diccionario_hiphop"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 36  // ✅ ACTUALIZADO de 34 a 36
         versionCode = 1
         versionName = "1.0"
@@ -19,6 +19,10 @@ android {
         // 🔥 BuildConfig: Variables personalizadas
         buildConfigField("String", "PRODUCTION_URL", "\"https://musictransiator.onrender.com/\"")
         buildConfigField("int", "LOCALHOST_PORT", "8000")
+
+        ndk{
+            abiFilters += listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
+        }
     }
 
     buildFeatures {
@@ -39,6 +43,14 @@ android {
             )
         }
     }
+
+    // Esto hace lo mismo que "extractNativeLibs=true" pero donde le gusta a Gradle
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -77,6 +89,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
 
     // TESTS
     testImplementation(libs.junit)
