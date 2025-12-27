@@ -6,6 +6,8 @@ PROPÓSITO: Definir los esquemas Pydantic para Request/Response de la API
 from typing import List, Optional
 from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 # ===============================================================================
 # 1️⃣ BASICS & AUTH TOKENS
@@ -226,15 +228,28 @@ class AvatarUpdateResponse(BaseModel):
     url: str
 
 # ===============================================================================
-# 7️⃣ AUDIO STREAMING (Youtube Proxy)
+# 7️⃣ AUDIO & LYRICS (Modificado)
 # ===============================================================================
+
 class AudioStreamResponse(BaseModel):
-    """
-    Respuesta para el streaming de audio.
-    Garantiza que el frontend siempre reciba una URL válida.
-    """
+    """Respuesta del endpoint directo de audio"""
     title: str
-    stream_url: str  # La URL real de GoogleVideo (.m4a/.webm)
-    duration: Optional[int] = None  # En segundos
+    stream_url: str 
+    duration: Optional[int] = None
     thumbnail: Optional[str] = None
     source: str = "YouTube"
+
+class LyricsResponse(BaseModel):
+    """
+    ✅ RESPUESTA COMPLETA PARA LA PANTALLA DE APRENDIZAJE
+    Incluye letras, metadatos y AMBOS audios (Preview y Full).
+    """
+    title: str
+    artist: str
+    lyrics: str
+    image_url: Optional[str] = None
+    genius_url: Optional[str] = None
+    
+    # 🎵 AUDIOS
+    preview_url: Optional[str] = None      # iTunes (30s, carga instantánea)
+    full_audio_url: Optional[str] = None   # Cobalt (Canción completa)

@@ -118,7 +118,16 @@ data class LyricsResponse(
     val title: String,
     val artist: String,
     val lyrics: String,
-    @SerializedName("preview_url") val previewUrl: String?
+    
+    @SerializedName("image_url")
+    val imageUrl: String?,
+    
+    @SerializedName("preview_url")
+    val previewUrl: String?,      // El de iTunes (30 seg)
+    
+    // 👇 ¡ESTE ES EL NUEVO!
+    @SerializedName("full_audio_url")
+    val fullAudioUrl: String?     // El de Cobalt (YouTube completo)
 )
 
 data class AnalyzeLyricsRequest(

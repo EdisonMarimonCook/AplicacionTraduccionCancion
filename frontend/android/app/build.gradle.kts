@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.diccionario_hiphop"
-        minSdk = 21
+        minSdk = 24
         targetSdk = 36  // ✅ ACTUALIZADO de 34 a 36
         versionCode = 1
         versionName = "1.0"
@@ -19,6 +19,10 @@ android {
         // 🔥 BuildConfig: Variables personalizadas
         buildConfigField("String", "PRODUCTION_URL", "\"https://musictransiator.onrender.com/\"")
         buildConfigField("int", "LOCALHOST_PORT", "8000")
+
+        ndk{
+            abiFilters += listOf("x86", "x86_64", "armeabi-v7a", "arm64-v8a")
+        }
     }
 
     buildFeatures {
@@ -39,6 +43,14 @@ android {
             )
         }
     }
+
+    // Esto hace lo mismo que "extractNativeLibs=true" pero donde le gusta a Gradle
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -49,7 +61,7 @@ android {
 }
 
 dependencies {
-    // TUS LIBRERÍAS ACTUALES (version catalog)
+    // TUS LIBRERÍAS ACTUALES
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -58,15 +70,28 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("io.coil-kt:coil:2.5.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    implementation("com.github.yalantis:ucrop:2.2.8")
-    implementation(libs.ucrop) // 👈 AÑADIR ESTO
 
-    // DEPENDENCIAS PARA BACKEND
+    // Si usas ucrop desde libs o directo, deja solo uno. Asumo que libs.ucrop funciona:
+    implementation(libs.ucrop)
+    // implementation("com.github.yalantis:ucrop:2.2.8") // ❌ Comentado para evitar duplicados
+
+
+    // 🕸️ Ayuda para leer webs
+    implementation ("org.jsoup:jsoup:1.16.1")
+
+    // DEPENDENCIAS PARA BACKEND (Retrofit + Corrutinas unificadas)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // ✅ ÚNICA VERSIÓN de Corrutinas (La más reciente que tenías)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
     implementation("androidx.recyclerview:recyclerview:1.3.2")
+
+    implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
+    implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")
 
     // TESTS
     testImplementation(libs.junit)
