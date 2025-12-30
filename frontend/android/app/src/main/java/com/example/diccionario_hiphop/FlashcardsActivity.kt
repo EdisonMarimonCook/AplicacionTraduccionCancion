@@ -3,7 +3,8 @@ package com.example.diccionario_hiphop
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.view.GestureDetector
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageButton
@@ -32,9 +33,13 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var tvIntervalIndicator: TextView
     private lateinit var progressBar: ProgressBar
 
-    // Gesture detector para swipe
-    private lateinit var gestureDetector: GestureDetector
+
+    // Variables de control de Swipe Físico
+    private var dX = 0f
+    private var dY = 0f
+    private var initialRawX = 0f
     private var isAnswerRevealed = false
+    private val SWIPE_THRESHOLD = 300f // Distancia necesaria para considerar swipe
 
     // Data
     private var flashcards: MutableList<FlashcardData> = mutableListOf()
@@ -44,8 +49,8 @@ class FlashcardsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flashcards)
 
-        initViews()
-        setupGestureDetector()
+           initViews()
+        setupCardPhysics() // 🔥 Nueva función de física
         loadFlashcards()
 
         findViewById<ImageButton>(R.id.btnClose).setOnClickListener { finish() }
@@ -69,98 +74,127 @@ class FlashcardsActivity : AppCompatActivity() {
         touchOverlay.setOnClickListener { revealAnswer() }
     }
 
-    private fun setupGestureDetector() {
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+    // 🍎 FÍSICA NEWTONIANA (Adiós parpadeos)
+    private fun setupCardPhysics() {
+        cardView.setOnTouchListener { view, event ->
+            // Solo permitimos mover la carta si la respuesta ya se mostró
+            if (!isAnswerRevealed) return@setOnTouchListener false
 
-            override fun onDown(e: MotionEvent): Boolean = true
-
-            override fun onScroll(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                distanceX: Float,
-                distanceY: Float
-            ): Boolean {
-                // Mostrar feedback visual mientras arrastra (solo si respuesta revelada)
-                if (!isAnswerRevealed) return false
-
-                val diffX = e2.x - (e1?.x ?: 0f)
-
-                // Mover la tarjeta con el dedo
-                cardView.translationX = diffX
-
-                // Rotar según la dirección (máximo ±15 grados)
-                val rotation = (diffX / 30f).coerceIn(-15f, 15f)
-                cardView.rotation = rotation
-
-                // Cambiar overlay de color
-                if (diffX > 50) {
-                    // Verde para FÁCIL (derecha)
-                    cardView.foreground = ColorDrawable(Color.parseColor("#4D4CAF50"))
-                    tvIntervalIndicator.visibility = View.VISIBLE
-                    tvIntervalIndicator.text = "FÁCIL ✓"
-                    tvIntervalIndicator.setBackgroundColor(Color.parseColor("#4CAF50"))
-                } else if (diffX < -50) {
-                    // Rojo para DIFÍCIL (izquierda)
-                    cardView.foreground = ColorDrawable(Color.parseColor("#4DF44336"))
-                    tvIntervalIndicator.visibility = View.VISIBLE
-                    tvIntervalIndicator.text = "DIFÍCIL ✗"
-                    tvIntervalIndicator.setBackgroundColor(Color.parseColor("#F44336"))
-                } else {
-                    // Sin color si no pasa el umbral
-                    cardView.foreground = null
-                    tvIntervalIndicator.visibility = View.GONE
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    // Guardamos la diferencia entre donde tocamos y la posición de la vista
+                    dX = view.x - event.rawX
+                    dY = view.y - event.rawY
+                    initialRawX = event.rawX
+                    true // Consumimos el evento
                 }
 
-                return true
-            }
+                MotionEvent.ACTION_MOVE -> {
+                    // Calculamos la nueva posición ABSOLUTA
+                    val newX = event.rawX + dX
+                    val deltaX = event.rawX - initialRawX // Cuánto me he movido desde el inicio
 
-            override fun onFling(
-                e1: MotionEvent?,
-                e2: MotionEvent,
-                velocityX: Float,
-                velocityY: Float
-            ): Boolean {
-                // Solo permitir swipe si la respuesta está revelada
-                if (!isAnswerRevealed) return false
+                    // Aplicamos movimiento horizontal
+                    view.animate()
+                        .x(newX)
+                        .setDuration(0) // 0 duración = movimiento instantáneo (seguimiento del dedo)
+                        .start()
 
-                val diffX = e2.x - (e1?.x ?: 0f)
-                val diffY = e2.y - (e1?.y ?: 0f)
+                    // Rotación suave basada en el desplazamiento
+                    // Dividimos por 40 para que no gire demasiado rápido
+                    val rotation = (deltaX / 40f).coerceIn(-15f, 15f)
+                    view.rotation = rotation
 
-                // Reducir umbral a 50 para facilitar en emulador
-                if (abs(diffX) > abs(diffY) && abs(diffX) > 50) {
-                    if (diffX > 0) {
-                        // Swipe derecha → FÁCIL
-                        showIntervalPreview(true)
-                        animateSwipeRight()
-                        submitReview(4)
+                    // Feedback visual (Verde/Rojo)
+                    updateColorFeedback(deltaX)
+                    true
+                }
+
+                MotionEvent.ACTION_UP -> {
+                    val deltaX = event.rawX - initialRawX
+                    
+                    // Si soltamos, verificamos si cruzamos el umbral
+                    if (abs(deltaX) > SWIPE_THRESHOLD) {
+                        if (deltaX > 0) {
+                            swipeRight() // FÁCIL
+                        } else {
+                            swipeLeft() // DIFÍCIL
+                        }
                     } else {
-                        // Swipe izquierda → DIFÍCIL
-                        showIntervalPreview(false)
-                        animateSwipeLeft()
-                        submitReview(1)
+                        // Si no llegamos lejos, volvemos al centro (efecto muelle)
+                        resetCardPosition()
                     }
-                    return true
-                } else {
-                    // Si no pasó el umbral, resetear la tarjeta
-                    resetCardPosition()
+                    // Limpiamos colores
+                    tvIntervalIndicator.visibility = View.GONE
+                    cardView.foreground = null
+                    true
                 }
-                return false
+                else -> false
             }
-        })
-
-        // Capturar eventos táctiles en el cardView
-        cardView.setOnTouchListener { _, event ->
-            val handled = gestureDetector.onTouchEvent(event)
-
-            // Cuando suelta el dedo, resetear si no fue un fling válido
-            if (event.action == MotionEvent.ACTION_UP && isAnswerRevealed) {
-                if (abs(cardView.translationX) < 50) {
-                    resetCardPosition()
-                }
-            }
-
-            handled
         }
+    }
+
+    private fun updateColorFeedback(deltaX: Float) {
+        if (deltaX > 100) {
+            // Verde - Derecha
+            cardView.foreground = ColorDrawable(Color.parseColor("#4D4CAF50")) // Transparente verde
+            tvIntervalIndicator.visibility = View.VISIBLE
+            tvIntervalIndicator.text = "FÁCIL ✓"
+            tvIntervalIndicator.setBackgroundColor(Color.parseColor("#4CAF50"))
+        } else if (deltaX < -100) {
+            // Rojo - Izquierda
+            cardView.foreground = ColorDrawable(Color.parseColor("#4DF44336")) // Transparente rojo
+            tvIntervalIndicator.visibility = View.VISIBLE
+            tvIntervalIndicator.text = "DIFÍCIL ✗"
+            tvIntervalIndicator.setBackgroundColor(Color.parseColor("#F44336"))
+        } else {
+            // Zona muerta (centro)
+            cardView.foreground = null
+            tvIntervalIndicator.visibility = View.GONE
+        }
+    }
+
+    private fun resetCardPosition() {
+        // Animación de retorno elástica (OvershootInterpolator)
+        cardView.animate()
+            .x(0f) // Volver a X=0 (relativo al padre layout, ajustar si usas constraints complejos)
+            .translationX(0f) // Asegurar reset de translation
+            .rotation(0f)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.OvershootInterpolator(1.5f)) // Efecto rebote
+            .start()
+        // Nota: Si usas ConstraintLayout, view.x puede comportarse distinto. 
+        // Si ves que se va a la izquierda de la pantalla, usa .translationX(0f) solamente.
+        // Aquí forzamos ambas por seguridad:
+        cardView.animate().translationX(0f).rotation(0f).setDuration(300).start()
+    }
+
+    private fun swipeRight() {
+        showIntervalPreview(true)
+        // Animamos salida hacia la derecha
+        cardView.animate()
+            .translationX(1500f) // Fuera de pantalla
+            .rotation(20f)
+            .setDuration(300)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    submitReview(4) // 4 = Fácil
+                }
+            }).start()
+    }
+
+    private fun swipeLeft() {
+        showIntervalPreview(false)
+        // Animamos salida hacia la izquierda
+        cardView.animate()
+            .translationX(-1500f) // Fuera de pantalla
+            .rotation(-20f)
+            .setDuration(300)
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    submitReview(1) // 1 = Difícil
+                }
+            }).start()
     }
 
     private fun showIntervalPreview(isEasy: Boolean) {

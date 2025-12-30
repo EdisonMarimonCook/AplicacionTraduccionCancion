@@ -141,7 +141,7 @@ class RetrofitService {
                 })
                 .addInterceptor(authInterceptor)
                 .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS) // Aumentado para Gemini
                 .build()
 
             val retrofit = Retrofit.Builder()

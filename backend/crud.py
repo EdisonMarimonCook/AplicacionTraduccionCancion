@@ -94,11 +94,15 @@ async def update_user_profile(
     return await db.update_user(email, update_data)
 
 async def change_user_password(email: str, new_password_hash: str) -> bool:
-    try:
-        await db.update_user(email, {"password_hash": new_password_hash})
-        return True
-    except:
-        return False
+    """
+    Actualiza la contraseña.
+    Si falla la BD, lanzará el error hacia arriba para que el log lo capture.
+    """
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {"password_hash": new_password_hash}}
+    )
+    return result.modified_count > 0 or result.matched_count > 0
 
 # ================================================================
 # DICCIONARIO

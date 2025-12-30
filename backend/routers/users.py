@@ -197,19 +197,45 @@ async def change_password(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        logger.info(f"🔐 Intento de cambio de pass para: {current_user.email}")
+
+        # 1. Recuperar usuario crudo para ver el hash real
         user_dict = await get_user_by_email(current_user.email)
-        if not user_dict: raise HTTPException(status_code=401, detail="User not found")
-        if not verify_password(password_change.current_password, user_dict.get("password_hash", "")):
-            raise HTTPException(status_code=401, detail="Current password is incorrect")
+        if not user_dict:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+        # 2. Recuperar hash (soportando 'password' o 'password_hash')
+        current_hash_in_db = user_dict.get("password_hash") or user_dict.get("password")
+        if not current_hash_in_db:
+            logger.critical(f"☠️ Usuario {current_user.email} sin contraseña en BD.")
+            raise HTTPException(status_code=500, detail="Error de cuenta: Sin contraseña configurada.")
+
+        # 3. Verificar contraseña antigua (con protección anti-crash)
+        try:
+            is_valid = verify_password(password_change.current_password, current_hash_in_db)
+        except ValueError:
+            logger.error(f"❌ Hash corrupto en BD para {current_user.email}")
+            raise HTTPException(status_code=500, detail="Error interno: Formato de contraseña inválido.")
+
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="La contraseña actual es incorrecta")
+
+        # 4. Validar nuevas
         if password_change.new_password != password_change.confirm_password:
-            raise HTTPException(status_code=400, detail="New passwords do not match")
-        
+            raise HTTPException(status_code=400, detail="Las nuevas contraseñas no coinciden")
+
+        # 5. Guardar
         new_password_hash = hash_password(password_change.new_password)
-        success = await change_user_password(current_user.email, new_password_hash)
-        if not success: raise HTTPException(status_code=500, detail="Error updating password")
-        return {"message": "Password changed successfully", "email": current_user.email}
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error changing password")
+        await change_user_password(current_user.email, new_password_hash)
+
+        logger.info(f"✅ Password cambiada para {current_user.email}")
+        return {"message": "Contraseña actualizada correctamente", "email": current_user.email}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ CRASH en change_password: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error interno: {str(e)}")
 
 @router.post("/change-email")
 async def change_email(
@@ -217,16 +243,41 @@ async def change_email(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        try: validate_email(email_change.new_email)
-        except EmailNotValidError as e: raise HTTPException(status_code=400, detail=f"Invalid email: {str(e)}")
-        if await email_exists(email_change.new_email): raise HTTPException(status_code=400, detail="Email is already registered")
+        # 1. Validar formato email
+        try:
+            validate_email(email_change.new_email)
+        except EmailNotValidError as e:
+            raise HTTPException(status_code=400, detail=f"Email inválido: {str(e)}")
+
+        # 2. Verificar duplicado
+        if await email_exists(email_change.new_email):
+            raise HTTPException(status_code=400, detail="Este email ya está registrado")
+
+        # 3. Verificar contraseña actual (Lógica robusta)
         user_dict = await get_user_by_email(current_user.email)
-        if not verify_password(email_change.password, user_dict.get("password_hash", "")):
-            raise HTTPException(status_code=401, detail="Password is incorrect")
-        success = await change_user_email(current_user.email, email_change.new_email)
-        return {"message": "Email changed successfully", "old_email": current_user.email, "new_email": email_change.new_email}
-    except Exception:
-        raise HTTPException(status_code=500, detail="Error changing email")
+        current_hash = user_dict.get("password_hash") or user_dict.get("password")
+        if not current_hash:
+            raise HTTPException(status_code=500, detail="Error de cuenta: Sin contraseña configurada.")
+
+        try:
+            if not verify_password(email_change.password, current_hash):
+                raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+        except ValueError:
+            raise HTTPException(status_code=500, detail="Error interno: Hash inválido.")
+
+        # 4. Guardar
+        await change_user_email(current_user.email, email_change.new_email)
+
+        return {
+            "message": "Email actualizado. Por favor inicia sesión de nuevo.",
+            "old_email": current_user.email,
+            "new_email": email_change.new_email
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ CRASH en change_email: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error interno al cambiar email")
 
 @router.get("/me", response_model=UserProfileResponse)
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):

@@ -24,7 +24,8 @@
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar">
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -34,50 +35,62 @@
         <activity 
             android:name=".MainActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".RegisterActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".VerifyAccountActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".ForgotPasswordActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".ResetPasswordActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".SongSelectionActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".SongLearningActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".DictionaryActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".FlashcardsActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity android:name=".ProfileActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".EditProfileActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
         <activity 
             android:name=".SettingsActivity" 
             android:exported="false" 
-            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar" />
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
 
         <!-- Actividad para recortar imágenes (uCrop) -->
         <activity
