@@ -6,10 +6,9 @@
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
     <color name="teal_700">#03DAC5</color>
-    
+    <color name="orange_fire">#FF9800</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    
     <color name="gray">#808080</color>
 
     <color name="bg_page">#121212</color>
@@ -19,4 +18,8 @@
     <color name="icon_tint">#BB86FC</color>
     <color name="loading_overlay_bg">#99000000</color>
     <color name="loading_text_color">#E0E0E0</color>
+    <color name="progress_bg">#424242</color>
+    <color name="error_red">#CF6679</color>
+    <color name="success_green">#4CAF50</color>
+    <color name="divider">#2C2C2C</color>
 </resources>

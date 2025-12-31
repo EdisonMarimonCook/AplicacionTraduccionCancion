@@ -18,9 +18,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DiccionarioHipHop"
         android:usesCleartextTraffic="true"
-        android:extractNativeLibs="true"  >
+        android:extractNativeLibs="true">
         
         <!-- ACTIVIDADES -->
+        
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -37,66 +38,81 @@
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".RegisterActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".VerifyAccountActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".ForgotPasswordActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".ResetPasswordActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
+        <!-- 🔥 PROTEGIDAS: Estas NO se reinician para no cortar la música ni la búsqueda -->
         <activity 
             android:name=".SongSelectionActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:configChanges="uiMode|colorMode" 
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".SongLearningActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:configChanges="uiMode|colorMode"
             android:screenOrientation="portrait" />
+            
+        <!-- 🟢 INSTANTÁNEAS: Estas SÍ se reinician para cambiar color al momento -->
         <activity 
             android:name=".DictionaryActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".FlashcardsActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+
         <activity android:name=".ProfileActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".EditProfileActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
+            
         <activity 
             android:name=".SettingsActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
 
-        <!-- Actividad para recortar imágenes (uCrop) -->
+        <!-- 🔥 FIX IMPORTANTE: Declarar la actividad de CanHub explícitamente -->
+        <!-- Usamos un tema AppCompat estándar para asegurar que los botones se pinten -->
         <activity
-            android:name="com.yalantis.ucrop.UCropActivity"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:name="com.canhub.cropper.CropImageActivity"
+            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar" />
         
     </application>
 

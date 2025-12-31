@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import android.graphics.drawable.Drawable
 import com.bumptech.glide.Glide
@@ -14,14 +15,17 @@ import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
-import com.bumptech.glide.signature.ObjectKey // 🔥 AÑADIR ESTA LÍNEA
-import com.yalantis.ucrop.UCrop
+import com.bumptech.glide.signature.ObjectKey
+// 🔥 MIGRACIÓN A CANHUB (Adiós uCrop)
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
-import java.io.FileOutputStream
 
 class ProfileActivity : AppCompatActivity() {
 
@@ -30,7 +34,6 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var tvEmail: TextView
     private lateinit var tvLevel: TextView
     
-    // Contadores
     private lateinit var tvWordsCount: TextView
     private lateinit var tvStreakCount: TextView
     private lateinit var tvReviewCount: TextView
@@ -41,18 +44,23 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var btnLogout: Button
     private lateinit var btnBack: ImageButton
 
-    // 1. Seleccionar imagen de la galería
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { startCrop(it) } // Al elegir, mandamos a recortar
-    }
-
-    // 2. Recibir resultado del recorte (uCrop)
-    private val cropImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
-            val resultUri = UCrop.getOutput(result.data!!)
-            resultUri?.let { uploadAvatar(it) } // Al recortar, subimos
-        } else if (result.resultCode == UCrop.RESULT_ERROR) {
-            Toast.makeText(this, "Error al recortar", Toast.LENGTH_SHORT).show()
+    // 🔥 NUEVO LANZADOR "TODO EN UNO" (Cámara + Galería + Recorte)
+    private val cropImage = registerForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            val uriContent = result.uriContent
+            val uriFilePath = result.getUriFilePath(this) // Path real para subir el archivo
+            
+            if (uriFilePath != null) {
+                // Creamos un Uri desde el path para reutilizar tu función uploadAvatar
+                val fileUri = Uri.fromFile(File(uriFilePath))
+                uploadAvatar(fileUri)
+            }
+        } else {
+            val exception = result.error
+            // Ignoramos el error si el usuario canceló (exception suele ser null o "User cancelled")
+            if (exception != null) {
+                 Toast.makeText(this, "Cancelado o Error: ${exception.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -63,60 +71,53 @@ class ProfileActivity : AppCompatActivity() {
         setupListeners()
     }
 
-    // 🔥 Recargar perfil SIEMPRE que se muestre la pantalla (así se actualizan los contadores)
     override fun onResume() {
         super.onResume()
         loadUserProfile()
     }
 
     private fun initViews() {
-        // ✅ IDs CORREGIDOS SEGÚN TU XML
         ivProfile = findViewById(R.id.ivProfile)
-        tvUsername = findViewById(R.id.etUsername) // En XML se llama etUsername
-        tvEmail = findViewById(R.id.etEmail)       // En XML se llama etEmail
+        tvUsername = findViewById(R.id.etUsername)
+        tvEmail = findViewById(R.id.etEmail)
         tvLevel = findViewById(R.id.tvLevel)
         
-        // Contadores (Asegúrate de que estos IDs existen en tu XML, si no, coméntalos)
-        tvWordsCount = findViewById(R.id.tvWordsCount) // ID: 0 Palabras
-        tvStreakCount = findViewById(R.id.tvStreakCount) // ID: 1 Racha
-        tvReviewCount = findViewById(R.id.tvReviewCount) // ID: 0 Repasos
+        tvWordsCount = findViewById(R.id.tvWordsCount)
+        tvStreakCount = findViewById(R.id.tvStreakCount)
+        tvReviewCount = findViewById(R.id.tvReviewCount)
 
-        btnEditProfile = findViewById(R.id.btnSave) // En XML se llama btnSave
-        btnDictionary = findViewById(R.id.btnMyDictionary) // En XML se llama btnMyDictionary
-        btnFlashcards = findViewById(R.id.btnFlashcards) 
+        btnEditProfile = findViewById(R.id.btnSave)
+        btnDictionary = findViewById(R.id.btnMyDictionary)
+        btnFlashcards = findViewById(R.id.btnFlashcards)
         
         btnLogout = findViewById(R.id.btnLogout)
         btnBack = findViewById(R.id.btnBack)
     }
 
     private fun setupListeners() {
-        // 1. Ir a Editar Perfil (Botón "MODIFICAR DATOS")
         btnEditProfile.setOnClickListener {
             val intent = Intent(this, EditProfileActivity::class.java)
-            startActivityForResult(intent, 100)  // 🔥 CAMBIAR A startActivityForResult
+            startActivityForResult(intent, 100)
         }
 
-        // 2. Subir Foto
+        // 🔥 AL PULSAR LA FOTO, LANZAMOS EL NUEVO CROPPER
         ivProfile.setOnClickListener {
-            pickImageLauncher.launch("image/*")
+            startCrop()
         }
 
-        // 3. Ir al Diccionario
         btnDictionary.setOnClickListener {
             val intent = Intent(this, DictionaryActivity::class.java)
-            startActivityForResult(intent, 101)  // 🔥 Código 101 para recargar al volver
+            startActivityForResult(intent, 101)
         }
 
-        // 4. Ir a Flashcards
         btnFlashcards.setOnClickListener {
             val intent = Intent(this, FlashcardsActivity::class.java)
-            startActivityForResult(intent, 102)  // 🔥 Código 102 para recargar al volver
+            startActivityForResult(intent, 102)
         }
 
-        // 5. Cerrar Sesión
         btnLogout.setOnClickListener {
             val tokenManager = TokenManager(this)
-            tokenManager.clearTokens() 
+            tokenManager.clearTokens()
             
             val intent = Intent(this, MainActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -127,27 +128,39 @@ class ProfileActivity : AppCompatActivity() {
         btnBack.setOnClickListener { finish() }
     }
 
-    // 🔥 INICIAR RECORTE CON UCROP
-    private fun startCrop(uri: Uri) {
-        val destinationFileName = "avatar_cropped.jpg"
-        val uCrop = UCrop.of(uri, Uri.fromFile(File(cacheDir, destinationFileName)))
-        
-        uCrop.withAspectRatio(1f, 1f) // Cuadrado perfecto
-        uCrop.withMaxResultSize(500, 500) // Tamaño máximo
-        
-        // Opciones visuales
-        val options = UCrop.Options()
-        options.setCircleDimmedLayer(true) // Máscara circular
-        options.setShowCropGrid(false)
-        options.setCompressionQuality(80)
-        options.setToolbarTitle("Ajustar Foto")
-        
-        uCrop.withOptions(options)
-        
-        cropImageLauncher.launch(uCrop.getIntent(this))
+    // 🔥 CONFIGURACIÓN DE CANHUB CROPPER
+    private fun startCrop() {
+        cropImage.launch(
+            CropImageContractOptions(
+                uri = null, // null = Preguntar al usuario
+                cropImageOptions = CropImageOptions(
+                    imageSourceIncludeGallery = true,
+                    imageSourceIncludeCamera = false, // 🔥 FIX: SOLO GALERÍA (Evita pantalla intermedia)
+                    
+                    // Configuración visual (Tus colores)
+                    activityBackgroundColor = ContextCompat.getColor(this, R.color.bg_page),
+                    toolbarColor = ContextCompat.getColor(this, R.color.purple_500),
+                    toolbarTitleColor = ContextCompat.getColor(this, R.color.white),
+                    
+                    // 🔥 FIX IMPORTANTE: Asegurar que los iconos de Confirmar/Cancelar sean BLANCOS
+                    activityMenuIconColor = ContextCompat.getColor(this, R.color.white),
+                    toolbarBackButtonColor = ContextCompat.getColor(this, R.color.white),
+                    
+                    // Forma del recorte
+                    cropShape = CropImageView.CropShape.OVAL, // ¡Queda mejor para perfiles!
+                    aspectRatioX = 1,
+                    aspectRatioY = 1,
+                    fixAspectRatio = true,
+                    
+                    // Calidad
+                    outputCompressFormat = android.graphics.Bitmap.CompressFormat.JPEG,
+                    outputCompressQuality = 90
+                )
+            )
+        )
     }
 
-    private var isLoadingProfile = false // Flag para evitar múltiples cargas simultáneas
+    private var isLoadingProfile = false 
 
     private fun loadUserProfile() {
         if (isLoadingProfile) return
@@ -171,12 +184,10 @@ class ProfileActivity : AppCompatActivity() {
                         tvLevel.text = "EN • A1"
                     }
 
-                    // 🔥 USAR EL CONTADOR DIRECTO (NO learningLanguages[0].wordsLearned)
                     tvWordsCount.text = user.wordsCount.toString()
                     tvStreakCount.text = user.streak.toString()
                     tvReviewCount.text = user.reviewsCount.toString()
 
-                    // FOTO
                     if (!user.avatarUrl.isNullOrEmpty()) {
                         val fullImageUrl = if (user.avatarUrl.startsWith("http")) {
                             user.avatarUrl
@@ -184,41 +195,13 @@ class ProfileActivity : AppCompatActivity() {
                             "${RetrofitService.BASE_URL.removeSuffix("/")}${user.avatarUrl}"
                         }
 
-                        android.util.Log.d("AVATAR_DEBUG", "avatarUrl recibida: ${user.avatarUrl}")
-                        android.util.Log.d("AVATAR_DEBUG", "BASE_URL: ${RetrofitService.BASE_URL}")
-                        android.util.Log.d("AVATAR_DEBUG", "URL completa: $fullImageUrl")
-
                         Glide.with(this@ProfileActivity)
                             .load(fullImageUrl)
                             .signature(ObjectKey(System.currentTimeMillis()))
                             .skipMemoryCache(true)
                             .diskCacheStrategy(DiskCacheStrategy.NONE)
-                            .listener(object : RequestListener<Drawable> {
-                                override fun onLoadFailed(
-                                    e: GlideException?,
-                                    model: Any?,
-                                    target: Target<Drawable>,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    android.util.Log.e("AVATAR_DEBUG", "❌ Glide falló: ${e?.message}")
-                                    e?.logRootCauses("AVATAR_DEBUG")
-                                    return false
-                                }
-
-                                override fun onResourceReady(
-                                    resource: Drawable,
-                                    model: Any,
-                                    target: Target<Drawable>?,
-                                    dataSource: DataSource,
-                                    isFirstResource: Boolean
-                                ): Boolean {
-                                    android.util.Log.d("AVATAR_DEBUG", "✅ Glide cargó exitosamente")
-                                    return false
-                                }
-                            })
                             .into(ivProfile)
                     } else {
-                        android.util.Log.d("AVATAR_DEBUG", "avatarUrl está vacío o null")
                         ivProfile.setImageResource(R.drawable.ic_person)
                     }
                 }
@@ -234,7 +217,10 @@ class ProfileActivity : AppCompatActivity() {
         Toast.makeText(this, "Subiendo...", Toast.LENGTH_SHORT).show()
         lifecycleScope.launch {
             try {
-                val file = File(uri.path!!)
+                // CanHub a veces devuelve file:// o content://
+                // Esta lógica asegura que tenemos un archivo válido
+                val file = File(uri.path ?: return@launch)
+                
                 val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
 
@@ -243,11 +229,7 @@ class ProfileActivity : AppCompatActivity() {
 
                 if (response.isSuccessful) {
                     Toast.makeText(this@ProfileActivity, "¡Foto actualizada!", Toast.LENGTH_SHORT).show()
-                    
-                    // 🔥 ESPERAR 1 SEGUNDO PARA QUE LA BD SE ACTUALICE
                     kotlinx.coroutines.delay(1000)
-                    
-                    // 🔥 RECARGAR PERFIL (ahora con la nueva URL)
                     loadUserProfile()
                 } else {
                     Toast.makeText(this@ProfileActivity, "Error al subir", Toast.LENGTH_SHORT).show()
@@ -258,13 +240,12 @@ class ProfileActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 RECARGAR AL VOLVER DE EDITPROFILE, DICTIONARY O FLASHCARDS
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         when (requestCode) {
-            100 -> loadUserProfile()  // Volvimos de EditProfile
-            101 -> loadUserProfile()  // Volvimos de Dictionary (puede haber añadido/borrado palabras)
-            102 -> loadUserProfile()  // Volvimos de Flashcards (puede haber hecho repasos)
+            100 -> loadUserProfile()  
+            101 -> loadUserProfile()  
+            102 -> loadUserProfile()  
         }
     }
 }
