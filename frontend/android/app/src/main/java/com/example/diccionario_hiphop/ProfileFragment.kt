@@ -18,13 +18,14 @@ import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
-// import com.canhub.cropper.options // <-- ESTO YA NO HACE FALTA CON LA SINTAXIS NUEVA
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
+import android.graphics.BitmapFactory
+import java.io.FileOutputStream
 
 class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
@@ -47,18 +48,119 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
     private var isLoadingProfile = false
 
-    // 🔥 CANHUB CROPPER CONFIGURADO
-    private val cropImage = registerForActivityResult(CropImageContract()) { result ->
-        if (result.isSuccessful) {
-            val uriContent = result.uriContent
-            val uriFilePath = result.getUriFilePath(requireContext())
-            val finalUri = uriFilePath?.let { Uri.fromFile(File(it)) } ?: uriContent
-            if (finalUri != null) {
-                uploadAvatar(finalUri)
-            }
-        } // Si cancela, no hacemos nada (silencio total)
+    // 🔥 NUEVO: Primero seleccionamos la imagen
+private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    uri?.let {
+        // Redimensionar y luego abrir cropper
+        val resizedUri = resizeImageBeforeCrop(it)
+        openCropper(resizedUri)
     }
+}
 
+// 🔥 NUEVO: Ahora el cropper es un launcher separado
+private val cropImage = registerForActivityResult(CropImageContract()) { result ->
+    if (result.isSuccessful) {
+        val uriContent = result.uriContent
+        val uriFilePath = result.getUriFilePath(requireContext())
+        val finalUri = uriFilePath?.let { Uri.fromFile(File(it)) } ?: uriContent
+        if (finalUri != null) {
+            uploadAvatar(finalUri)
+        }
+    }
+}
+
+/**
+ * 🔥 Redimensiona la imagen a un tamaño manejable ANTES del crop
+ */
+private fun resizeImageBeforeCrop(uri: Uri): Uri {
+    try {
+        val inputStream = requireContext().contentResolver.openInputStream(uri)
+        val originalBitmap = BitmapFactory.decodeStream(inputStream)
+        inputStream?.close()
+        
+        if (originalBitmap == null) return uri
+        
+        // 🔥 DIMENSIONES MÁXIMAS (ajusta según necesites)
+        val maxWidth = 1080
+        val maxHeight = 1920  // Máximo para portrait
+        
+        val width = originalBitmap.width
+        val height = originalBitmap.height
+        
+        // Calcular escala para que quepa en los límites
+        val scale = minOf(
+            maxWidth.toFloat() / width,
+            maxHeight.toFloat() / height,
+            1f  // No agrandar si ya es pequeña
+        )
+        
+        // Si la imagen ya es pequeña, no hacer nada
+        if (scale >= 1f) return uri
+        
+        val newWidth = (width * scale).toInt()
+        val newHeight = (height * scale).toInt()
+        
+        val resizedBitmap = Bitmap.createScaledBitmap(
+            originalBitmap, newWidth, newHeight, true
+        )
+        
+        // Guardar en caché temporal
+        val tempFile = File(requireContext().cacheDir, "temp_${System.currentTimeMillis()}.jpg")
+        val outputStream = FileOutputStream(tempFile)
+        resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 95, outputStream)
+        outputStream.close()
+        
+        // Liberar memoria
+        originalBitmap.recycle()
+        if (resizedBitmap != originalBitmap) {
+            resizedBitmap.recycle()
+        }
+        
+        return Uri.fromFile(tempFile)
+        
+    } catch (e: Exception) {
+        android.util.Log.e("ProfileFragment", "Error redimensionando imagen", e)
+        return uri  // Si falla, usar la original
+    }
+}
+
+/**
+ * 🔥 Abre el cropper con la imagen ya redimensionada
+ */
+private fun openCropper(uri: Uri) {
+    val options = CropImageOptions(
+        cropShape = CropImageView.CropShape.OVAL,
+        fixAspectRatio = true,
+        aspectRatioX = 1,
+        aspectRatioY = 1,
+        guidelines = CropImageView.Guidelines.ON,
+        outputCompressFormat = Bitmap.CompressFormat.JPEG,
+        outputCompressQuality = 90,
+        
+        // Visual
+        activityTitle = "Ajustar Foto",
+        toolbarColor = ContextCompat.getColor(requireContext(), R.color.purple_700),
+        toolbarTitleColor = Color.WHITE,
+        toolbarBackButtonColor = Color.WHITE,
+        activityMenuIconColor = Color.WHITE,
+        activityBackgroundColor = ContextCompat.getColor(requireContext(), R.color.black),
+        
+        // Configuración optimizada
+        initialCropWindowPaddingRatio = 0.1f,
+        autoZoomEnabled = true,
+        maxZoom = 4,
+        scaleType = CropImageView.ScaleType.FIT_CENTER,
+        
+        minCropWindowWidth = 100,
+        minCropWindowHeight = 100,
+        
+        showCropOverlay = true,
+        allowRotation = true,
+        allowFlipping = false
+    )
+    
+    cropImage.launch(CropImageContractOptions(uri, options))  // 🔥 Pasar la URI redimensionada
+}
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initViews(view)
@@ -110,58 +212,36 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
         }
 
         btnLogout.setOnClickListener {
-            lifecycleScope.launch {
-                try {
-                    val tokenManager = TokenManager(requireContext())
-                    // 1. Limpiar tokens PRIMERO
-                    tokenManager.clearTokens()
-                    // 2. Delay de seguridad
-                    delay(200)
-                    // 3. Navegar a login
-                    val intent = Intent(requireContext(), MainActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                    // 4. Cerrar actividad actual
-                    requireActivity().finish()
-                } catch (e: Exception) {
-                    android.util.Log.e("ProfileFragment", "Error en logout", e)
-                    Toast.makeText(requireContext(), "Error cerrando sesión", Toast.LENGTH_SHORT).show()
-                }
+    lifecycleScope.launch {
+        try {
+            val tokenManager = TokenManager(requireContext())
+            
+            // 1. Limpiar tokens PRIMERO
+            tokenManager.clearSession()  // 🔥 CAMBIO AQUÍ
+            
+            // 2. Delay de seguridad
+            delay(300)
+            
+            // 3. Navegar a Login
+            val intent = Intent(requireContext(), LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            
+            // 4. Cerrar actividad actual
+            requireActivity().finish()
+            
+        } catch (e: Exception) {
+            android.util.Log.e("ProfileFragment", "Error en logout", e)
+            Toast.makeText(requireContext(), "Error cerrando sesión", Toast.LENGTH_SHORT).show()
             }
         }
     }
+}
 
-    // 🔥 CONFIGURACIÓN ARREGLADA (Sintaxis nueva)
-    private fun startCrop() {
-    val options = CropImageOptions(
-        cropShape = CropImageView.CropShape.OVAL,
-        fixAspectRatio = true,
-        aspectRatioX = 1,
-        aspectRatioY = 1,
-        guidelines = CropImageView.Guidelines.ON,
-        outputCompressFormat = Bitmap.CompressFormat.JPEG,
-        outputCompressQuality = 90,
-        imageSourceIncludeGallery = true,
-        imageSourceIncludeCamera = false,
-        
-        // Visual
-        activityTitle = "Ajustar Foto",
-        toolbarColor = ContextCompat.getColor(requireContext(), R.color.purple_700),
-        toolbarTitleColor = Color.WHITE,
-        toolbarBackButtonColor = Color.WHITE,
-        activityMenuIconColor = Color.WHITE,
-        activityBackgroundColor = ContextCompat.getColor(requireContext(), R.color.bg_page),
-        
-        // 🔥 ESTO ARREGLA EL OVERLAP
-        initialCropWindowPaddingRatio = 0.15f,  // 15% de padding
-        autoZoomEnabled = true,
-        
-        showCropOverlay = true,
-        allowRotation = true,
-        allowFlipping = false
-    )
-    
-    cropImage.launch(CropImageContractOptions(uri = null, cropImageOptions = options))
+
+   private fun startCrop() {
+    // 🔥 Ahora solo lanzamos el picker de galería
+    pickImage.launch("image/*")
 }
 
     private fun loadUserProfile() {

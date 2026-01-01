@@ -1,5 +1,6 @@
 package com.example.diccionario_hiphop
 
+import android.content.Intent  // 🔥 AÑADIR ESTE
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
@@ -14,8 +15,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 🔥 Verificar sesión ANTES de crear la UI
+        val tokenManager = TokenManager(this)
+        if (!tokenManager.hasActiveSession()) {
+            android.util.Log.w("MainActivity", "⚠️ No hay sesión activa, redirigiendo a login")
+            val intent = Intent(this, SplashActivity::class.java) // O LoginActivity
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+            return
+        }
+        
         setContentView(R.layout.activity_main)
-
         viewPager = findViewById(R.id.viewPager)
         bottomNav = findViewById(R.id.bottom_navigation)
 
@@ -27,11 +39,9 @@ class MainActivity : AppCompatActivity() {
         val adapter = MainPagerAdapter(this)
         viewPager.adapter = adapter
         
-        // Empezar en la página del CENTRO (Descubrir/Home)
         viewPager.currentItem = 1 
         bottomNav.selectedItemId = R.id.nav_home
 
-        // Sincronizar Swipe -> Menú
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
                 when (position) {
@@ -44,7 +54,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNav() {
-        // Sincronizar Menú -> Swipe
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_grammys -> viewPager.currentItem = 0
@@ -55,15 +64,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Adaptador para las 3 pantallas
     private inner class MainPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
         override fun getItemCount(): Int = 3
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> GrammysFragment() // Izquierda
-                1 -> HomeFragment()    // Centro
-                2 -> ProfileFragment() // Derecha
+                0 -> GrammysFragment()
+                1 -> HomeFragment()
+                2 -> ProfileFragment()
                 else -> HomeFragment()
             }
         }

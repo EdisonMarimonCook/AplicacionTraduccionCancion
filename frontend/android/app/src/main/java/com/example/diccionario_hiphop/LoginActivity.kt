@@ -52,11 +52,11 @@ class LoginActivity : AppCompatActivity() {
                     navigateToMainApp()
                 } else {
                     // Token inválido o expirado
-                    tokenManager.clearTokens()
+                    tokenManager.clearSession()
                     recreate() // Recargar para mostrar el login
                 }
             } catch (e: Exception) {
-                tokenManager.clearTokens()
+                tokenManager.clearSession()
                 recreate()
             }
         }

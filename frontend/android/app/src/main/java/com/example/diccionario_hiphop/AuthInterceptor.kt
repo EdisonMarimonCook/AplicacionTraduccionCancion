@@ -13,10 +13,19 @@ class AuthInterceptor(
     private val context: Context
 ) : Interceptor {
 
+    // 🔥 NUEVO: Flag para evitar loops infinitos
+    @Volatile
+    private var isHandlingExpiredSession = false
+
     @Throws(IOException::class)
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val token = tokenManager.getToken()
+
+        // 🔥 Si ya estamos manejando una sesión expirada, rechazar más peticiones
+        if (isHandlingExpiredSession) {
+            throw IOException("Sesión cerrada, redirigiendo a login")
+        }
 
         // 1. Construir petición con token actual
         val requestBuilder = originalRequest.newBuilder()
@@ -35,6 +44,11 @@ class AuthInterceptor(
         synchronized(this) {
             response.close() // Cerrar respuesta original
 
+            // 🔥 Activar flag ANTES de hacer cualquier cosa
+            if (isHandlingExpiredSession) {
+                throw IOException("Ya se está manejando la sesión expirada")
+            }
+
             // DOUBLE-CHECK: ¿Alguien ya refrescó?
             val currentToken = tokenManager.getToken()
             val tokenFromRequest = originalRequest.header("Authorization")?.replace("Bearer ", "")
@@ -52,18 +66,16 @@ class AuthInterceptor(
             
             if (refreshToken.isNullOrEmpty()) {
                 android.util.Log.e("AuthInterceptor", "❌ No hay refresh token, forzando logout")
-                tokenManager.forceLogout()
+                handleExpiredSession()
                 throw IOException("Sesión expirada")
             }
 
             try {
-                // 🔥 FIX: Usar BASE_URL dinámica, NO localhost hardcoded
                 val baseUrl = RetrofitService.BASE_URL
-                
                 android.util.Log.d("AuthInterceptor", "🔄 Refrescando token en: $baseUrl")
 
                 val retrofit = Retrofit.Builder()
-                    .baseUrl(baseUrl) // ✅ Usa la URL correcta
+                    .baseUrl(baseUrl)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
 
@@ -75,9 +87,7 @@ class AuthInterceptor(
                     val newAccessToken = refreshResponse.body()!!.accessToken
                     val newRefreshToken = refreshResponse.body()?.refreshToken ?: refreshToken
                     
-                    // 🔥 FIX: Guardar AMBOS tokens
                     tokenManager.saveTokens(newAccessToken, newRefreshToken)
-                    
                     android.util.Log.d("AuthInterceptor", "✅ Token refrescado exitosamente")
 
                     // Reintentar request original con nuevo token
@@ -87,16 +97,34 @@ class AuthInterceptor(
                     
                     return chain.proceed(newRequest)
                 } else {
-                    // Refresh falló → Logout
                     android.util.Log.e("AuthInterceptor", "❌ Refresh falló: ${refreshResponse.code()}")
-                    tokenManager.forceLogout()
+                    handleExpiredSession()
                     throw IOException("Refresh token inválido")
                 }
             } catch (e: Exception) {
                 android.util.Log.e("AuthInterceptor", "💥 Error crítico en refresh", e)
-                tokenManager.forceLogout()
+                handleExpiredSession()
                 throw IOException("Error de autenticación: ${e.message}")
             }
         }
     }
+
+    // 🔥 NUEVO: Método centralizado para manejar sesión expirada
+    private fun handleExpiredSession() {
+    if (isHandlingExpiredSession) return
+    
+    isHandlingExpiredSession = true
+    
+    // Limpiar tokens
+    tokenManager.clearSession()  // 🔥 CAMBIO AQUÍ
+    
+    // Redirigir a Login
+    val intent = Intent(context, LoginActivity::class.java)
+    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    context.startActivity(intent)
+    
+    if (context is android.app.Activity) {
+        context.finish()
+    }
+}
 }
