@@ -22,4 +22,8 @@
     <color name="error_red">#CF6679</color>
     <color name="success_green">#4CAF50</color>
     <color name="divider">#2C2C2C</color>
+    <color name="gray_light">#B0B0B0</color>
+    <color name="gray_button">#424242</color>
+    <color name="background_dark">#121212</color>
+    <color name="orange">@color/orange_fire</color>
 </resources>
