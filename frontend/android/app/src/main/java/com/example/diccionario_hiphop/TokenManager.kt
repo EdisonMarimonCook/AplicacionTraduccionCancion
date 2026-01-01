@@ -134,15 +134,22 @@ class TokenManager(private val context: Context) {
      */
     @Synchronized
     fun forceLogout() {
-        // 1. Borrar tokens (persistentes y temporales)
-        clearSession()
-
-        // 2. Borrar datos de perfil SOLO si es sesión temporal
-        // (Las sesiones persistentes mantienen username hasta próximo login)
-        if (isUsingTempSession) {
-            context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE).edit().clear().apply()
+        // 🔥 FIX: Evitar bucle si ya estamos en MainActivity
+        if (context is MainActivity) {
+            android.util.Log.w("TokenManager", "⚠️ Ya estamos en MainActivity, solo limpiando tokens")
+            clearSession()
+            return
         }
-
+        android.util.Log.d("TokenManager", "🔄 Forzando logout...")
+        // 1. Borrar tokens
+        clearSession()
+        // 2. Borrar datos temporales
+        if (isUsingTempSession) {
+            context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .apply()
+        }
         // 3. Redirigir al login
         val intent = Intent(context, MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

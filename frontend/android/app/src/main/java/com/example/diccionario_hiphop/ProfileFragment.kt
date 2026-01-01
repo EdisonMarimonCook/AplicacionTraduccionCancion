@@ -109,56 +109,60 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
             startActivity(intent)
         }
 
-        // 🛑 LOGOUT SEGURO (CORREGIDO EL BUCLE)
         btnLogout.setOnClickListener {
-            // Usamos una corrutina para asegurar que el borrado se complete ANTES de cambiar de pantalla
             lifecycleScope.launch {
-                val tokenManager = TokenManager(requireContext())
-                
-                // Si tu clearTokens es suspend, llámalo normal. 
-                // Si no es suspend, esto se ejecuta secuencialmente de todas formas.
-                tokenManager.clearTokens() 
-                
-                // Pequeño delay de seguridad para dar tiempo a DataStore a escribir en disco si es necesario
-                delay(100) 
-
-                val intent = Intent(requireContext(), MainActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                requireActivity().finish()
+                try {
+                    val tokenManager = TokenManager(requireContext())
+                    // 1. Limpiar tokens PRIMERO
+                    tokenManager.clearTokens()
+                    // 2. Delay de seguridad
+                    delay(200)
+                    // 3. Navegar a login
+                    val intent = Intent(requireContext(), MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    // 4. Cerrar actividad actual
+                    requireActivity().finish()
+                } catch (e: Exception) {
+                    android.util.Log.e("ProfileFragment", "Error en logout", e)
+                    Toast.makeText(requireContext(), "Error cerrando sesión", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
     // 🔥 CONFIGURACIÓN ARREGLADA (Sintaxis nueva)
     private fun startCrop() {
-        val options = CropImageOptions().apply {
-            cropShape = CropImageView.CropShape.OVAL
-            fixAspectRatio = true
-            aspectRatioX = 1
-            aspectRatioY = 1
-            guidelines = CropImageView.Guidelines.ON
-            outputCompressFormat = Bitmap.CompressFormat.JPEG
-            outputCompressQuality = 90
-            imageSourceIncludeGallery = true
-            imageSourceIncludeCamera = false
-            // Visual tweaks
-            activityTitle = "Ajustar Foto"
-            toolbarColor = ContextCompat.getColor(requireContext(), R.color.purple_700)
-            activityBackgroundColor = ContextCompat.getColor(requireContext(), R.color.bg_page)
-            activityMenuIconColor = Color.WHITE
-            toolbarBackButtonColor = Color.WHITE
-            showCropOverlay = true
-            allowRotation = true
-            allowFlipping = false
-        }
-        cropImage.launch(
-            CropImageContractOptions(
-                uri = null,
-                cropImageOptions = options
-            )
-        )
-    }
+    val options = CropImageOptions(
+        cropShape = CropImageView.CropShape.OVAL,
+        fixAspectRatio = true,
+        aspectRatioX = 1,
+        aspectRatioY = 1,
+        guidelines = CropImageView.Guidelines.ON,
+        outputCompressFormat = Bitmap.CompressFormat.JPEG,
+        outputCompressQuality = 90,
+        imageSourceIncludeGallery = true,
+        imageSourceIncludeCamera = false,
+        
+        // Visual
+        activityTitle = "Ajustar Foto",
+        toolbarColor = ContextCompat.getColor(requireContext(), R.color.purple_700),
+        toolbarTitleColor = Color.WHITE,
+        toolbarBackButtonColor = Color.WHITE,
+        activityMenuIconColor = Color.WHITE,
+        activityBackgroundColor = ContextCompat.getColor(requireContext(), R.color.bg_page),
+        
+        // 🔥 ESTO ARREGLA EL OVERLAP
+        initialCropWindowPaddingRatio = 0.15f,  // 15% de padding
+        autoZoomEnabled = true,
+        
+        showCropOverlay = true,
+        allowRotation = true,
+        allowFlipping = false
+    )
+    
+    cropImage.launch(CropImageContractOptions(uri = null, cropImageOptions = options))
+}
 
     private fun loadUserProfile() {
         if (isLoadingProfile) return

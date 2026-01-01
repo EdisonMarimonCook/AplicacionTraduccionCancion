@@ -175,7 +175,7 @@ async def login(credentials: UserLogin):
         )
     
     access_token = create_access_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    refresh_token = create_refresh_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(days=7))
+    refresh_token = create_refresh_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     
     # Mapear respuesta
     langs = user_dict.get("learning_languages", [])

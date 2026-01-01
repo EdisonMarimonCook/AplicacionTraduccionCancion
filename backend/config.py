@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: Optional[str] = None  # Usar este - OPCIONAL (fallback a SECRET_KEY)
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas
-    
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 días
     # ===== APIs EXTERNAS - SPOTIFY =====
     SPOTIFY_CLIENT_ID: Optional[str] = None
     SPOTIFY_CLIENT_SECRET: Optional[str] = None
