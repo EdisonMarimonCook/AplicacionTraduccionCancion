@@ -1,6 +1,7 @@
 package com.example.diccionario_hiphop
 
 import android.content.Context
+import android.content.Intent
 import okhttp3.Interceptor
 import okhttp3.Response
 import retrofit2.Retrofit
@@ -9,15 +10,24 @@ import java.io.IOException
 
 class AuthInterceptor(
     private val tokenManager: TokenManager,
-    private val context: Context // Necesario para crear instancia temporal de Retrofit
+    private val context: Context
 ) : Interceptor {
+
+    // 🔥 NUEVO: Flag para evitar loops infinitos
+    @Volatile
+    private var isHandlingExpiredSession = false
 
     @Throws(IOException::class)
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val token = tokenManager.getToken()
 
-        // 1. Construir petición con token actual (si existe)
+        // 🔥 Si ya estamos manejando una sesión expirada, rechazar más peticiones
+        if (isHandlingExpiredSession) {
+            throw IOException("Sesión cerrada, redirigiendo a login")
+        }
+
+        // 1. Construir petición con token actual
         val requestBuilder = originalRequest.newBuilder()
         if (token != null) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
@@ -25,84 +35,96 @@ class AuthInterceptor(
 
         var response = chain.proceed(requestBuilder.build())
 
+        // Si no es 401, retornar normal
         if (response.code != 401) {
             return response
         }
 
-        // 🚨 ALERTA 401: Aquí empieza la magia Thread-Safe
+        // 🚨 401 DETECTADO - Iniciar refresh
         synchronized(this) {
-            // Cierre preventivo: Antes de hacer nada, cerramos la respuesta fallida 
-            response.close()
+            response.close() // Cerrar respuesta original
 
-            // 🕵️ DOUBLE-CHECK LOCKING
+            // 🔥 Activar flag ANTES de hacer cualquier cosa
+            if (isHandlingExpiredSession) {
+                throw IOException("Ya se está manejando la sesión expirada")
+            }
+
+            // DOUBLE-CHECK: ¿Alguien ya refrescó?
             val currentToken = tokenManager.getToken()
             val tokenFromRequest = originalRequest.header("Authorization")?.replace("Bearer ", "")
 
             if (currentToken != null && currentToken != tokenFromRequest) {
-                // ¡Alguien ya hizo el trabajo sucio! Reintentamos con el token nuevo.
+                // Token ya actualizado por otro hilo
                 val newRequest = originalRequest.newBuilder()
                     .header("Authorization", "Bearer $currentToken")
                     .build()
                 return chain.proceed(newRequest)
             }
 
-            // SI ES IGUAL: Soy el primero en entrar (o el token sigue caducado). Toca refrescar.
-            val newToken = refreshToken()
+            // Soy el primero → Refrescar token
+            val refreshToken = tokenManager.getRefreshToken()
+            
+            if (refreshToken.isNullOrEmpty()) {
+                android.util.Log.e("AuthInterceptor", "❌ No hay refresh token, forzando logout")
+                handleExpiredSession()
+                throw IOException("Sesión expirada")
+            }
 
-            if (newToken != null) {
-                // Éxito: Guardamos y reintentamos
-                val newRequest = originalRequest.newBuilder()
-                    .header("Authorization", "Bearer $newToken")
+            try {
+                val baseUrl = RetrofitService.BASE_URL
+                android.util.Log.d("AuthInterceptor", "🔄 Refrescando token en: $baseUrl")
+
+                val retrofit = Retrofit.Builder()
+                    .baseUrl(baseUrl)
+                    .addConverterFactory(GsonConverterFactory.create())
                     .build()
-                return chain.proceed(newRequest)
-            } else {
-                // ❌ FRACASO: El refresh también caducó o es inválido -> Logout forzoso
-                tokenManager.forceLogout()
+
+                val api = retrofit.create(ApiService::class.java)
+                val call = api.refreshToken(RefreshTokenRequest(refreshToken))
+                val refreshResponse = call.execute()
+
+                if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
+                    val newAccessToken = refreshResponse.body()!!.accessToken
+                    val newRefreshToken = refreshResponse.body()?.refreshToken ?: refreshToken
+                    
+                    tokenManager.saveTokens(newAccessToken, newRefreshToken)
+                    android.util.Log.d("AuthInterceptor", "✅ Token refrescado exitosamente")
+
+                    // Reintentar request original con nuevo token
+                    val newRequest = originalRequest.newBuilder()
+                        .header("Authorization", "Bearer $newAccessToken")
+                        .build()
+                    
+                    return chain.proceed(newRequest)
+                } else {
+                    android.util.Log.e("AuthInterceptor", "❌ Refresh falló: ${refreshResponse.code()}")
+                    handleExpiredSession()
+                    throw IOException("Refresh token inválido")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AuthInterceptor", "💥 Error crítico en refresh", e)
+                handleExpiredSession()
+                throw IOException("Error de autenticación: ${e.message}")
             }
         }
-
-        // Si llegamos aquí, es que no se pudo refrescar (Login caducado del todo).
-        // Devolvemos una nueva respuesta 401 limpia o redirigimos a LoginActivity.
-        // Como cerramos la 'response' original arriba, no podemos devolverla. 
-        // Normalmente OkHttp necesita que devuelvas algo.
-        return chain.proceed(originalRequest)
     }
 
-    // Lógica síncrona para refrescar el token
-    private fun refreshToken(): String? {
-        val refreshToken = tokenManager.getRefreshToken() ?: return null
-
-        try {
-            // Creamos un Retrofit LIMPIO (sin interceptores) para evitar bucles infinitos.
-            // ⚠️ IMPORTANTE: Asegúrate de que esta URL coincide con la de tu RetrofitService.
-            // Si usas emulador: "http://10.0.2.2:8000/"
-            val retrofit = Retrofit.Builder()
-                .baseUrl("http://10.0.2.2:8000/")
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-
-            val api = retrofit.create(ApiService::class.java)
-
-            // Llamada síncrona (.execute)
-            val call = api.refreshToken(RefreshTokenRequest(refreshToken))
-            val response = call.execute()
-
-            if (response.isSuccessful && response.body() != null) {
-                val newAccessToken = response.body()!!.accessToken
-                
-                // NOTA: El backend v4.0 devuelve 'access_token' nuevo pero quizás no 'refresh_token'.
-                // Mantenemos el antiguo si el nuevo viene vacío o nulo.
-                val newRefreshToken = response.body()?.refreshToken ?: ""
-                val finalRefreshToken = if (newRefreshToken.isNotEmpty()) newRefreshToken else refreshToken
-
-                // 🔥 IMPORTANTE: Guardar SOLO el access token (preserva el tipo de sesión)
-                // Si era temporal, sigue siendo temporal. Si era persistente, sigue persistente.
-                tokenManager.saveAccessToken(newAccessToken)
-                return newAccessToken
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return null
+    // 🔥 NUEVO: Método centralizado para manejar sesión expirada
+    private fun handleExpiredSession() {
+    if (isHandlingExpiredSession) return
+    
+    isHandlingExpiredSession = true
+    
+    // Limpiar tokens
+    tokenManager.clearSession()  // 🔥 CAMBIO AQUÍ
+    
+    // Redirigir a Login
+    val intent = Intent(context, LoginActivity::class.java)
+    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    context.startActivity(intent)
+    
+    if (context is android.app.Activity) {
+        context.finish()
     }
+}
 }

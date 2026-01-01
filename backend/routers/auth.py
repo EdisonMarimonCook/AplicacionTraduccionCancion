@@ -175,7 +175,7 @@ async def login(credentials: UserLogin):
         )
     
     access_token = create_access_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    refresh_token = create_refresh_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(days=7))
+    refresh_token = create_refresh_token(data={"sub": user_dict["email"]}, expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
     
     # Mapear respuesta
     langs = user_dict.get("learning_languages", [])
@@ -257,15 +257,37 @@ async def reset_password(request: ResetPasswordRequest):
     else:
         raise HTTPException(status_code=400, detail="Código inválido o expirado")
 
+
 @router.post("/refresh", response_model=dict)
 async def refresh_access_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token_data = verify_refresh_token(credentials.credentials)
-    if not token_data: raise HTTPException(status_code=401, detail="Invalid refresh token")
+    """
+    Refresca el Access Token Y TAMBIÉN el Refresh Token (Rotación).
+    Esto hace que la sesión sea infinita mientras el usuario use la app.
+    """
+    token = credentials.credentials
+    # 1. Verificar el refresh token actual
+    token_data = verify_refresh_token(token)
+    if not token_data: 
+        raise HTTPException(status_code=401, detail="Refresh token inválido o expirado")
     email = token_data.get("email") or token_data.get("sub")
-    
-    new_token = create_access_token(data={"sub": email}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    
-    return {"access_token": new_token, "token_type": "bearer", "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, "status": "success"}
+    # 2. Crear NUEVO Access Token (vida corta)
+    new_access_token = create_access_token(
+        data={"sub": email}, 
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    # 3. Crear NUEVO Refresh Token (Reiniciamos el contador de 30 días)
+    new_refresh_token = create_refresh_token(
+        data={"sub": email}, 
+        expires_delta=timedelta(days=30) 
+    )
+    # 4. Devolver AMBOS
+    return {
+        "access_token": new_access_token, 
+        "refresh_token": new_refresh_token, # <--- IMPORTANTE: Enviamos el nuevo pase
+        "token_type": "bearer", 
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, 
+        "status": "success"
+    }
 
 @router.get("/me", response_model=User)
 async def get_current_user_info(current_user: User = Depends(get_current_user)):

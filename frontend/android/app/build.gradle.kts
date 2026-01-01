@@ -72,9 +72,10 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
 
     // Si usas ucrop desde libs o directo, deja solo uno. Asumo que libs.ucrop funciona:
-    implementation(libs.ucrop)
+    implementation("com.vanniktech:android-image-cropper:4.7.0")
     // implementation("com.github.yalantis:ucrop:2.2.8") // ❌ Comentado para evitar duplicados
 
+    implementation("de.hdodenhof:circleimageview:3.1.0")
 
     // 🕸️ Ayuda para leer webs
     implementation ("org.jsoup:jsoup:1.16.1")

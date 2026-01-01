@@ -1,214 +1,79 @@
 package com.example.diccionario_hiphop
 
-import android.content.Intent
+import android.content.Intent  // 🔥 AÑADIR ESTE
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import com.google.android.material.textfield.TextInputLayout
-import kotlinx.coroutines.launch
-import retrofit2.HttpException
-import java.io.IOException
+import androidx.fragment.app.Fragment
+import androidx.viewpager2.adapter.FragmentStateAdapter
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class MainActivity : AppCompatActivity() {
 
-    // UI
-    private lateinit var etEmail: EditText
-    private lateinit var etPassword: EditText
-    private lateinit var passwordLayout: TextInputLayout
-    private lateinit var cbRememberMe: CheckBox
-    private lateinit var btnLogin: Button
-    private lateinit var tvForgotPassword: TextView
-    private lateinit var tvRegister: TextView
-
-    private lateinit var tokenManager: TokenManager
+    private lateinit var viewPager: ViewPager2
+    private lateinit var bottomNav: BottomNavigationView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // 1. Inicializar TokenManager
-        tokenManager = TokenManager(this)
-
-        // 2. Auto-Login: Si hay token guardado, intentar validarlo con el backend
-        // Esto permite que usuarios que marcaron "Recordarme" no tengan que volver a ingresar credenciales
-        if (tokenManager.getToken() != null) {
-            tryAutoLogin()
+        
+        // 🔥 Verificar sesión ANTES de crear la UI
+        val tokenManager = TokenManager(this)
+        if (!tokenManager.hasActiveSession()) {
+            android.util.Log.w("MainActivity", "⚠️ No hay sesión activa, redirigiendo a login")
+            val intent = Intent(this, SplashActivity::class.java) // O LoginActivity
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
             return
         }
-
-        // 3. Si no hay token, mostrar pantalla de login normal
+        
         setContentView(R.layout.activity_main)
-        initViews()
-        setupValidations()
-        setupClickListeners()
+        viewPager = findViewById(R.id.viewPager)
+        bottomNav = findViewById(R.id.bottom_navigation)
+
+        setupViewPager()
+        setupBottomNav()
     }
 
-    /**
-     * Intenta hacer auto-login validando el token guardado con el backend.
-     * Si el token es válido, navega directamente a SongSelectionActivity.
-     * Si es inválido o hay error de red, limpia los tokens y muestra la pantalla de login.
-     */    private fun tryAutoLogin() {
-        lifecycleScope.launch {
-            try {
-                // Validar token con el backend
-                val apiService = RetrofitService.getInstance(this@MainActivity)
-                val response = apiService.getProfile()
+    private fun setupViewPager() {
+        val adapter = MainPagerAdapter(this)
+        viewPager.adapter = adapter
+        
+        viewPager.currentItem = 1 
+        bottomNav.selectedItemId = R.id.nav_home
 
-                if (response.isSuccessful && response.body() != null) {
-                    // Token válido, navegamos directamente
-                    navigateToSongSelection()
-                } else {
-                    // Token inválido, limpiar tokens y mostrar login
-                    tokenManager.clearTokens()
-                    showLoginScreen()
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                when (position) {
+                    0 -> bottomNav.selectedItemId = R.id.nav_grammys
+                    1 -> bottomNav.selectedItemId = R.id.nav_home
+                    2 -> bottomNav.selectedItemId = R.id.nav_profile
                 }
-            } catch (e: Exception) {
-                // Error de red o token inválido, limpiar tokens y mostrar login
-                tokenManager.clearTokens()
-                showLoginScreen()
             }
-        }
-    }
-
-    private fun showLoginScreen() {
-        setContentView(R.layout.activity_main)
-        initViews()
-        setupValidations()
-        setupClickListeners()
-    }
-
-    private fun initViews() {
-        etEmail = findViewById(R.id.etEmail)
-        etPassword = findViewById(R.id.etPassword)
-        passwordLayout = findViewById(R.id.tilPassword)
-        cbRememberMe = findViewById(R.id.cbRememberMe)
-        btnLogin = findViewById(R.id.btnLogin)
-        tvForgotPassword = findViewById(R.id.tvForgotPassword)
-        tvRegister = findViewById(R.id.tvRegister)
-    }
-
-    private fun setupValidations() {
-        etEmail.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { validateEmail() }
-        })
-
-        etPassword.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { validatePassword() }
         })
     }
 
-    private fun setupClickListeners() {
-        btnLogin.setOnClickListener {
-            if (validateForm()) {
-                performLogin()
+    private fun setupBottomNav() {
+        bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_grammys -> viewPager.currentItem = 0
+                R.id.nav_home -> viewPager.currentItem = 1
+                R.id.nav_profile -> viewPager.currentItem = 2
             }
-        }
-
-        tvForgotPassword.setOnClickListener {
-            startActivity(Intent(this, ForgotPasswordActivity::class.java))
-        }
-
-        tvRegister.setOnClickListener {
-            startActivity(Intent(this, RegisterActivity::class.java))
+            true
         }
     }
 
-    private fun performLogin() {
-        val email = etEmail.text.toString().trim()
-        val password = etPassword.text.toString().trim()
-        val rememberMe = cbRememberMe.isChecked
+    private inner class MainPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
+        override fun getItemCount(): Int = 3
 
-        setLoading(true)
-
-        lifecycleScope.launch {
-            try {
-                val apiService = RetrofitService.getInstance(this@MainActivity)
-                val request = LoginRequest(email, password)
-                val response = apiService.login(request)
-
-                if (response.isSuccessful && response.body() != null) {
-                    val loginData = response.body()!!
-
-                    // 🔥 GUARDAR DATOS DE USUARIO (siempre necesario para funcionamiento de la app)
-                    val prefs = getSharedPreferences("user_prefs", MODE_PRIVATE)
-                    prefs.edit().apply {
-                        putString("username", loginData.username)
-                        putString("USER_LEVEL", "B1")
-                        apply()
-                    }
-
-                    // 🔥 LÓGICA "RECUÉRDAME" - Solo afecta a los TOKENS
-                    if (rememberMe) {
-                        // ✅ Guardar tokens de forma PERSISTENTE
-                        tokenManager.saveTokens(loginData.accessToken, loginData.refreshToken)
-                    } else {
-                        // 🔥 Guardar tokens TEMPORALES (se pierden al cerrar la app)
-                        tokenManager.saveTemporaryTokens(loginData.accessToken, loginData.refreshToken)
-                    }
-
-                    navigateToSongSelection()
-                } else {
-                    val errorMsg = when (response.code()) {
-                        401 -> "Email o contraseña incorrectos"
-                        403 -> "Cuenta no verificada. Revisa tu email."
-                        else -> "Error en el servidor"
-                    }
-                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
-                }
-            } catch (e: HttpException) {
-                val msg = when (e.code()) {
-                    403 -> "⚠️ Debes verificar tu email antes de iniciar sesión"
-                    else -> "Error: ${e.message()}"
-                }
-                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
-            } catch (e: IOException) {
-                Toast.makeText(this@MainActivity, "Error de conexión", Toast.LENGTH_SHORT).show()
-            } finally {
-                setLoading(false)
+        override fun createFragment(position: Int): Fragment {
+            return when (position) {
+                0 -> GrammysFragment()
+                1 -> HomeFragment()
+                2 -> ProfileFragment()
+                else -> HomeFragment()
             }
         }
     }
-
-    private fun navigateToSongSelection() {
-        val intent = Intent(this, SongSelectionActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        finish()
-    }
-
-    private fun setLoading(isLoading: Boolean) {
-        btnLogin.isEnabled = !isLoading
-        etEmail.isEnabled = !isLoading
-        etPassword.isEnabled = !isLoading
-        btnLogin.text = if (isLoading) "Conectando..." else "ENTRAR"
-    }
-
-    private fun validateEmail(): Boolean {
-        val email = etEmail.text.toString()
-        if (email.isEmpty()) { etEmail.error = "Requerido"; return false }
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            etEmail.error = "Email no válido"
-            return false
-        }
-        return true
-    }
-
-    private fun validatePassword(): Boolean {
-        val password = etPassword.text.toString()
-        if (password.isEmpty()) {
-            passwordLayout.error = "Requerido"
-            return false
-        } else {
-            passwordLayout.error = null
-        }
-        return true
-    }
-
-    private fun validateForm() = validateEmail() && validatePassword()
 }

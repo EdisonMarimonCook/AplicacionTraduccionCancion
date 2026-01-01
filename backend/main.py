@@ -6,7 +6,7 @@ CONTIENE: Configuración, eventos, endpoints básicos y Registro de Routers
 
 import logging
 import asyncio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -178,6 +178,14 @@ async def http_exception_handler(request, exc):
 async def general_exception_handler(request, exc):
     logger.error(f"❌ General Exception: {str(exc)}")
     return JSONResponse(status_code=500, content={"error": "Internal server error"})
+
+@app.head("/health")
+def health_check_head():
+    return Response(status_code=200)
+
+@app.head("/api/v1/health")
+def health_check_v1_head():
+    return Response(status_code=200)
 
 if __name__ == "__main__":
     import uvicorn

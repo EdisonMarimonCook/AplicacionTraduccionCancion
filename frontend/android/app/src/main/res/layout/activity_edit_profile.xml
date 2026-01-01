@@ -5,23 +5,25 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/windowBackground"> 
+
     <View
         android:id="@+id/headerBg"
         android:layout_width="match_parent"
         android:layout_height="100dp"
         android:background="?attr/colorPrimary"
         app:layout_constraintTop_toTopOf="parent" />
+
     <ImageButton
         android:id="@+id/btnBack"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="40dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_arrow_back"
-        app:tint="@android:color/white"
+        app:tint="@android:color/white" 
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"/>
 
     <TextView
         android:id="@+id/tvHeaderTitle"
@@ -62,6 +64,7 @@
                     android:text="Selecciona una opción"
                     android:textColor="?android:attr/textColorSecondary"
                     android:layout_marginBottom="16dp"/>
+
                 <androidx.cardview.widget.CardView
                     android:id="@+id/cardOptionName"
                     android:layout_width="match_parent"
@@ -79,13 +82,11 @@
                         android:padding="20dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
-
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_person"
                             app:tint="?attr/colorPrimary"/>
-
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -95,7 +96,7 @@
                             android:textStyle="bold"
                             android:textColor="?android:attr/textColorPrimary"
                             android:layout_marginStart="16dp"/>
-                            <ImageView
+                        <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@android:drawable/ic_media_play"
@@ -115,20 +116,17 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground">
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:padding="20dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
-
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@android:drawable/ic_dialog_email"
                             app:tint="?attr/colorPrimary"/>
-
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -151,20 +149,17 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:foreground="?attr/selectableItemBackground">
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:padding="20dp"
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
-
                         <ImageView
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_settings"
                             app:tint="?attr/colorPrimary"/>
-
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
@@ -176,7 +171,6 @@
                             android:layout_marginStart="16dp"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
-
             </LinearLayout>
 
             <androidx.cardview.widget.CardView
@@ -187,13 +181,11 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="8dp"
                 app:cardBackgroundColor="?attr/colorSurface">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="24dp">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -202,19 +194,19 @@
                         android:textColor="?attr/colorPrimary"
                         android:textSize="18sp"
                         android:layout_marginBottom="16dp"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Escribe tu nuevo nombre"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNewName"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:inputType="textPersonName"/>
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <Button
                         android:id="@+id/btnSaveName"
                         android:layout_width="match_parent"
@@ -235,13 +227,11 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="8dp"
                 app:cardBackgroundColor="?attr/colorSurface">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="24dp">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -250,41 +240,41 @@
                         android:textColor="?attr/colorPrimary"
                         android:textSize="18sp"
                         android:layout_marginBottom="16dp"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Nuevo Correo"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNewEmail"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:inputType="textEmailAddress"/>
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Contraseña Actual (Seguridad)"
                         android:textStyle="bold"
-                        android:textColor="#FF9800"
+                        android:textColor="@color/orange_fire"
                         android:layout_marginTop="24dp"
                         android:layout_marginBottom="8dp"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Escribe tu contraseña"
                         app:endIconMode="password_toggle"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etCurrentPassEmail"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:inputType="textPassword"/>
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <Button
                         android:id="@+id/btnSaveEmail"
                         android:layout_width="match_parent"
@@ -305,13 +295,11 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="8dp"
                 app:cardBackgroundColor="?attr/colorSurface">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="24dp">
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -320,42 +308,42 @@
                         android:textColor="?attr/colorPrimary"
                         android:textSize="18sp"
                         android:layout_marginBottom="16dp"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Nueva Contraseña"
                         app:endIconMode="password_toggle"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etNewPass"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:inputType="textPassword"/>
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Contraseña Actual (Seguridad)"
                         android:textStyle="bold"
-                        android:textColor="#FF9800"
+                        android:textColor="@color/orange_fire"
                         android:layout_marginTop="24dp"
                         android:layout_marginBottom="8dp"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:hint="Escribe tu contraseña"
                         app:endIconMode="password_toggle"
+                        app:boxStrokeColor="?attr/colorPrimary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etCurrentPassPass"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:textColor="?android:attr/textColorPrimary"
                             android:inputType="textPassword"/>
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <Button
                         android:id="@+id/btnSavePass"
                         android:layout_width="match_parent"

@@ -7,14 +7,14 @@ import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 
-@SuppressLint("CustomSplashScreen") // Ignoramos warning de API 31+
+@SuppressLint("CustomSplashScreen")
 class SplashActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        // Esperar 2 segundos para mostrar la marca y luego navegar
+        // Esperar 2 segundos para mostrar la marca y luego comprobar sesión
         Handler(Looper.getMainLooper()).postDelayed({
             checkSessionAndNavigate()
         }, 2000)
@@ -25,16 +25,15 @@ class SplashActivity : AppCompatActivity() {
         val token = tokenManager.getToken()
 
         if (token != null) {
-            // Si hay token, vamos directo a la App
-            val intent = Intent(this, SongSelectionActivity::class.java)
+            // 🔥 SI HAY SESIÓN: Vamos al NUEVO contenedor principal (MainActivity)
+            val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
         } else {
-            // Si no, vamos al Login
-            val intent = Intent(this, MainActivity::class.java)
+            // 🔥 SI NO HAY SESIÓN: Vamos al NUEVO Login (LoginActivity)
+            val intent = Intent(this, LoginActivity::class.java)
             startActivity(intent)
         }
 
-        // Cerramos el Splash para que no se pueda volver atrás
-        finish()
+        finish() // Cerramos Splash
     }
 }

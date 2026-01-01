@@ -61,7 +61,7 @@ class SettingsActivity : AppCompatActivity() {
         
         // Mapeamos la selección visual a códigos CEFR para la IA
         val level = when (selectedId) {
-            R.id.radioBeginner -> "A2"      // Principiante
+            R.id.radioBeginner -> "A2"       // Principiante
             R.id.radioIntermediate -> "B1"  // Intermedio (Estándar)
             R.id.radioAdvanced -> "C1"      // Avanzado
             else -> "B1"
@@ -71,8 +71,9 @@ class SettingsActivity : AppCompatActivity() {
 
         Toast.makeText(this, "Nivel actualizado a: $level", Toast.LENGTH_SHORT).show()
 
-        // Volver a SongSelectionActivity limpiando la pila
-        val intent = Intent(this, SongSelectionActivity::class.java)
+        // ✅ CORRECCIÓN: Volver a MainActivity (el nuevo contenedor)
+        val intent = Intent(this, MainActivity::class.java)
+        // Mantenemos los flags para limpiar la pila y reiniciar la app con la nueva configuración
         intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(intent)
         finish()
