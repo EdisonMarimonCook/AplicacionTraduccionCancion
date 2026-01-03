@@ -10,14 +10,15 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 # Configuración de conexión usando tus variables del .env
+# 🔥 Puerto 465 requiere SSL/TLS directo (no STARTTLS)
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.MAIL_USERNAME,
     MAIL_PASSWORD=settings.MAIL_PASSWORD,
     MAIL_FROM=settings.MAIL_USERNAME,
-    MAIL_PORT=settings.MAIL_PORT,
+    MAIL_PORT=465,  # Cambio a 465
     MAIL_SERVER=settings.MAIL_SERVER,
-    MAIL_STARTTLS=True,
-    MAIL_SSL_TLS=False,
+    MAIL_STARTTLS=False,  # Desactivado para 465
+    MAIL_SSL_TLS=True,    # Activado para 465
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=True
 )
