@@ -14,7 +14,7 @@ from typing import List
 from models import User
 from routers.auth import get_current_user
 from database import db
-from services.level_mapper import LANGUAGE_SYSTEMS
+from services.level_mapper import LEVEL_SYSTEMS
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,9 @@ class ReorderLanguagesRequest(BaseModel):
 class UpdateDailyGoalRequest(BaseModel):
     daily_goal: int
 
+class UpdateLevelRequest(BaseModel):
+    level: str
+
 # ===============================================================================
 # ENDPOINTS
 # ===============================================================================
@@ -51,7 +54,7 @@ async def add_language(
     """
     try:
         # Validar idioma soportado
-        if request.language not in LANGUAGE_SYSTEMS:
+        if request.language not in LEVEL_SYSTEMS:
             raise HTTPException(
                 status_code=400, 
                 detail=f"Idioma '{request.language}' no soportado"
@@ -276,4 +279,55 @@ async def update_daily_goal(
         raise
     except Exception as e:
         logger.error(f"❌ Error actualizando meta: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{code}/level")
+async def update_level(
+    code: str,
+    request: UpdateLevelRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    📊 Actualizar nivel de un idioma
+    - Valida que el nivel sea válido para el sistema del idioma
+    """
+    try:
+        # Validar que el idioma esté en LEVEL_SYSTEMS
+        if code not in LEVEL_SYSTEMS:
+            raise HTTPException(status_code=400, detail=f"Idioma '{code}' no soportado")
+        
+        # Validar que el nivel sea válido
+        valid_levels = LEVEL_SYSTEMS[code]
+        if request.level not in valid_levels:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Nivel inválido. Niveles válidos para {code}: {', '.join(valid_levels)}"
+            )
+        
+        # Buscar idioma
+        language_index = None
+        current_languages = current_user.learning_languages if current_user.learning_languages else []
+        
+        for idx, lang in enumerate(current_languages):
+            if lang.language == code:
+                language_index = idx
+                break
+        
+        if language_index is None:
+            raise HTTPException(status_code=404, detail=f"Idioma '{code}' no encontrado en tu perfil")
+        
+        # Actualizar level en DB
+        await db.db["users"].update_one(
+            {"_id": current_user.id},
+            {"$set": {f"learning_languages.{language_index}.level": request.level}}
+        )
+        
+        logger.info(f"✅ Usuario {current_user.username} cambió nivel de {code} a {request.level}")
+        return {"message": f"Nivel actualizado a {request.level}"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error actualizando nivel: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
