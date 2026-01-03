@@ -24,6 +24,8 @@ conf = ConnectionConfig(
 
 async def send_verification_code(email_to: EmailStr, code: str):
     """Envía el código de bienvenida para activar la cuenta"""
+    logger.info(f"📧 Preparando email para {email_to} con código {code}")
+    
     html = f"""
     <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
         <h2 style="color: #FF5722;">🎵 Bienvenido a MusicTransIAtor</h2>
@@ -44,10 +46,11 @@ async def send_verification_code(email_to: EmailStr, code: str):
 
     fm = FastMail(conf)
     try:
+        logger.info(f"🚀 Enviando email a {email_to}...")
         await fm.send_message(message)
-        logger.info(f"📧 Correo de verificación enviado a {email_to}")
+        logger.info(f"✅ Correo de verificación enviado exitosamente a {email_to}")
     except Exception as e:
-        logger.error(f"❌ Error enviando correo: {e}")
+        logger.error(f"❌ Error enviando correo a {email_to}: {e}", exc_info=True)
 
 async def send_password_reset_code(email_to: EmailStr, code: str):
     """Envía el código para recuperar contraseña"""
