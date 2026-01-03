@@ -11,6 +11,7 @@ ENDPOINTS:
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List
+from datetime import datetime
 from models import User
 from routers.auth import get_current_user
 from database import db
@@ -75,7 +76,7 @@ async def add_language(
         new_language = {
             "language": request.language,
             "level": request.level,
-            "started_at": None,
+            "started_at": datetime.now(),  # 🔧 Establecer fecha de inicio
             "last_tested": None,
             "daily_goal": 10,
             "reviews_pending": 0,
@@ -83,13 +84,21 @@ async def add_language(
             "words_learned": 0
         }
         
+        # 🔧 Convertir ID a ObjectId si es string
+        from bson import ObjectId
+        user_id = ObjectId(current_user.id) if isinstance(current_user.id, str) else current_user.id
+        
         # Añadir a la lista
-        await db.db["users"].update_one(
-            {"_id": current_user.id},
+        result = await db.db["users"].update_one(
+            {"_id": user_id},
             {"$push": {"learning_languages": new_language}}
         )
         
-        logger.info(f"✅ Usuario {current_user.username} añadió idioma {request.language}")
+        logger.info(f"✅ Usuario {current_user.username} añadió idioma {request.language} (modified: {result.modified_count})")
+        
+        if result.modified_count == 0:
+            logger.error(f"❌ update_one no modificó nada. user_id={user_id}, type={type(user_id)}")
+            raise HTTPException(status_code=500, detail="No se pudo añadir el idioma")
         
         return {"message": f"Idioma {request.language} añadido correctamente"}
         
