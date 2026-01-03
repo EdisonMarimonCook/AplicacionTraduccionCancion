@@ -336,10 +336,11 @@ private fun openCropper(uri: Uri) {
         rvLanguages.layoutManager = LinearLayoutManager(requireContext())
         rvLanguages.adapter = LanguageItemAdapter(activeLanguages, user.primaryLanguage)
 
-        // Botón gestionar (por ahora solo cierra)
+        // Botón gestionar abre la actividad
         btnManageLanguages.setOnClickListener {
             bottomSheetDialog.dismiss()
-            Toast.makeText(requireContext(), "Gestión de idiomas disponible en futuras versiones", Toast.LENGTH_SHORT).show()
+            val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
+            startActivity(intent)
         }
 
         bottomSheetDialog.show()
@@ -407,72 +408,6 @@ private fun openCropper(uri: Uri) {
                     Toast.makeText(requireContext(), "Fallo: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-        }
-    }
-
-    // ✨ NUEVO: Mostrar BottomSheet con idiomas
-    private fun showLanguagesBottomSheet(user: User) {
-        val bottomSheetDialog = BottomSheetDialog(requireContext())
-        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_languages, null)
-        bottomSheetDialog.setContentView(view)
-
-        val rvLanguages = view.findViewById<RecyclerView>(R.id.rvLanguages)
-        val tvTotalWords = view.findViewById<TextView>(R.id.tvTotalWords)
-        val tvTotalReviews = view.findViewById<TextView>(R.id.tvTotalReviews)
-        val btnManageLanguages = view.findViewById<Button>(R.id.btnManageLanguages)
-
-        // Filtrar idiomas activos
-        val activeLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
-
-        // Calcular totales
-        val totalWords = activeLanguages.sumOf { it.wordsLearned }
-        val totalReviews = activeLanguages.sumOf { it.reviewsPending }
-
-        tvTotalWords.text = "Total: $totalWords palabras"
-        tvTotalReviews.text = "Repasos pendientes: $totalReviews"
-
-        // Configurar RecyclerView
-        rvLanguages.layoutManager = LinearLayoutManager(requireContext())
-        rvLanguages.adapter = LanguageItemAdapter(activeLanguages, user.primaryLanguage)
-
-        // Botón gestionar (por ahora solo cierra)
-        btnManageLanguages.setOnClickListener {
-            bottomSheetDialog.dismiss()
-            Toast.makeText(requireContext(), "Gestión de idiomas disponible en futuras versiones", Toast.LENGTH_SHORT).show()
-        }
-
-        bottomSheetDialog.show()
-    }
-
-    // ✨ NUEVO: Obtener bandera emoji del idioma
-    private fun getLanguageFlag(code: String): String {
-        return when (code) {
-            "en" -> "🇬🇧"
-            "es" -> "🇪🇸"
-            "fr" -> "🇫🇷"
-            "de" -> "🇩🇪"
-            "it" -> "🇮🇹"
-            "pt" -> "🇵🇹"
-            "ja" -> "🇯🇵"
-            "zh" -> "🇨🇳"
-            "ko" -> "🇰🇷"
-            else -> "🌐"
-        }
-    }
-
-    // ✨ NUEVO: Obtener nombre del idioma
-    private fun getLanguageName(code: String): String {
-        return when (code) {
-            "en" -> "Inglés"
-            "es" -> "Español"
-            "fr" -> "Francés"
-            "de" -> "Alemán"
-            "it" -> "Italiano"
-            "pt" -> "Portugués"
-            "ja" -> "Japonés"
-            "zh" -> "Chino"
-            "ko" -> "Coreano"
-            else -> code.uppercase()
         }
     }
 

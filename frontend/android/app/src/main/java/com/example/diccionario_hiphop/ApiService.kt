@@ -126,4 +126,20 @@ interface ApiService {
 
     @POST("/api/v1/auth/reset-password")
     suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<MessageResponse>
+
+    // =================================================================================
+    // 7️⃣ GESTIÓN DE IDIOMAS (Fase 2.5)
+    // =================================================================================
+
+    @POST("/api/v1/users/languages")
+    suspend fun addLanguage(@Body request: AddLanguageRequest): Response<MessageResponse>
+
+    @PUT("/api/v1/users/languages/reorder")
+    suspend fun reorderLanguages(@Body request: ReorderLanguagesRequest): Response<MessageResponse>
+
+    @PUT("/api/v1/users/languages/{code}/toggle")
+    suspend fun toggleLanguage(@Path("code") code: String): Response<MessageResponse>
+
+    @PUT("/api/v1/users/languages/{code}/daily-goal")
+    suspend fun updateDailyGoal(@Path("code") code: String, @Body request: UpdateDailyGoalRequest): Response<MessageResponse>
 }

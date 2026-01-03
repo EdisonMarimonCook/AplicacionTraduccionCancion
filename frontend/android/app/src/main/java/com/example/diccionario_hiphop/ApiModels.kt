@@ -267,3 +267,19 @@ data class AvatarUpdateResponse(
     @SerializedName("avatar_url") val avatarUrl: String,
     val message: String
 )
+
+// ===========================================================
+// 9️⃣ GESTIÓN DE IDIOMAS (Fase 2.5)
+// ===========================================================
+data class AddLanguageRequest(
+    val language: String,
+    val level: String
+)
+
+data class ReorderLanguagesRequest(
+    @SerializedName("language_order") val languageOrder: List<String>
+)
+
+data class UpdateDailyGoalRequest(
+    @SerializedName("daily_goal") val dailyGoal: Int
+)

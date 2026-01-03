@@ -44,6 +44,9 @@ from routers import (
     audio_router  # 👈 Importamos el OBJETO router, no el archivo
 )
 
+# 2. Routers Fase 2.5
+from routers.languages import router as languages_router
+
 # ===============================================================================
 # CONFIGURAR LOGGING
 # ===============================================================================
@@ -165,8 +168,7 @@ app.include_router(users_router)
 app.include_router(progress_router) 
 app.include_router(flashcards_router)
 app.include_router(audio_router)
-
-app.include_router(audio_router)
+app.include_router(languages_router)  # ✨ Fase 2.5
 # MANEJO DE ERRORES
 # ===============================================================================
 

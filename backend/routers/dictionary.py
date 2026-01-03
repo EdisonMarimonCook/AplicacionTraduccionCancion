@@ -77,8 +77,23 @@ async def list_dictionary(
     current_user: User = Depends(get_current_user),
     type: str = None # Filtro opcional para carpetas
 ):
-    """Obtiene todo el diccionario"""
+    """
+    Obtiene todo el diccionario
+    ✨ FASE 2.5: Filtra solo idiomas activos (is_active=true)
+    """
     items = await db.get_user_dictionary(current_user.id)
+    
+    # ✨ SOFT DELETE: Filtrar idiomas inactivos
+    active_language_codes = []
+    if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
+        for lang in current_user.learning_languages:
+            lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+            if lang_dict.get("is_active", True):
+                active_language_codes.append(lang_dict.get("language"))
+    
+    # Filtrar por idiomas activos
+    if active_language_codes:
+        items = [i for i in items if i.get("language") in active_language_codes]
     
     # Filtrado básico en memoria si el DB driver no lo hizo
     if type:
