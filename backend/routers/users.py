@@ -71,7 +71,15 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
             learning_languages=learning_languages,
             created_at=current_user.created_at,
             is_active=current_user.is_active,
-            streak=streak,
+            
+            # ✨ FASE 2.5: Campos nuevos
+            primary_language=getattr(current_user, 'primary_language', 'en'),
+            total_xp=getattr(current_user, 'total_xp', 0),
+            current_streak=streak,
+            longest_streak=getattr(current_user, 'longest_streak', 0),
+            burnout_limit=getattr(current_user, 'burnout_limit', 50),
+            
+            # Estadísticas globales
             reviews_count=reviews_count,
             words_count=words_count
         )

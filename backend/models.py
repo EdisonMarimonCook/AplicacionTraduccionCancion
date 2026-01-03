@@ -22,6 +22,12 @@ class LearningLanguage(BaseModel):
     
     last_tested: Optional[datetime] = None
     
+    # ✨ FASE 2.5: Campos con defaults para compatibilidad retroactiva
+    daily_goal: int = Field(default=10)
+    reviews_pending: int = Field(default=0)
+    is_active: bool = Field(default=True)
+    words_learned: int = Field(default=0)
+    
     # Esto ayuda a convertir automáticamente tipos si es necesario
     class Config:
         populate_by_name = True
@@ -62,11 +68,16 @@ class User(UserBase):
     learning_languages: List[LearningLanguage] = Field(default=[])
     native_language: str = "es"
     
-    # ✅ NUEVOS CAMPOS PARA RACHA
+    # ✨ FASE 2.5: Idioma principal y gamificación
+    primary_language: str = Field(default="en")
+    total_xp: int = Field(default=0)
+    burnout_limit: int = Field(default=50)
+    
+    # ✅ CAMPOS PARA RACHA
     current_streak: int = 0
     last_activity_date: Optional[datetime] = None
     longest_streak: int = 0
-    avatar_url: Optional[str] = None  # Nueva línea
+    avatar_url: Optional[str] = None
     
     class Config:
         populate_by_name = True

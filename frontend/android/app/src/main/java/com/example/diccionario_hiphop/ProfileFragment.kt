@@ -6,11 +6,14 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.view.LayoutInflater
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.ObjectKey
@@ -18,6 +21,7 @@ import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -47,6 +51,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     private lateinit var btnLogout: Button
 
     private var isLoadingProfile = false
+    private var currentUser: User? = null  // ✨ Para el BottomSheet
 
     // 🔥 NUEVO: Primero seleccionamos la imagen
 private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -200,6 +205,11 @@ private fun openCropper(uri: Uri) {
         ivProfileImage.setOnClickListener(imageClickListener)
         btnEditProfilePic.setOnClickListener(imageClickListener)
 
+        // ✨ Click en idioma abre BottomSheet
+        tvLevelInfo.setOnClickListener {
+            currentUser?.let { user -> showLanguagesBottomSheet(user) }
+        }
+
         // Navegación 
         btnDictionary.setOnClickListener {
             val intent = Intent(requireContext(), DictionaryActivity::class.java)
@@ -255,18 +265,22 @@ private fun openCropper(uri: Uri) {
 
                 if (response.isSuccessful && response.body() != null) {
                     val user = response.body()!!
+                    currentUser = user  // ✨ Guardar para BottomSheet
 
                     tvUsername.text = user.username
                     
-                    val currentLang = user.learningLanguages?.firstOrNull()
-                    if (currentLang != null) {
-                        tvLevelInfo.text = "${currentLang.language.uppercase()} • ${currentLang.level}"
+                    // ✨ MOSTRAR IDIOMA PRINCIPAL
+                    val primaryLang = user.learningLanguages?.find { it.language == user.primaryLanguage }
+                    if (primaryLang != null) {
+                        val flag = getLanguageFlag(primaryLang.language)
+                        val langName = getLanguageName(primaryLang.language)
+                        tvLevelInfo.text = "$flag $langName • ${primaryLang.level}"
                     } else {
                         tvLevelInfo.text = "EN • A1"
                     }
 
                     tvWordCount.text = user.wordsCount.toString()
-                    tvStreak.text = "🔥 ${user.streak}" 
+                    tvStreak.text = "🔥 ${user.currentStreak}" 
                     tvReviews.text = user.reviewsCount.toString()
 
                     if (!user.avatarUrl.isNullOrEmpty()) {
@@ -294,6 +308,72 @@ private fun openCropper(uri: Uri) {
             } finally {
                 isLoadingProfile = false
             }
+        }
+    }
+
+    // ✨ NUEVO: Mostrar BottomSheet con idiomas
+    private fun showLanguagesBottomSheet(user: User) {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_languages, null)
+        bottomSheetDialog.setContentView(view)
+
+        val rvLanguages = view.findViewById<RecyclerView>(R.id.rvLanguages)
+        val tvTotalWords = view.findViewById<TextView>(R.id.tvTotalWords)
+        val tvTotalReviews = view.findViewById<TextView>(R.id.tvTotalReviews)
+        val btnManageLanguages = view.findViewById<Button>(R.id.btnManageLanguages)
+
+        // Filtrar idiomas activos
+        val activeLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
+
+        // Calcular totales
+        val totalWords = activeLanguages.sumOf { it.wordsLearned }
+        val totalReviews = activeLanguages.sumOf { it.reviewsPending }
+
+        tvTotalWords.text = "Total: $totalWords palabras"
+        tvTotalReviews.text = "Repasos pendientes: $totalReviews"
+
+        // Configurar RecyclerView
+        rvLanguages.layoutManager = LinearLayoutManager(requireContext())
+        rvLanguages.adapter = LanguageItemAdapter(activeLanguages, user.primaryLanguage)
+
+        // Botón gestionar (por ahora solo cierra)
+        btnManageLanguages.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            Toast.makeText(requireContext(), "Gestión de idiomas disponible en futuras versiones", Toast.LENGTH_SHORT).show()
+        }
+
+        bottomSheetDialog.show()
+    }
+
+    // ✨ NUEVO: Obtener bandera emoji del idioma
+    private fun getLanguageFlag(code: String): String {
+        return when (code) {
+            "en" -> "🇬🇧"
+            "es" -> "🇪🇸"
+            "fr" -> "🇫🇷"
+            "de" -> "🇩🇪"
+            "it" -> "🇮🇹"
+            "pt" -> "🇵🇹"
+            "ja" -> "🇯🇵"
+            "zh" -> "🇨🇳"
+            "ko" -> "🇰🇷"
+            else -> "🌐"
+        }
+    }
+
+    // ✨ NUEVO: Obtener nombre del idioma
+    private fun getLanguageName(code: String): String {
+        return when (code) {
+            "en" -> "Inglés"
+            "es" -> "Español"
+            "fr" -> "Francés"
+            "de" -> "Alemán"
+            "it" -> "Italiano"
+            "pt" -> "Portugués"
+            "ja" -> "Japonés"
+            "zh" -> "Chino"
+            "ko" -> "Coreano"
+            else -> code.uppercase()
         }
     }
 
@@ -328,5 +408,109 @@ private fun openCropper(uri: Uri) {
                 }
             }
         }
+    }
+
+    // ✨ NUEVO: Mostrar BottomSheet con idiomas
+    private fun showLanguagesBottomSheet(user: User) {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_languages, null)
+        bottomSheetDialog.setContentView(view)
+
+        val rvLanguages = view.findViewById<RecyclerView>(R.id.rvLanguages)
+        val tvTotalWords = view.findViewById<TextView>(R.id.tvTotalWords)
+        val tvTotalReviews = view.findViewById<TextView>(R.id.tvTotalReviews)
+        val btnManageLanguages = view.findViewById<Button>(R.id.btnManageLanguages)
+
+        // Filtrar idiomas activos
+        val activeLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
+
+        // Calcular totales
+        val totalWords = activeLanguages.sumOf { it.wordsLearned }
+        val totalReviews = activeLanguages.sumOf { it.reviewsPending }
+
+        tvTotalWords.text = "Total: $totalWords palabras"
+        tvTotalReviews.text = "Repasos pendientes: $totalReviews"
+
+        // Configurar RecyclerView
+        rvLanguages.layoutManager = LinearLayoutManager(requireContext())
+        rvLanguages.adapter = LanguageItemAdapter(activeLanguages, user.primaryLanguage)
+
+        // Botón gestionar (por ahora solo cierra)
+        btnManageLanguages.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            Toast.makeText(requireContext(), "Gestión de idiomas disponible en futuras versiones", Toast.LENGTH_SHORT).show()
+        }
+
+        bottomSheetDialog.show()
+    }
+
+    // ✨ NUEVO: Obtener bandera emoji del idioma
+    private fun getLanguageFlag(code: String): String {
+        return when (code) {
+            "en" -> "🇬🇧"
+            "es" -> "🇪🇸"
+            "fr" -> "🇫🇷"
+            "de" -> "🇩🇪"
+            "it" -> "🇮🇹"
+            "pt" -> "🇵🇹"
+            "ja" -> "🇯🇵"
+            "zh" -> "🇨🇳"
+            "ko" -> "🇰🇷"
+            else -> "🌐"
+        }
+    }
+
+    // ✨ NUEVO: Obtener nombre del idioma
+    private fun getLanguageName(code: String): String {
+        return when (code) {
+            "en" -> "Inglés"
+            "es" -> "Español"
+            "fr" -> "Francés"
+            "de" -> "Alemán"
+            "it" -> "Italiano"
+            "pt" -> "Portugués"
+            "ja" -> "Japonés"
+            "zh" -> "Chino"
+            "ko" -> "Coreano"
+            else -> code.uppercase()
+        }
+    }
+
+    // ✨ NUEVO: Adapter para RecyclerView de idiomas
+    inner class LanguageItemAdapter(
+        private val languages: List<LearningLanguage>,
+        private val primaryLanguageCode: String
+    ) : RecyclerView.Adapter<LanguageItemAdapter.LanguageViewHolder>() {
+
+        inner class LanguageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tvLanguageName: TextView = view.findViewById(R.id.tvLanguageName)
+            val tvPrimaryBadge: TextView = view.findViewById(R.id.tvPrimaryBadge)
+            val tvWords: TextView = view.findViewById(R.id.tvWords)
+            val tvReviews: TextView = view.findViewById(R.id.tvReviews)
+        }
+
+        override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): LanguageViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_language, parent, false)
+            return LanguageViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: LanguageViewHolder, position: Int) {
+            val lang = languages[position]
+            val flag = getLanguageFlag(lang.language)
+            val name = getLanguageName(lang.language)
+            
+            holder.tvLanguageName.text = "$flag $name • ${lang.level}"
+            holder.tvWords.text = "${lang.wordsLearned} palabras"
+            holder.tvReviews.text = "${lang.reviewsPending} repasos"
+            
+            // Mostrar badge si es idioma principal
+            if (lang.language == primaryLanguageCode) {
+                holder.tvPrimaryBadge.visibility = View.VISIBLE
+            } else {
+                holder.tvPrimaryBadge.visibility = View.GONE
+            }
+        }
+
+        override fun getItemCount() = languages.size
     }
 }

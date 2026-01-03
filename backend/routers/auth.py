@@ -15,7 +15,7 @@ from auth import (
     hash_password, verify_password, create_access_token,
     create_refresh_token, verify_refresh_token, verify_token
 )
-from crud import create_user, get_user_by_email, user_exists
+from crud import create_user, get_user_by_email, user_exists, username_exists
 from services.email_service import send_verification_code, send_password_reset_code
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,10 @@ async def register(user_data: UserCreate):
     if await user_exists(user_data.email):
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # ✨ FASE 2.5: Validación username duplicado
+    if await username_exists(user_data.username):
+        raise HTTPException(status_code=400, detail="Username already taken")
+    
     # Validar que venga al menos un idioma
     if not user_data.learning_languages:
         raise HTTPException(status_code=400, detail="Must select at least one language")
@@ -88,14 +92,22 @@ async def register(user_data: UserCreate):
     # Generar código de verificación
     verification_code = generate_pin()
     
-    # Procesar la lista para la BD
+    # ✨ FASE 2.5: Detectar idioma principal (el primero de la lista)
+    primary_lang = user_data.learning_languages[0].language if user_data.learning_languages else "en"
+    
+    # Procesar la lista para la BD con campos Fase 2.5
     processed_languages = []
     for lang in user_data.learning_languages:
         processed_languages.append({
             "language": lang.language,
             "level": lang.level,
             "started_at": datetime.now(), 
-            "last_tested": None
+            "last_tested": None,
+            # FASE 2.5: Campos nuevos
+            "daily_goal": 10,
+            "reviews_pending": 0,
+            "is_active": True,
+            "words_learned": 0
         })
     
     user_dict = {
@@ -107,6 +119,11 @@ async def register(user_data: UserCreate):
         "native_language": user_data.native_language,
         "learning_languages": processed_languages,
         "created_at": datetime.now(),
+        # ✨ FASE 2.5: Campos nuevos
+        "primary_language": primary_lang,
+        "total_xp": 0,
+        "burnout_limit": 50,
+        "current_streak": 0,
         # Campos de verificación
         "is_verified": False,
         "verification_code": verification_code

@@ -32,7 +32,11 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
     client = get_gemini_client()
     
     # Mapeo de idiomas para el prompt
-    lang_map = {"es": "Spanish", "en": "English", "fr": "French", "de": "German", "ja": "Japanese"}
+    lang_map = {
+        "es": "Spanish", "en": "English", "fr": "French", "de": "German", 
+        "it": "Italian", "pt": "Portuguese",
+        "ja": "Japanese", "zh": "Chinese", "ko": "Korean"
+    }
     native_lang_name = lang_map.get(native_lang, "Spanish")
 
     prompt = f"""
@@ -43,13 +47,17 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
     "{lyrics}"
 
     Identify:
-    1. Single words suitable for {user_level} level (vocabulary building).
+    1. Words or vocabulary units suitable for {user_level} level (vocabulary building).
     2. Idioms, slang, or phrasal verbs (Expressions).
 
     CRITICAL TOKENIZATION RULES:
     - **COMPOUND WORDS:** If you select a compound word (e.g., "bloodstains", "sunflower"), YOU MUST RETURN THE FULL WORD. 
     - **DO NOT SPLIT:** If the text says "bloodstains", return "bloodstains". DO NOT return "stains".
     - **EXACT MATCH:** The extracted word must exist EXACTLY as written in the lyrics.
+    - **NON-SPACED LANGUAGES (Japanese/Chinese/Korean):** Extract meaningful vocabulary units even if they appear connected. For example:
+      * Japanese: Extract individual kanji compounds (漢字), words in hiragana/katakana that form semantic units.
+      * Chinese: Extract 词 (words) which may be 1-4 characters forming a semantic unit.
+      * Korean: Extract words separated by spacing, but recognize compound words.
 
     CRITICAL OUTPUT RULES:
     - Contextual Translation: Translate based on the specific meaning in these lyrics.
