@@ -45,7 +45,7 @@
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize" />
+            android:windowSoftInputMode="adjustPan" />
 
         <!-- 4. PANTALLAS SECUNDARIAS (Registro, Password, Perfil, Flashcards, Canción) -->
         <activity 

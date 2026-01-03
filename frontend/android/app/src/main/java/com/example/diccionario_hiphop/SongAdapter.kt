@@ -7,6 +7,9 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.bumptech.glide.request.RequestOptions
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 
 class SongAdapter(
     private var songs: List<SongItem>,
@@ -31,16 +34,14 @@ class SongAdapter(
         holder.tvTitle.text = song.title
         holder.tvArtist.text = song.artist
 
-        // Carga segura de imagen con Glide
-        if (!song.imageUrl.isNullOrEmpty()) {
-            Glide.with(holder.itemView.context)
-                .load(song.imageUrl)
-                .placeholder(R.drawable.ic_launcher_foreground)
-                .into(holder.ivCover)
-        } else {
-            // Imagen por defecto si no hay URL
-            holder.ivCover.setImageResource(R.drawable.ic_launcher_foreground)
-        }
+        // Carga optimizada con Glide
+        Glide.with(holder.itemView.context)
+            .load(song.imageUrl)
+            .placeholder(R.drawable.album_cover_background)
+            .error(R.drawable.album_cover_background)
+            .transition(DrawableTransitionOptions.withCrossFade())
+            .apply(RequestOptions().transform(RoundedCorners(16)))
+            .into(holder.ivCover)
 
         holder.itemView.setOnClickListener {
             onSongClick(song)

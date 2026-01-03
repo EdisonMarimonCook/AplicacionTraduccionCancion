@@ -30,7 +30,7 @@
         android:text="Hchurches04"
         android:textSize="22sp"
         android:textStyle="bold"
-        android:textColor="@color/white"
+        android:textColor="?attr/colorOnSurface"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/ivProfileImage"
         app:layout_constraintStart_toStartOf="parent"
@@ -54,7 +54,7 @@
         android:layout_marginHorizontal="24dp"
         android:layout_marginTop="24dp"
         app:cardCornerRadius="16dp"
-        app:cardBackgroundColor="#2A2A2A" 
+        app:cardBackgroundColor="@color/card_background" 
         app:layout_constraintTop_toBottomOf="@id/tvLevelInfo">
 
         <LinearLayout
@@ -76,7 +76,7 @@
                     android:layout_height="wrap_content"
                     android:text="0" 
                     android:textStyle="bold" 
-                    android:textColor="@color/white" 
+                    android:textColor="?attr/colorOnSurface" 
                     android:textSize="20sp"/>
                 <TextView 
                     android:layout_width="wrap_content" 
@@ -145,6 +145,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:text="⚙  MODIFICAR DATOS"
+            android:textColor="?attr/colorOnSurface"
             android:backgroundTint="@color/gray_button" 
             android:layout_marginBottom="12dp"/>
 

@@ -80,15 +80,28 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
             val lyricsResponse = lyricsDeferred.await()
             if (lyricsResponse != null && lyricsResponse.isSuccessful && lyricsResponse.body() != null) {
                 val data = lyricsResponse.body()!!
-                _lyricsState.value = data.lyrics
+                val lyricsText = data.lyrics
+                
+                // Verificar si hay letra o está vacía
+                if (lyricsText.isNullOrEmpty()) {
+                    // ⚠️ NO HAY LETRA DISPONIBLE
+                    _lyricsState.value = "😔 Letra no disponible\n\nLo sentimos, no pudimos encontrar la letra de esta canción en nuestras fuentes (LRCLib, Genius).\n\n¡Pero puedes disfrutar del audio! 🎵"
+                    _statusMessage.value = "Letra no encontrada, pero el audio está listo"
+                    // NO ejecutar análisis IA si no hay letra
+                } else {
+                    // ✅ HAY LETRA - Proceso normal
+                    _lyricsState.value = lyricsText
+                    analyzeLyricsInBackground(title, artist, userLevel, lyricsText)
+                }
 
+                // Fallback de audio: Si no tenemos audio completo ni yt-dlp, usar preview del backend
                 if (_audioStreamState.value == null && !data.previewUrl.isNullOrEmpty()) {
                     _audioStreamState.value = data.previewUrl
                     _isPreviewOnly.value = true
                 }
-
-                analyzeLyricsInBackground(title, artist, userLevel, data.lyrics)
             } else {
+                // Error crítico al obtener respuesta del backend
+                _lyricsState.value = "❌ Error de conexión\n\nNo se pudo conectar con el servidor para obtener la letra.\n\nIntenta de nuevo más tarde."
                 _errorState.value = "No se pudieron cargar las letras"
             }
 

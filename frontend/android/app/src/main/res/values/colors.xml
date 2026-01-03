@@ -25,5 +25,6 @@
     <color name="gray_light">#B0B0B0</color>
     <color name="gray_button">#424242</color>
     <color name="background_dark">#121212</color> 
+    <color name="card_background">#F0F0F0</color>
     <color name="orange">@color/orange_fire</color>
 </resources>

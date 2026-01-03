@@ -13,19 +13,10 @@ class AuthInterceptor(
     private val context: Context
 ) : Interceptor {
 
-    // 🔥 NUEVO: Flag para evitar loops infinitos
-    @Volatile
-    private var isHandlingExpiredSession = false
-
     @Throws(IOException::class)
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val token = tokenManager.getToken()
-
-        // 🔥 Si ya estamos manejando una sesión expirada, rechazar más peticiones
-        if (isHandlingExpiredSession) {
-            throw IOException("Sesión cerrada, redirigiendo a login")
-        }
 
         // 1. Construir petición con token actual
         val requestBuilder = originalRequest.newBuilder()
@@ -43,11 +34,6 @@ class AuthInterceptor(
         // 🚨 401 DETECTADO - Iniciar refresh
         synchronized(this) {
             response.close() // Cerrar respuesta original
-
-            // 🔥 Activar flag ANTES de hacer cualquier cosa
-            if (isHandlingExpiredSession) {
-                throw IOException("Ya se está manejando la sesión expirada")
-            }
 
             // DOUBLE-CHECK: ¿Alguien ya refrescó?
             val currentToken = tokenManager.getToken()
@@ -109,22 +95,9 @@ class AuthInterceptor(
         }
     }
 
-    // 🔥 NUEVO: Método centralizado para manejar sesión expirada
+    // 🔥 Método centralizado para manejar sesión expirada
     private fun handleExpiredSession() {
-    if (isHandlingExpiredSession) return
-    
-    isHandlingExpiredSession = true
-    
-    // Limpiar tokens
-    tokenManager.clearSession()  // 🔥 CAMBIO AQUÍ
-    
-    // Redirigir a Login
-    val intent = Intent(context, LoginActivity::class.java)
-    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-    context.startActivity(intent)
-    
-    if (context is android.app.Activity) {
-        context.finish()
+        android.util.Log.w("AuthInterceptor", "⚠️ Sesión expirada, forzando logout")
+        tokenManager.forceLogout()
     }
-}
 }

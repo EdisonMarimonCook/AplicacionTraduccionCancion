@@ -21,20 +21,31 @@ async def get_lyrics(
 ):
     """
     📄 Obtiene letra, metadatos y busca enlaces de audio (Preview + Full).
+    NOTA: Si no se encuentra letra, retorna respuesta parcial con audio solamente.
     """
     try:
         logger.info(f"📄 Procesando canción: {title} - {artist}")
         
-        # 1. Obtener Letras (Genius/LRCLIB)
+        # 1. Obtener Letras (Genius/LRCLIB) - TOLERANTE A FALLOS
         lyrics_data = await get_song_lyrics(title, artist)
         
-        if not lyrics_data:
-            raise HTTPException(status_code=404, detail="Lyrics not found")
-
-        # 2. Solo buscar Preview en iTunes/Spotify (Rápido)
+        # 2. Buscar Preview en iTunes/Spotify (Rápido)
         song_meta = await enrich_single_song(title, artist)
 
-        # 3. Construir Respuesta SOLO con preview
+        # 3. Construir Respuesta (tolerante a falta de letra)
+        if not lyrics_data:
+            # ⚠️ NO HAY LETRA - Retornar solo metadatos y audio
+            logger.warning(f"⚠️ Letra no encontrada para: {title} - {artist}")
+            return {
+                "title": title,
+                "artist": artist,
+                "lyrics": "",  # Vacío, el frontend mostrará mensaje
+                "image_url": song_meta.get("image_url"),
+                "genius_url": None,
+                "preview_url": song_meta.get("preview_url")
+            }
+        
+        # ✅ HAY LETRA - Respuesta completa
         return {
             "title": lyrics_data.get("title"),
             "artist": lyrics_data.get("artist"),
