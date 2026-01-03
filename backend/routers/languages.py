@@ -298,7 +298,8 @@ async def update_level(
             raise HTTPException(status_code=400, detail=f"Idioma '{code}' no soportado")
         
         # Validar que el nivel sea válido
-        valid_levels = LEVEL_SYSTEMS[code]
+        level_data = LEVEL_SYSTEMS[code]
+        valid_levels = level_data["levels"]
         if request.level not in valid_levels:
             raise HTTPException(
                 status_code=400, 
