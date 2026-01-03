@@ -5,7 +5,7 @@ Funciona en Render porque usa puerto 443 (HTTPS)
 import logging
 import httpx
 from pydantic import EmailStr
-from backend.config import settings
+from config import settings
 
 logger = logging.getLogger(__name__)
 
