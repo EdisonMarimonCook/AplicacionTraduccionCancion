@@ -20,8 +20,8 @@
         android:background="@color/bg_card"
         app:itemIconTint="@color/purple_500"
         app:itemTextColor="@color/purple_500"
+        app:itemRippleColor="@android:color/transparent"
         app:menu="@menu/bottom_nav_menu"
-        app:layout_constraintBottom_toBottomOf="parent" 
-        android:fillColor="?attr/colorControlNormal"/>
+        app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
