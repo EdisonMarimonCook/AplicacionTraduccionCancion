@@ -16,7 +16,7 @@ from auth import (
     create_refresh_token, verify_refresh_token, verify_token
 )
 from crud import create_user, get_user_by_email, user_exists, username_exists
-from services.email_service import send_verification_code, send_password_reset_code
+from services.email_service_http import send_verification_code, send_password_reset_code
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
