@@ -11,8 +11,8 @@ ENDPOINTS:
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List
-from auth import get_current_user
 from models import User
+from routers.auth import get_current_user
 from database import db
 from services.level_mapper import LANGUAGE_SYSTEMS
 import logging
