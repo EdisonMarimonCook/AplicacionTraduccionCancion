@@ -41,6 +41,12 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // Cargar perfil para obtener idioma del usuario
         loadUserProfile()
     }
+    
+    override fun onResume() {
+        super.onResume()
+        // Recargar idiomas cuando volvemos de ManageLanguagesActivity
+        loadUserProfile()
+    }
 
     private fun initViews(view: View) {
         recyclerView = view.findViewById(R.id.rvSongs)

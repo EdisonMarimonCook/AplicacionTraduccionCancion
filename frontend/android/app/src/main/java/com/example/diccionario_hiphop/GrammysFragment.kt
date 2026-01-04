@@ -31,6 +31,12 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
         setupRecyclerView()
         loadUserProfileAndGrammys()
     }
+    
+    override fun onResume() {
+        super.onResume()
+        // Recargar idiomas cuando volvemos de ManageLanguagesActivity
+        loadUserProfileAndGrammys()
+    }
 
     private fun initViews(view: View) {
         recyclerView = view.findViewById(R.id.rvSongs)
