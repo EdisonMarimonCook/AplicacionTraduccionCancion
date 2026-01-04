@@ -54,6 +54,10 @@ class FlashcardsActivity : AppCompatActivity() {
     // Data
     private var flashcards: MutableList<FlashcardData> = mutableListOf()
     private var currentIndex = 0
+    
+    // 🔥 Parámetros de filtrado
+    private var selectedLanguage: String? = null
+    private var selectedType: String? = null  // "word", "expression" o null (global)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +66,9 @@ class FlashcardsActivity : AppCompatActivity() {
         // 🔧 Aplicar WindowInsets para controles inferiores
         val rootView = findViewById<View>(android.R.id.content)
         WindowInsetsHelper.applySystemBarInsets(rootView)
+
+        // 🔥 Obtener idioma del Intent
+        selectedLanguage = intent.getStringExtra("language")
 
         initViews()
         setupCardPhysics()
@@ -89,6 +96,29 @@ class FlashcardsActivity : AppCompatActivity() {
         progressBarLoading = findViewById(R.id.progressBar)
 
         touchOverlay.setOnClickListener { revealAnswer() }
+        
+        // 🔥 Configurar chips de modo
+        setupModeChips()
+    }
+    
+    private fun setupModeChips() {
+        val chipGroup = findViewById<com.google.android.material.chip.ChipGroup>(R.id.chipGroupMode)
+        val chipGlobal = findViewById<com.google.android.material.chip.Chip>(R.id.chipGlobal)
+        val chipWords = findViewById<com.google.android.material.chip.Chip>(R.id.chipWords)
+        val chipExpressions = findViewById<com.google.android.material.chip.Chip>(R.id.chipExpressions)
+        
+        chipGroup.setOnCheckedStateChangeListener { group, checkedIds ->
+            if (checkedIds.isEmpty()) return@setOnCheckedStateChangeListener
+            
+            selectedType = when (checkedIds[0]) {
+                R.id.chipWords -> "word"
+                R.id.chipExpressions -> "expression"
+                else -> null  // Global
+            }
+            
+            // Recargar flashcards con el nuevo filtro
+            loadFlashcards()
+        }
     }
 
     private fun setupCardPhysics() {
@@ -231,7 +261,8 @@ class FlashcardsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val api = RetrofitService.getInstance(this@FlashcardsActivity)
-                val response = api.getDueFlashcards()
+                // 🔥 Pasar idioma y tipo al API
+                val response = api.getDueFlashcards(selectedLanguage, selectedType)
 
                 if (response.isSuccessful && response.body() != null) {
                     flashcards = response.body()!!.toMutableList()

@@ -198,7 +198,8 @@ data class UserWord(
     @SerializedName("notes") val context: String?,
     val type: String = "word",
     val example: String? = null,
-    @SerializedName("is_recommended") val isRecommended: Boolean = false
+    @SerializedName("is_recommended") val isRecommended: Boolean = false,
+    val warning: String? = null  // 🔥 FASE 4: Warning si superó daily_goal
 ) : Serializable
 
 data class AddWordRequest(

@@ -99,7 +99,10 @@ interface ApiService {
     // =================================================================================
 
     @GET("/api/v1/flashcards/due")
-    suspend fun getDueFlashcards(): Response<List<FlashcardData>>
+    suspend fun getDueFlashcards(
+        @Query("language") language: String? = null,
+        @Query("type") type: String? = null
+    ): Response<List<FlashcardData>>
 
     @POST("/api/v1/flashcards/review/{word_id}")
     suspend fun reviewFlashcard(

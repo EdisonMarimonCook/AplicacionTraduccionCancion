@@ -160,6 +160,36 @@ class SongLearningActivity : AppCompatActivity() {
             android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility AFTER: ${layoutPlayerControls.visibility}")
         }
         
+        // 🔥 FASE 4: BURNOUT CAP - Dialog bloqueante
+        viewModel.burnoutError.observe(this) { errorMsg ->
+            if (!errorMsg.isNullOrEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("⚠️ Demasiadas flashcards pendientes")
+                    .setMessage(errorMsg)
+                    .setPositiveButton("Entendido") { dialog, _ ->
+                        dialog.dismiss()
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
+        }
+        
+        // 🔥 FASE 4: DAILY GOAL - Warning (permite continuar)
+        viewModel.dailyGoalWarning.observe(this) { warningMsg ->
+            if (!warningMsg.isNullOrEmpty()) {
+                AlertDialog.Builder(this)
+                    .setTitle("📊 Meta diaria alcanzada")
+                    .setMessage(warningMsg)
+                    .setPositiveButton("Continuar de todos modos") { dialog, _ ->
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Detener por hoy") { dialog, _ ->
+                        dialog.dismiss()
+                    }
+                    .show()
+            }
+        }
+        
         // Llamar a loadContent fuera del observer
         val userLevel = getSharedPreferences("user_prefs", MODE_PRIVATE).getString("userLevel", "B1") ?: "B1"
         viewModel.loadContent(songTitle, songArtist, userLevel, previewUrl)

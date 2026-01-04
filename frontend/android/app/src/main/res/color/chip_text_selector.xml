@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cuando está seleccionado -->
+    <item android:state_checked="true" android:color="@android:color/white" />
+    <!-- Cuando no está seleccionado - texto más oscuro para que se vea -->
+    <item android:color="@color/text_primary" />
+</selector>
