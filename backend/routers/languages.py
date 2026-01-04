@@ -124,9 +124,16 @@ async def reorder_languages(
         if not request.language_order or len(request.language_order) == 0:
             raise HTTPException(status_code=400, detail="Debe enviar al menos un idioma")
         
-        # Obtener idiomas actuales
-        current_languages = current_user.learning_languages if current_user.learning_languages else []
-        current_codes = [lang.language for lang in current_languages]
+        # 🔥 LEER DESDE DB para obtener estado actualizado (después del toggle)
+        from bson import ObjectId
+        user_id = ObjectId(current_user.id) if isinstance(current_user.id, str) else current_user.id
+        user_data = await db.db["users"].find_one({"_id": user_id})
+        
+        if not user_data:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        current_languages = user_data.get("learning_languages", [])
+        current_codes = [lang.get("language") for lang in current_languages]
         
         # Validar que todos los códigos enviados existan
         for code in request.language_order:
@@ -136,20 +143,19 @@ async def reorder_languages(
                     detail=f"Idioma '{code}' no encontrado en tus idiomas"
                 )
         
-        # Reordenar
-        lang_dict = {lang.language: lang for lang in current_languages}
+        # Reordenar preservando todos los campos (incluido is_active actualizado)
+        lang_dict = {lang.get("language"): lang for lang in current_languages}
         reordered = []
         
         for code in request.language_order:
-            lang = lang_dict[code]
-            lang_data = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+            lang_data = lang_dict[code]
             reordered.append(lang_data)
         
         # Establecer primary_language como el primero
         new_primary = request.language_order[0]
         
         await db.db["users"].update_one(
-            {"_id": current_user.id},
+            {"_id": user_id},
             {
                 "$set": {
                     "learning_languages": reordered,
