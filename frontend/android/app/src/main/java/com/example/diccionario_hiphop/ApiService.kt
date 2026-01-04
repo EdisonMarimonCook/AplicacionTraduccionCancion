@@ -83,7 +83,10 @@ interface ApiService {
     // =================================================================================
 
     @GET("/api/v1/dictionary/list")
-   suspend fun getDictionary(@Query("type") type: String? = null): Response<List<UserWord>>
+   suspend fun getDictionary(
+       @Query("language") language: String? = null,
+       @Query("type") type: String? = null
+   ): Response<List<UserWord>>
 
     @POST("/api/v1/dictionary/add")
     suspend fun addWord(@Body request: AddWordRequest): Response<UserWord>

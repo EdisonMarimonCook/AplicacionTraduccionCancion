@@ -9,6 +9,54 @@
     android:fitsSystemWindows="true"
     tools:context=".DictionaryActivity">
 
+    <!-- 🔥 Filtro de idiomas -->
+    <HorizontalScrollView
+        android:id="@+id/scrollLanguages"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:scrollbars="none"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupLanguages"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:selectionRequired="false" />
+    </HorizontalScrollView>
+
+    <!-- 🔥 Filtro de tipo (Palabras/Expresiones) -->
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipGroupType"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="4dp"
+        app:singleSelection="true"
+        app:selectionRequired="false"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/scrollLanguages">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipWords"
+            style="@style/Widget.MaterialComponents.Chip.Choice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📝 Palabras" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipExpressions"
+            style="@style/Widget.MaterialComponents.Chip.Choice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💬 Expresiones" />
+    </com.google.android.material.chip.ChipGroup>
+
     <androidx.appcompat.widget.SearchView
         android:id="@+id/searchView"
         android:layout_width="0dp"
@@ -19,7 +67,7 @@
         app:queryHint="Buscar palabra..."
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/chipGroupType" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvDictionary"

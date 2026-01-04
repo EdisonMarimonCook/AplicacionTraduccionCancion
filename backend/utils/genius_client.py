@@ -1,9 +1,10 @@
 """
-MÓDULO: Cliente de Letras Híbrido (LRCLIB + Genius Fallback)
+MÓDULO: Cliente de Letras Híbrido (LRCLIB + YouTube + Genius Fallback)
 PROPÓSITO: Obtener letras de forma robusta evitando bloqueos de Cloudflare.
 ESTRATEGIA:
 1. Intentar API abierta LRCLIB (Sin bloqueo, rápido).
-2. Si falla, intentar Genius con curl_cffi (Impersonate Browser).
+2. Si falla, intentar subtítulos de YouTube.
+3. Si ambos fallan, intentar Genius con curl_cffi (Impersonate Browser).
 """
 
 import logging
@@ -15,6 +16,15 @@ from langdetect import detect, LangDetectException
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Imports opcionales para YouTube
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
+    from youtubesearchpython import VideosSearch
+    YOUTUBE_AVAILABLE = True
+except ImportError:
+    YOUTUBE_AVAILABLE = False
+    logger.warning("⚠️ youtube-transcript-api no disponible. Instala: pip install youtube-transcript-api youtube-search-python")
 
 # Token de Genius (Solo se usa para la búsqueda inicial en la API oficial)
 GENIUS_ACCESS_TOKEN = settings.GENIUS_API_TOKEN
@@ -172,12 +182,88 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
         return None
 
 # ===============================================================================
+# 🎬 ESTRATEGIA 3: YouTube Subtítulos (Fallback para idiomas asiáticos/rarezas)
+# ===============================================================================
+
+def get_lyrics_youtube_transcripts(title: str, artist: str) -> Optional[Dict]:
+    """
+    Extrae subtítulos de YouTube como letras.
+    Útil para: Vocaloid, K-pop, J-pop, canciones raras sin en LRCLib.
+    """
+    if not YOUTUBE_AVAILABLE:
+        return None
+        
+    try:
+        # 1. Buscar el video en YouTube
+        search_query = f"{title} {artist} lyrics"
+        logger.info(f"🔍 [YouTube] Buscando: {search_query}")
+        
+        videos_search = VideosSearch(search_query, limit=1)
+        results = videos_search.result()
+        
+        if not results.get('result'):
+            logger.warning("⚠️ [YouTube] No se encontró video")
+            return None
+            
+        video_id = results['result'][0]['id']
+        video_title = results['result'][0]['title']
+        
+        logger.info(f"📺 [YouTube] Video encontrado: {video_title} (ID: {video_id})")
+        
+        # 2. Intentar obtener transcripción
+        # Prioridad: Manual > Auto-generados
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
+        # Intentar transcripción manual primero
+        try:
+            transcript = transcript_list.find_manually_created_transcript()
+            logger.info(f"✅ [YouTube] Subtítulos manuales encontrados ({transcript.language})")
+        except:
+            # Fallback a auto-generados
+            transcript = transcript_list.find_generated_transcript(['en', 'es', 'fr', 'ja', 'ko', 'zh'])
+            logger.info(f"⚙️ [YouTube] Usando subtítulos auto-generados ({transcript.language})")
+        
+        # 3. Obtener el texto
+        transcript_data = transcript.fetch()
+        
+        # Unir todas las líneas (sin timestamps)
+        lines = [entry['text'].strip() for entry in transcript_data if entry['text'].strip()]
+        full_text = '\n'.join(lines)
+        
+        # Detectar idioma
+        lang = detect_language_from_text(full_text)
+        
+        logger.info(f"✅ [YouTube] Transcripción obtenida: {len(lines)} líneas")
+        
+        return {
+            "source": "YouTube Transcripts",
+            "title": title,
+            "artist": artist,
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+            "lyrics": full_text,
+            "lines": lines,
+            "line_count": len(lines),
+            "language": lang,
+            "video_id": video_id
+        }
+        
+    except NoTranscriptFound:
+        logger.warning(f"⚠️ [YouTube] Video sin subtítulos disponibles")
+        return None
+    except Exception as e:
+        logger.error(f"❌ [YouTube] Error obteniendo transcripción: {e}")
+        return None
+
+# ===============================================================================
 # 🚦 ENTRY POINT (Función Principal)
 # ===============================================================================
 
 async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     """
-    Orquestador: Intenta LRCLIB primero, luego Genius.
+    Orquestador con 3 niveles de fallback:
+    1. LRCLIB (rápido, confiable)
+    2. YouTube Transcripts (para idiomas asiáticos/rarezas)
+    3. Genius Stealth (último recurso)
     """
     logger.info(f"🎵 Buscando letra: '{song_title}' - {artist_name}")
 
@@ -185,9 +271,15 @@ async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     result = get_lyrics_lrclib(song_title, artist_name)
     if result:
         return result
+    
+    # Prioridad 2: YouTube Transcripts
+    logger.warning("⚠️ LRCLIB falló. Intentando YouTube Transcripts...")
+    result = get_lyrics_youtube_transcripts(song_title, artist_name)
+    if result:
+        return result
         
-    # Prioridad 2: Genius Stealth
-    logger.warning("⚠️ LRCLIB falló. Activando protocolo Genius Stealth...")
+    # Prioridad 3: Genius Stealth
+    logger.warning("⚠️ YouTube falló. Activando protocolo Genius Stealth...")
     result = get_lyrics_genius_advanced(song_title, artist_name)
     
     return result
