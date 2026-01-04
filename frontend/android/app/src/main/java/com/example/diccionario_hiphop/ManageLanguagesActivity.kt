@@ -10,8 +10,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ItemTouchHelper
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 
 class ManageLanguagesActivity : AppCompatActivity() {
 
@@ -21,11 +25,17 @@ class ManageLanguagesActivity : AppCompatActivity() {
     
     private var userLanguages = mutableListOf<LearningLanguage>()
     private var primaryLanguageCode = "en"
-    private lateinit var adapter: ManageLanguagesAdapter
+    private var nativeLanguageCode = "es"  // 🔥 Guardar idioma nativo
+    private var adapter: ManageLanguagesAdapter? = null  // 🔥 Hacerlo nullable
+    private var loadJob: Job? = null  // 🔥 Para cancelar recargas concurrentes
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_manage_languages)
+
+        // 🔧 Aplicar WindowInsets para botón inferior
+        val rootView = findViewById<View>(android.R.id.content)
+        WindowInsetsHelper.applySystemBarInsets(rootView)
 
         supportActionBar?.apply {
             title = "Gestionar idiomas"
@@ -49,28 +59,108 @@ class ManageLanguagesActivity : AppCompatActivity() {
     }
 
     private fun loadUserLanguages() {
+        // 🔥 Cancelar cualquier carga anterior pendiente
+        loadJob?.cancel()
+        
         progressBar.visibility = View.VISIBLE
         
-        lifecycleScope.launch {
+        loadJob = lifecycleScope.launch {
             try {
                 val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
                 val response = apiService.getProfile()
 
+                android.util.Log.d("ManageLanguages", "📥 getProfile: ${response.code()}")
+
                 if (response.isSuccessful && response.body() != null) {
                     val user = response.body()!!
                     primaryLanguageCode = user.primaryLanguage
-                    userLanguages = user.learningLanguages?.toMutableList() ?: mutableListOf()
+                    nativeLanguageCode = user.nativeLanguage  // 🔥 Guardar nativo
                     
-                    adapter = ManageLanguagesAdapter(
-                        userLanguages,
-                        primaryLanguageCode,
-                        onToggleActive = { language -> toggleLanguageActive(language) },
-                        onSetPrimary = { language -> setPrimaryLanguage(language) },
-                        onEditGoal = { language -> editDailyGoal(language) }
-                    )
-                    rvLanguages.adapter = adapter
+                    val newLanguages = user.learningLanguages ?: emptyList()
+                    
+                    android.util.Log.d("ManageLanguages", "🌍 Total idiomas: ${newLanguages.size}")
+                    newLanguages.forEach { lang ->
+                        android.util.Log.d("ManageLanguages", "  - ${lang.language} (${lang.level}) active=${lang.isActive}")
+                    }
+                    
+                    // 🔥 Actualizar lista sin recrear adapter
+                    userLanguages.clear()
+                    userLanguages.addAll(newLanguages)
+                    
+                    // 🔥 Crear adapter solo la primera vez
+                    if (adapter == null) {
+                        adapter = ManageLanguagesAdapter(
+                            userLanguages,
+                            primaryLanguageCode,
+                            onToggleActive = { language -> toggleLanguageActive(language) },
+                            onSetPrimary = { language -> setPrimaryLanguage(language) },
+                            onEditGoal = { language -> editDailyGoal(language) },
+                            onEditLevel = { language -> editLevel(language) }
+                        )
+                        rvLanguages.adapter = adapter
+                        
+                        // 🔥 Configurar drag & drop para reordenar (solo una vez)
+                        val itemTouchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+                            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+                        ) {
+                            override fun onMove(
+                                recyclerView: RecyclerView,
+                                viewHolder: RecyclerView.ViewHolder,
+                                target: RecyclerView.ViewHolder
+                            ): Boolean {
+                                val fromPos = viewHolder.adapterPosition
+                                val toPos = target.adapterPosition
+                                
+                                // Mover en la lista local
+                                val item = userLanguages.removeAt(fromPos)
+                                userLanguages.add(toPos, item)
+                                adapter?.notifyItemMoved(fromPos, toPos)
+                                return true
+                            }
+                            
+                            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                                // No hacer nada (swipe deshabilitado)
+                            }
+                            
+                            // 🔥 Animación cuando se empieza a arrastrar
+                            override fun onSelectedChanged(
+                                viewHolder: RecyclerView.ViewHolder?,
+                                actionState: Int
+                            ) {
+                                super.onSelectedChanged(viewHolder, actionState)
+                                if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                                    viewHolder?.itemView?.apply {
+                                        alpha = 0.7f
+                                        scaleX = 1.05f
+                                        scaleY = 1.05f
+                                    }
+                                }
+                            }
+                            
+                            // 🔥 Restaurar apariencia cuando se suelta
+                            override fun clearView(
+                                recyclerView: RecyclerView,
+                                viewHolder: RecyclerView.ViewHolder
+                            ) {
+                                super.clearView(recyclerView, viewHolder)
+                                viewHolder.itemView.apply {
+                                    alpha = 1.0f
+                                    scaleX = 1.0f
+                                    scaleY = 1.0f
+                                }
+                                // Cuando termina el drag, enviar nuevo orden al backend
+                                saveNewOrder()
+                            }
+                        })
+                        itemTouchHelper.attachToRecyclerView(rvLanguages)
+                    } else {
+                        // 🔥 Solo actualizar primary y notificar cambios
+                        adapter?.updatePrimaryLanguage(primaryLanguageCode)
+                        adapter?.notifyDataSetChanged()
+                    }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ManageLanguages", "💀 Error: ${e.message}", e)
                 Toast.makeText(this@ManageLanguagesActivity, "Error cargando idiomas", Toast.LENGTH_SHORT).show()
             } finally {
                 progressBar.visibility = View.GONE
@@ -79,20 +169,61 @@ class ManageLanguagesActivity : AppCompatActivity() {
     }
 
     private fun toggleLanguageActive(language: LearningLanguage) {
+        // ⚠️ Validar que haya al menos 1 idioma activo
+        val activeCount = userLanguages.count { it.isActive }
+        
+        if (language.isActive && activeCount == 1) {
+            Toast.makeText(this, "⚠️ Debe haber al menos un idioma activo", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        // 🔥 Deshabilitar UI mientras se procesa
+        progressBar.visibility = View.VISIBLE
+        
         lifecycleScope.launch {
             try {
                 val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
                 val response = apiService.toggleLanguage(language.language)
                 
                 if (response.isSuccessful) {
-                    val message = response.body()?.message ?: "Idioma actualizado"
-                    Toast.makeText(this@ManageLanguagesActivity, message, Toast.LENGTH_SHORT).show()
-                    loadUserLanguages()  // Recargar
+                    // ✅ Solo recargar, SIN reordenar (el backend ya maneja todo)
+                    delay(300)
+                    loadUserLanguages()
                 } else {
-                    Toast.makeText(this@ManageLanguagesActivity, "Error actualizando idioma", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ManageLanguagesActivity, "Error en toggle", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ManageLanguages", "💀 Error toggle: ${e.message}", e)
+                Toast.makeText(this@ManageLanguagesActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                // 🔥 Restaurar UI
+                progressBar.visibility = View.GONE
+            }
+        }
+    }
+    
+    private fun saveNewOrder() {
+        // 🔥 Deduplicar antes de enviar
+        val newOrder = userLanguages.map { it.language }.distinct()
+        
+        lifecycleScope.launch {
+            try {
+                val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
+                val request = ReorderLanguagesRequest(newOrder)
+                val response = apiService.reorderLanguages(request)
+                
+                if (response.isSuccessful) {
+                    Toast.makeText(this@ManageLanguagesActivity, "✅ Orden guardado", Toast.LENGTH_SHORT).show()
+                    // ✅ Recargar para reflejar primary_language actualizado
+                    delay(500)
+                    loadUserLanguages()
+                } else {
+                    Toast.makeText(this@ManageLanguagesActivity, "Error guardando orden", Toast.LENGTH_SHORT).show()
+                    loadUserLanguages()  // Revertir si falló
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@ManageLanguagesActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                loadUserLanguages()  // Revertir si falló
             }
         }
     }
@@ -110,6 +241,7 @@ class ManageLanguagesActivity : AppCompatActivity() {
                 
                 if (response.isSuccessful) {
                     Toast.makeText(this@ManageLanguagesActivity, "✅ ${getLanguageName(language.language)} es ahora tu idioma principal", Toast.LENGTH_SHORT).show()
+                    delay(500)
                     loadUserLanguages()  // Recargar
                 } else {
                     Toast.makeText(this@ManageLanguagesActivity, "Error cambiando idioma principal", Toast.LENGTH_SHORT).show()
@@ -154,6 +286,44 @@ class ManageLanguagesActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun editLevel(language: LearningLanguage) {
+        val levels = when (language.language) {
+            "ja" -> listOf("N5", "N4", "N3", "N2", "N1")
+            "zh" -> listOf("1", "2", "3", "4", "5", "6")
+            "ko" -> listOf("1", "2", "3", "4", "5", "6")
+            else -> listOf("A1", "A2", "B1", "B2", "C1", "C2")
+        }
+        
+        val currentIndex = levels.indexOf(language.level)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Nivel de ${getLanguageName(language.language)}")
+            .setSingleChoiceItems(levels.toTypedArray(), currentIndex) { dialog, which ->
+                val newLevel = levels[which]
+                dialog.dismiss()
+                
+                lifecycleScope.launch {
+                    try {
+                        val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
+                        val request = UpdateLevelRequest(newLevel)
+                        val response = apiService.updateLevel(language.language, request)
+                        
+                        if (response.isSuccessful) {
+                            Toast.makeText(this@ManageLanguagesActivity, "✅ Nivel actualizado a $newLevel", Toast.LENGTH_SHORT).show()
+                            loadUserLanguages()  // Recargar
+                        } else {
+                            val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+                            Toast.makeText(this@ManageLanguagesActivity, "⚠️ Error: $errorBody", Toast.LENGTH_LONG).show()
+                        }
+                    } catch (e: Exception) {
+                        Toast.makeText(this@ManageLanguagesActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun showAddLanguageDialog() {
         val supportedLanguages = listOf(
             "en" to "🇬🇧 Inglés",
@@ -167,8 +337,13 @@ class ManageLanguagesActivity : AppCompatActivity() {
             "ko" to "🇰🇷 Coreano"
         )
 
+        // 🔥 Filtrar idiomas: Excluir los que ya tiene + su idioma nativo
         val availableLanguages = supportedLanguages.filter { (code, _) ->
-            userLanguages.none { it.language == code }
+            // No está en learning_languages
+            val notInLearning = userLanguages.none { it.language == code }
+            // No es su idioma nativo
+            val notNative = code != nativeLanguageCode
+            notInLearning && notNative
         }
 
         if (availableLanguages.isEmpty()) {
@@ -207,17 +382,24 @@ class ManageLanguagesActivity : AppCompatActivity() {
     private fun addNewLanguage(code: String, level: String) {
         lifecycleScope.launch {
             try {
+                android.util.Log.d("ManageLanguages", "📤 Enviando: code=$code, level=$level")
                 val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
                 val request = AddLanguageRequest(code, level)
                 val response = apiService.addLanguage(request)
                 
+                android.util.Log.d("ManageLanguages", "📥 Respuesta: ${response.code()}, body=${response.body()}")
+                
                 if (response.isSuccessful) {
                     Toast.makeText(this@ManageLanguagesActivity, "✅ Idioma añadido correctamente", Toast.LENGTH_SHORT).show()
+                    delay(300)  // Pequeña pausa antes de recargar
                     loadUserLanguages()  // Recargar
                 } else {
-                    Toast.makeText(this@ManageLanguagesActivity, "Error añadiendo idioma", Toast.LENGTH_SHORT).show()
+                    val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+                    android.util.Log.e("ManageLanguages", "❌ Error body: $errorBody")
+                    Toast.makeText(this@ManageLanguagesActivity, "Error añadiendo idioma: $errorBody", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ManageLanguages", "💀 Excepción: ${e.message}", e)
                 Toast.makeText(this@ManageLanguagesActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -239,24 +421,37 @@ class ManageLanguagesActivity : AppCompatActivity() {
     }
 
     override fun onSupportNavigateUp(): Boolean {
+        setResult(RESULT_OK)  // Notificar a ProfileFragment que recargue
         finish()
         return true
+    }
+    
+    override fun onBackPressed() {
+        setResult(RESULT_OK)  // Notificar a ProfileFragment que recargue
+        super.onBackPressed()
     }
 
     // Adapter para gestionar idiomas
     inner class ManageLanguagesAdapter(
         private val languages: List<LearningLanguage>,
-        private val primaryLanguageCode: String,
+        private var primaryLanguageCode: String,
         private val onToggleActive: (LearningLanguage) -> Unit,
         private val onSetPrimary: (LearningLanguage) -> Unit,
-        private val onEditGoal: (LearningLanguage) -> Unit
+        private val onEditGoal: (LearningLanguage) -> Unit,
+        private val onEditLevel: (LearningLanguage) -> Unit
     ) : RecyclerView.Adapter<ManageLanguagesAdapter.ViewHolder>() {
+
+        // 🔥 Método para actualizar el idioma principal sin recrear adapter
+        fun updatePrimaryLanguage(newPrimary: String) {
+            primaryLanguageCode = newPrimary
+        }
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvLanguageName: TextView = view.findViewById(R.id.tvManageLanguageName)
             val tvStats: TextView = view.findViewById(R.id.tvManageStats)
             val switchActive: SwitchMaterial = view.findViewById(R.id.switchActive)
             val btnPrimary: Button = view.findViewById(R.id.btnSetPrimary)
+            val btnLevel: Button = view.findViewById(R.id.btnEditLevel)
             val btnGoal: Button = view.findViewById(R.id.btnEditGoal)
         }
 
@@ -274,6 +469,8 @@ class ManageLanguagesActivity : AppCompatActivity() {
             holder.tvLanguageName.text = "$flag $name • ${lang.level}"
             holder.tvStats.text = "${lang.wordsLearned} palabras | Meta: ${lang.dailyGoal}/día"
             
+            // 🔧 Remover listener antes de cambiar el estado para evitar triggers dobles
+            holder.switchActive.setOnCheckedChangeListener(null)
             holder.switchActive.isChecked = lang.isActive
             holder.switchActive.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked != lang.isActive) {
@@ -290,6 +487,7 @@ class ManageLanguagesActivity : AppCompatActivity() {
                 holder.btnPrimary.setOnClickListener { onSetPrimary(lang) }
             }
 
+            holder.btnLevel.setOnClickListener { onEditLevel(lang) }
             holder.btnGoal.setOnClickListener { onEditGoal(lang) }
         }
 

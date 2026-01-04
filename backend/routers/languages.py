@@ -224,6 +224,27 @@ async def toggle_language_active(
         
         logger.info(f"💾 Update result: matched={result.matched_count}, modified={result.modified_count}")
         
+        # 🔥 REORDENAR automáticamente después del toggle
+        # Leer estado actualizado de DB
+        user_data = await db.db["users"].find_one({"_id": user_id})
+        if user_data:
+            current_languages = user_data.get("learning_languages", [])
+            
+            # Separar activos e inactivos
+            actives = [lang for lang in current_languages if lang.get("is_active", True)]
+            inactives = [lang for lang in current_languages if not lang.get("is_active", True)]
+            
+            # Reordenar: activos primero, inactivos al final
+            reordered = actives + inactives
+            
+            # Actualizar orden en DB
+            await db.db["users"].update_one(
+                {"_id": user_id},
+                {"$set": {"learning_languages": reordered}}
+            )
+            
+            logger.info(f"🔄 Auto-reordenado: {len(actives)} activos, {len(inactives)} inactivos")
+        
         # Si desactivamos el primary_language, asignar otro
         updates = {}
         if not new_state and current_user.primary_language == code:
