@@ -57,10 +57,16 @@ def calculate_next_review(quality: int, repetitions: int, easiness_factor: float
     return new_repetitions, new_ef, new_interval
 
 @router.get("/due", response_model=List[FlashcardData])
-async def get_due_flashcards(current_user: User = Depends(get_current_user)):
+async def get_due_flashcards(
+    current_user: User = Depends(get_current_user),
+    language: str = None,  # 🔥 Filtro por idioma (None = todos los activos)
+    type: str = None       # 🔥 Filtro por tipo: word, expression (None = ambos)
+):
     """
     📚 Obtiene las tarjetas que deben revisarse HOY
-    ✨ FASE 2.5: Filtra solo idiomas activos (is_active=true)
+    ✨ FASE 2.5: Filtra por idioma activo + tipo
+    - language=None → todos los idiomas activos
+    - type=None → palabras + expresiones ("Global")
     """
     try:
         # ✨ SOFT DELETE: Obtener idiomas activos
@@ -79,6 +85,14 @@ async def get_due_flashcards(current_user: User = Depends(get_current_user)):
             w for w in all_words 
             if w.get("example") and (not active_language_codes or w.get("language") in active_language_codes)
         ]
+        
+        # 🔥 Filtrar por idioma específico si se proporciona
+        if language:
+            flashcard_words = [w for w in flashcard_words if w.get("language") == language]
+        
+        # 🔥 Filtrar por tipo si se proporciona
+        if type:
+            flashcard_words = [w for w in flashcard_words if w.get("type") == type]
         
         # Obtener datos SRS de cada una
         flashcards = []
