@@ -49,6 +49,37 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
             for lang in current_user.learning_languages:
                 lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
                 
+                # 🔥 Calcular contadores específicos por idioma
+                language_code = lang_dict.get('language')
+                
+                # Palabras aprendidas en este idioma
+                words_learned = await db.db["dictionary_entries"].count_documents({
+                    "user_id": str(current_user.id),
+                    "language": language_code
+                })
+                
+                # Repasos pendientes en este idioma (flashcards con next_review_date <= hoy)
+                from datetime import datetime
+                flashcards_due = 0
+                dictionary_words = await db.db["dictionary_entries"].find({
+                    "user_id": str(current_user.id),
+                    "language": language_code,
+                    "example": {"$exists": True, "$ne": None}  # Solo las que tienen flashcard
+                }).to_list(None)
+                
+                for word in dictionary_words:
+                    word_id = str(word.get("_id"))
+                    srs_data = await db.db["flashcards_srs"].find_one({"word_id": word_id})
+                    if srs_data:
+                        next_review = srs_data.get("next_review_date")
+                        if next_review and next_review <= datetime.utcnow():
+                            flashcards_due += 1
+                
+                # Actualizar contadores en el diccionario
+                lang_dict['words_learned'] = words_learned
+                lang_dict['reviews_pending'] = flashcards_due
+                
+                # Formatear fechas
                 if 'started_at' in lang_dict and lang_dict['started_at']:
                     if hasattr(lang_dict['started_at'], 'isoformat'):
                         lang_dict['started_at'] = lang_dict['started_at'].isoformat()
