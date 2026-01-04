@@ -24,6 +24,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
     private var searchJob: Job? = null
+    private var userLanguages: List<LearningLanguage> = emptyList()
+    private var selectedLanguage: String = "en"
+    private var selectedLevel: String = "B1"
+    private lateinit var chipGroup: com.google.android.material.chip.ChipGroup
+    private lateinit var chipScrollView: android.widget.HorizontalScrollView
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -33,8 +38,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         setupRecyclerView()
         setupSearchView()
         
-        // Carga inicial automática (Simula recomendaciones)
-        performSearch("Viral 50 Global") 
+        // Cargar perfil para obtener idioma del usuario
+        loadUserProfile()
     }
 
     private fun initViews(view: View) {
@@ -42,6 +47,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         shimmerContainer = view.findViewById(R.id.shimmerViewContainer)
         searchView = view.findViewById(R.id.searchView)
         tvHeader = view.findViewById(R.id.tvHeader)
+        chipGroup = view.findViewById(R.id.chipGroupLanguages)
+        chipScrollView = view.findViewById(R.id.chipScrollView)
     }
 
     private fun setupRecyclerView() {
@@ -75,6 +82,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     searchJob?.cancel()
                     performSearch(query)
                     searchView.clearFocus()
+                    // Ocultar chips en búsquedas personalizadas
+                    chipScrollView.visibility = View.GONE
                 }
                 return true
             }
@@ -85,12 +94,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 
                 when {
                     newText.isNullOrEmpty() -> {
-                        // Si está vacío, volver a la vista inicial
-                        performSearch("Viral 50 Global")
+                        // Si está vacío, volver a recomendaciones personalizadas
+                        chipScrollView.visibility = View.VISIBLE
+                        performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
                     }
                     newText.length >= 2 -> {
                         // Mostrar shimmer INMEDIATAMENTE
                         showLoading(true)
+                        // Ocultar chips durante búsqueda
+                        chipScrollView.visibility = View.GONE
                         
                         // Debounce: esperar 300ms antes de buscar (más rápido)
                         searchJob = lifecycleScope.launch {
@@ -111,13 +123,136 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         // Detectar cuando se cierra la búsqueda (X button)
         searchView.setOnCloseListener {
             searchJob?.cancel()
-            performSearch("Viral 50 Global")
+            chipScrollView.visibility = View.VISIBLE
+            performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
             false
         }
     }
 
-    private fun performSearch(query: String, showShimmer: Boolean = true) {
-        tvHeader.text = if(query == "Viral 50 Global") "🎧 Descubrir" else "Resultados para '$query'"
+    private fun loadUserProfile() {
+        lifecycleScope.launch {
+            try {
+                val apiService = RetrofitService.getInstance(requireContext())
+                val response = apiService.getProfile()
+                
+                if (response.isSuccessful && response.body() != null) {
+                    val user = response.body()!!
+                    userLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
+                    
+                    if (userLanguages.isNotEmpty()) {
+                        // Encontrar idioma principal
+                        val primaryLang = userLanguages.find { it.language == user.primaryLanguage } 
+                            ?: userLanguages.first()
+                        
+                        selectedLanguage = primaryLang.language
+                        selectedLevel = primaryLang.level
+                        
+                        // Crear chips dinámicos
+                        setupLanguageChips()
+                        
+                        // Cargar recomendaciones según idioma y nivel
+                        performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
+                    } else {
+                        performSearch("Viral 50 Global", isRecommendation = true)
+                    }
+                } else {
+                    performSearch("Viral 50 Global", isRecommendation = true)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                performSearch("Viral 50 Global", isRecommendation = true)
+            }
+        }
+    }
+    
+    private fun setupLanguageChips() {
+        chipGroup.removeAllViews()
+        
+        userLanguages.forEach { lang ->
+            val chip = com.google.android.material.chip.Chip(requireContext())
+            chip.text = "${getLanguageEmoji(lang.language)} ${getLanguageName(lang.language)} (${lang.level})"
+            chip.isCheckable = true
+            chip.setChipBackgroundColorResource(R.color.chip_background_selector)
+            chip.setTextColor(resources.getColorStateList(R.color.chip_text_selector, null))
+            
+            // Seleccionar el idioma actual
+            if (lang.language == selectedLanguage) {
+                chip.isChecked = true
+            }
+            
+            chip.setOnClickListener {
+                selectedLanguage = lang.language
+                selectedLevel = lang.level
+                performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
+            }
+            
+            chipGroup.addView(chip)
+        }
+    }
+    
+    private fun getLanguageEmoji(code: String): String {
+        return when(code) {
+            "es" -> "🇪🇸"
+            "fr" -> "🇫🇷"
+            "de" -> "🇩🇪"
+            "pt" -> "🇵🇹"
+            "it" -> "🇮🇹"
+            "ja" -> "🇯🇵"
+            "ko" -> "🇰🇷"
+            "zh" -> "🇨🇳"
+            else -> "🇬🇧"
+        }
+    }
+    
+    private fun getLanguageName(code: String): String {
+        return when(code) {
+            "es" -> "Español"
+            "fr" -> "Francés"
+            "de" -> "Alemán"
+            "pt" -> "Portugués"
+            "it" -> "Italiano"
+            "ja" -> "Japonés"
+            "ko" -> "Coreano"
+            "zh" -> "Chino"
+            else -> "Inglés"
+        }
+    }
+    
+    private fun getRecommendationQuery(lang: String, level: String): String {
+        // Adaptar búsqueda según el nivel del usuario
+        val difficulty = when(level) {
+            "A1", "A2" -> "easy"
+            "B1", "B2" -> "popular"
+            "C1", "C2" -> "advanced"
+            else -> "popular"
+        }
+        
+        return when(lang) {
+            "es" -> if (level in listOf("A1", "A2")) "canciones fáciles español" else "Top 50 Spain"
+            "fr" -> if (level in listOf("A1", "A2")) "chansons simples français" else "Top France"
+            "de" -> if (level in listOf("A1", "A2")) "einfache deutsche lieder" else "Top Germany"
+            "pt" -> if (level in listOf("A1", "A2")) "músicas fáceis português" else "Top Brazil"
+            "it" -> if (level in listOf("A1", "A2")) "canzoni facili italiano" else "Top Italy"
+            "ja" -> "J-Pop $difficulty"
+            "ko" -> "K-Pop $difficulty"
+            "zh" -> "C-Pop $difficulty"
+            else -> "Top Hits $difficulty" // inglés
+        }
+    }
+
+    private fun performSearch(query: String, showShimmer: Boolean = true, isRecommendation: Boolean = false) {
+        // Determinar si es una búsqueda de recomendaciones automática
+        val isAutoRecommendation = isRecommendation || 
+            query.startsWith("Viral 50") || 
+            query.startsWith("Top ") ||
+            query.contains("-Pop") ||
+            query.contains("canciones fáciles") ||
+            query.contains("chansons simples") ||
+            query.contains("einfache deutsche") ||
+            query.contains("músicas fáceis") ||
+            query.contains("canzoni facili")
+        
+        tvHeader.text = if(isAutoRecommendation) "🎧 Descubrir" else "Resultados para '$query'"
         
         if (showShimmer) {
             showLoading(true)
@@ -130,8 +265,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     val results = response.body()!!
                     adapter.updateData(results)
                     
-                    // Si no hay resultados, mostrar mensaje
-                    if (results.isEmpty() && query != "Viral 50 Global") {
+                    // Si no hay resultados, mostrar mensaje (excepto en recomendaciones)
+                    val isRecommendation = query.startsWith("Viral 50")
+                    if (results.isEmpty() && !isRecommendation) {
                         Toast.makeText(requireContext(), "No se encontraron canciones", Toast.LENGTH_SHORT).show()
                     }
                 } else {

@@ -19,6 +19,9 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
     private lateinit var tvHeader: TextView
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
+    private var userLanguages: List<LearningLanguage> = emptyList()
+    private var selectedLanguage: String = "en"
+    private lateinit var chipGroup: com.google.android.material.chip.ChipGroup
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -26,18 +29,19 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
         
         initViews(view)
         setupRecyclerView()
-        loadGrammyNominees()
+        loadUserProfileAndGrammys()
     }
 
     private fun initViews(view: View) {
         recyclerView = view.findViewById(R.id.rvSongs)
         shimmerContainer = view.findViewById(R.id.shimmerViewContainer)
         tvHeader = view.findViewById(R.id.tvHeader)
+        chipGroup = view.findViewById(R.id.chipGroupLanguages)
         
         // OCULTAR BUSCADOR EN ESTA PANTALLA
         view.findViewById<SearchView>(R.id.searchView).visibility = View.GONE
         
-        tvHeader.text = "🏆 Canciones Nominadas a los Grammys"
+        tvHeader.text = "🏆 Top Hits & Grammys"
     }
 
     private fun setupRecyclerView() {
@@ -53,11 +57,43 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
     }
 
-    private fun loadGrammyNominees() {
+    private fun loadUserProfileAndGrammys() {
         showLoading(true)
         lifecycleScope.launch {
             try {
-                val response = repository.getTopGrammy("en") 
+                // 1. Obtener idiomas del usuario
+                val apiService = RetrofitService.getInstance(requireContext())
+                val profileResponse = apiService.getProfile()
+                
+                if (profileResponse.isSuccessful && profileResponse.body() != null) {
+                    val user = profileResponse.body()!!
+                    userLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
+                    
+                    if (userLanguages.isNotEmpty()) {
+                        // Encontrar idioma principal
+                        val primaryLang = userLanguages.find { it.language == user.primaryLanguage } 
+                            ?: userLanguages.first()
+                        
+                        selectedLanguage = primaryLang.language
+                        
+                        // Crear chips dinámicos
+                        setupLanguageChips()
+                    }
+                }
+                
+                // 2. Cargar Grammys con el idioma seleccionado
+                loadGrammyNominees()
+            } catch (e: Exception) { 
+                e.printStackTrace()
+                loadGrammyNominees()
+            }
+        }
+    }
+    
+    private fun loadGrammyNominees() {
+        lifecycleScope.launch {
+            try {
+                val response = repository.getTopGrammy(selectedLanguage) 
                 if (response.isSuccessful && response.body() != null) {
                     adapter.updateData(response.body()!!)
                 }
@@ -66,6 +102,59 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
             } finally { 
                 showLoading(false) 
             }
+        }
+    }
+    
+    private fun setupLanguageChips() {
+        chipGroup.removeAllViews()
+        
+        userLanguages.forEach { lang ->
+            val chip = com.google.android.material.chip.Chip(requireContext())
+            chip.text = "${getLanguageEmoji(lang.language)} ${getLanguageName(lang.language)}"
+            chip.isCheckable = true
+            chip.setChipBackgroundColorResource(R.color.chip_background_selector)
+            chip.setTextColor(resources.getColorStateList(R.color.chip_text_selector, null))
+            
+            // Seleccionar el idioma actual
+            if (lang.language == selectedLanguage) {
+                chip.isChecked = true
+            }
+            
+            chip.setOnClickListener {
+                selectedLanguage = lang.language
+                showLoading(true)
+                loadGrammyNominees()
+            }
+            
+            chipGroup.addView(chip)
+        }
+    }
+    
+    private fun getLanguageEmoji(code: String): String {
+        return when(code) {
+            "es" -> "🇪🇸"
+            "fr" -> "🇫🇷"
+            "de" -> "🇩🇪"
+            "pt" -> "🇵🇹"
+            "it" -> "🇮🇹"
+            "ja" -> "🇯🇵"
+            "ko" -> "🇰🇷"
+            "zh" -> "🇨🇳"
+            else -> "🇬🇧"
+        }
+    }
+    
+    private fun getLanguageName(code: String): String {
+        return when(code) {
+            "es" -> "Español"
+            "fr" -> "Francés"
+            "de" -> "Alemán"
+            "pt" -> "Portugués"
+            "it" -> "Italiano"
+            "ja" -> "Japonés"
+            "ko" -> "Coreano"
+            "zh" -> "Chino"
+            else -> "Inglés"
         }
     }
 
