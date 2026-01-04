@@ -360,168 +360,147 @@ El backend y la lógica funcionan. Todas las pantallas principales están organi
    - ✅ Acceso a **DictionaryActivity** y **FlashcardsActivity** mantenido desde el Perfil (como herramientas externas).
    - ✅ Gestión de sesión con TokenManager y logout funcional.
 
-### 🔥 FASE 2.5: GESTIÓN MULTILENGUAJE Y PERFIL INTELIGENTE (EN CURSO)
+### ✅ FASE 2.5: GESTIÓN MULTILENGUAJE Y DESCUBRIMIENTO INTELIGENTE (COMPLETADA)
 
 **Fecha de Inicio:** 3 de Enero de 2026  
-**Objetivo:** Permitir a los usuarios estudiar múltiples idiomas simultáneamente con gestión inteligente desde el registro hasta el perfil.
+**Fecha de Finalización:** 4 de Enero de 2026  
+**Objetivo:** Personalizar la experiencia de aprendizaje según los idiomas y niveles del usuario, con recomendaciones adaptativas y control de burnout.
 
-#### A. Registro y Onboarding Mejorado ("El Primer Contacto")
+#### ✅ E. Recomendaciones Inteligentes y Grammys
 
-**🎯 Objetivo:** Capturar los idiomas de interés y niveles del usuario desde el primer momento.
+**🎯 Objetivo:** Personalizar las recomendaciones según el idioma activo del usuario y su nivel de competencia.
+
+- **HomeFragment (Descubrir) - Recomendaciones Adaptadas al Nivel:**
+  - ✅ **ChipGroup dinámico:** Material Chips horizontales con todos los idiomas activos del usuario.
+  - ✅ **Formato de chips:** Emoji + Nombre + Nivel (ej: 🇪🇸 Español (B2), 🇫🇷 Francés (A1)).
+  - ✅ **Búsquedas adaptadas al nivel:**
+    - **A1/A2 (Principiante):** Queries simplificadas como "canciones fáciles español", "chansons simples français".
+    - **B1/B2 (Intermedio):** Tops populares como "Top 50 Spain", "Top France".
+    - **C1/C2 (Avanzado):** Contenido avanzado con marcador "advanced".
+  - ✅ **Idiomas soportados:** 🇬🇧 Inglés, 🇪🇸 Español, 🇫🇷 Francés, 🇩🇪 Alemán, 🇵🇹 Portugués, 🇮🇹 Italiano, 🇯🇵 Japonés, 🇰🇷 Coreano, 🇨🇳 Chino.
+  - ✅ **Primary language por defecto:** El chip del idioma principal se selecciona automáticamente al cargar.
+  - ✅ **Cambio dinámico:** Al hacer clic en un chip, recarga recomendaciones adaptadas al nuevo idioma y nivel.
+  - ✅ **UX inteligente:**
+    - **Chips visibles:** Durante recomendaciones automáticas (modo "Descubrir").
+    - **Chips ocultos:** Durante búsqueda manual del usuario (se muestran de nuevo al vaciar SearchView o cerrar búsqueda).
+  - ✅ **Header contextual:**
+    - "🎧 Descubrir" para recomendaciones automáticas.
+    - "Resultados para 'query'" para búsquedas manuales.
+
+- **GrammysFragment - Selector de Idioma:**
+  - ✅ **ChipGroup dinámico:** Chips con todos los idiomas activos del usuario.
+  - ✅ **Formato de chips:** Emoji + Nombre (ej: 🇪🇸 Español, 🇬🇧 Inglés).
+  - ✅ **Listas curadas por idioma:** Backend con `GRAMMY_SEARCHES` en `spotify.py`:
+    - 🇬🇧 Inglés: Billie Eilish, Kendrick Lamar, Chappell Roan, Sabrina Carpenter, Taylor Swift, Beyoncé.
+    - 🇪🇸 Español: Latin Grammy 2024, Bad Bunny, Karol G, Rosalía.
+    - 🇫🇷 Francés: Stromae, Indila, Aya Nakamura.
+    - 🇩🇪 Alemán: Apache 207, Top Germany.
+    - 🇵🇹 Portugués: Anitta, Top Brasil.
+    - 🇮🇹 Italiano: Måneskin, Top Italy.
+    - 🇯🇵 Japonés: J-Pop Hits.
+  - ✅ **Primary language seleccionado:** El idioma principal del usuario se marca por defecto.
+  - ✅ **Cambio dinámico:** Al hacer clic en un chip, recarga los Grammys/Hits del nuevo idioma.
+
+- **Backend:**
+  - ✅ **Endpoint existente:** `GET /api/v1/songs/top-grammy?lang={code}` acepta parámetro de idioma.
+  - ✅ **Lógica de búsqueda:** `get_grammy_songs(lang)` en `utils/spotify.py` retorna mezcla de 3 canciones por artista del idioma seleccionado.
+  - ✅ **Eliminación de duplicados:** Filtra canciones repetidas por ID de Spotify.
+
+#### ✅ D. Flashcards Multi-idioma con Anti-Burnout
+
+**🎯 Objetivo:** Filtrado por idioma/tipo y prevención de agotamiento en el aprendizaje.
+
+- **Selector de Idioma en ProfileFragment:**
+  - ✅ **BottomSheet al pulsar "Practicar Flashcards":** Muestra lista de idiomas activos con estadísticas de repasos pendientes.
+  - ✅ **Formato:** Emoji + Nombre + Contador (ej: 🇪🇸 Español - 15 repasos).
+  - ✅ **Profile reload:** Antes de mostrar el BottomSheet, recarga el perfil del usuario para obtener contadores actualizados.
+  - ✅ **Intent con parámetros:** Al seleccionar idioma, abre FlashcardsActivity pasando el código de idioma.
+
+- **FlashcardsActivity - Filtrado por Tipo:**
+  - ✅ **ChipGroup con 3 opciones:** Global (todas), Palabras (word), Expresiones (expression).
+  - ✅ **Filtrado dinámico:** Al cambiar de chip, recarga flashcards usando `getDueFlashcards(language, type)`.
+  - ✅ **Backend:** Endpoint `GET /api/v1/flashcards/due?language={lang}&type={type}`.
+  - ✅ **Colores y diseño:** Usa `chip_background_selector` y `chip_text_selector` para estados checked/unchecked.
+
+- **Control de Burnout (Anti-Agobio):**
+  - ✅ **Límite de burnout:** Si el usuario tiene >50 repasos pendientes, el backend retorna HTTP 400.
+  - ✅ **Dialog bloqueante:** SongLearningActivity muestra AlertDialog que impide añadir más palabras:
+    - Título: "🧠 Demasiados repasos pendientes"
+    - Mensaje: "Tienes [X] flashcards esperando. Completa algunos repasos antes de añadir más palabras."
+    - Acción: Cierra la actividad y devuelve RESULT_CANCELED.
+  - ✅ **Daily goal warning:** Si se alcanza la meta diaria (ej: 10 palabras), muestra AlertDialog informativo (no bloquea):
+    - Título: "🎯 Meta diaria alcanzada"
+    - Mensaje: "Has alcanzado tu meta de 10 palabras hoy. ¿Seguro que quieres continuar?"
+    - Opciones: "Continuar" o "Volver".
+  - ✅ **Backend response field:** `warning` en `DictionaryEntryResponse` para comunicar advertencias de daily_goal.
+
+- **Fixes Críticos Implementados:**
+  - ✅ **Collection name:** Corregido `flashcards_srs` → `flashcard_srs` (singular) en `users.py`.
+  - ✅ **Timezone-aware comparison:** Uso de `datetime.now(timezone.utc)` para comparar `next_review_date`.
+  - ✅ **Chip text visibility:** Cambiado `text_secondary` → `text_primary` en `chip_text_selector.xml` para mejor visibilidad.
+  - ✅ **Real-time counters:** Profile reload antes de mostrar BottomSheet garantiza contadores frescos.
+
+#### ✅ Mejoras en Búsqueda de Letras
+
+**🎯 Objetivo:** Mejorar robustez y tasa de éxito en la búsqueda de letras de canciones.
+
+- **LRCLib Optimizations:**
+  - ✅ **Timeout aumentado:** 5s → 10s para conexiones lentas.
+  - ✅ **Retry aumentado:** 2 → 3 intentos con exponential backoff (max 3s).
+  - ✅ **3 variaciones de búsqueda:**
+    1. Original: título y artista sin modificar.
+    2. Normalizada: `normalize_search_query()` elimina caracteres especiales.
+    3. Primer artista: `artist.split(',')[0].split('&')[0]` para manejar colaboraciones (ej: "Bowling For Soup & Punk Rock Factory" → "Bowling For Soup").
+  - ✅ **Logs mejorados:** Contador de variaciones `[LRCLIB 1/3]`, `[LRCLIB 2/3]`, `[LRCLIB 3/3]`.
+
+- **Genius API Optimizations:**
+  - ✅ **Timeout aumentado:** 5s → 10s en ambas funciones (`get_genius_metadata`, `get_lyrics_genius_advanced`).
+  - ✅ **Scraping con curl_cffi:** Impersonación de Chrome 120 para bypassear Cloudflare.
+  - ✅ **Timeout de scraping:** 10s para descarga HTML.
+
+- **Estrategia de Fallback:**
+  1. **LRCLib** (prioridad alta): API pública sin autenticación.
+  2. **Genius API Metadata** (fallback): Obtiene título/artista oficiales.
+  3. **Genius Scraping** (último recurso): Extrae HTML con curl_cffi si API no tiene letras.
+
+---
+
+#### ✅ A. Registro Multi-idioma con Verificación Email (COMPLETADO)
+
+**🎯 Objetivo:** Capturar los idiomas de interés y niveles del usuario desde el primer momento, con verificación de email mediante código PIN.
 
 - **Selector Multi-idioma en Registro:**
-  - ❌ **Pendiente:** Añadir checkboxes en la pantalla de registro para seleccionar idiomas de interés:
-    - **Idiomas disponibles:** Inglés, Español, Francés, Alemán, Italiano, Portugués (CEFR).
-    - **Futuros:** Japonés (JLPT), Chino (HSK), Coreano (TOPIK).
-  - ❌ **Pendiente:** Para cada idioma seleccionado, añadir selector de nivel:
-    - **CEFR (Europeos):** Spinner con opciones A1, A2, B1, B2, C1, C2 + descripción breve.
-    - **JLPT (Japonés):** Spinner con N5, N4, N3, N2, N1 (N5 = principiante, N1 = avanzado).
-    - **HSK (Chino):** Spinner con 1, 2, 3, 4, 5, 6.
-    - **TOPIK (Coreano):** Spinner con 1, 2, 3, 4, 5, 6.
-  - ❌ **Pendiente:** Implementar lógica para marcar el primer idioma (o favorito) como `primary_language`.
+  - ✅ **RegisterActivity completo:** Interfaz con checkboxes para seleccionar múltiples idiomas de aprendizaje.
+  - ✅ **Idiomas soportados:** 
+    - **CEFR (Europeos):** 🇬🇧 Inglés, 🇪🇸 Español, 🇫🇷 Francés, 🇩🇪 Alemán, 🇮🇹 Italiano, 🇵🇹 Portugués (niveles A1-C2).
+    - **JLPT (Japonés):** 🇯🇵 (niveles N5-N1, N5 = principiante).
+    - **HSK (Chino):** 🇨🇳 (niveles 1-6).
+    - **TOPIK (Coreano):** 🇰🇷 (niveles 1-6).
+  - ✅ **Spinners de nivel dinámicos:** Para cada idioma seleccionado, aparece un Spinner con el sistema de niveles correspondiente (CEFR/JLPT/HSK/TOPIK).
+  - ✅ **Idioma nativo:** Spinner separado para seleccionar idioma nativo (pre-seleccionado: Español).
+  - ✅ **Validación inteligente:** No permite seleccionar el idioma nativo como idioma de aprendizaje (la lista de checkboxes se actualiza dinámicamente).
+  - ✅ **Primary language:** El primer idioma de la lista se marca automáticamente como `primary_language` en el backend.
+  - ✅ **Niveles por defecto:** A1 (CEFR), N5 (JLPT), 1 (HSK/TOPIK) al marcar un checkbox.
 
 - **Backend:**
-  - ❌ **Pendiente:** Modificar endpoint `POST /auth/register` para aceptar array de idiomas:
-    ```json
-    {
-      "username": "Hchurches04",
-      "email": "user@example.com",
-      "password": "password123",
-      "languages": [
-        {"code": "en", "level": "C1", "is_primary": true},
-        {"code": "fr", "level": "A2", "is_primary": false}
-      ]
-    }
-    ```
-  - ❌ **Pendiente:** Actualizar modelo de usuario en `models.py` para incluir campo `languages` (array con idiomas y niveles).
+  - ✅ **Endpoint `POST /api/v1/auth/register`:** Acepta `UserCreate` con array de `learning_languages`.
+  - ✅ **Modelo `UserCreate`:** Campo `learning_languages: List[LearningLanguage]` con validación.
+  - ✅ **Modelo `LearningLanguage`:** Campos `language`, `level`, `started_at`, `daily_goal`, `reviews_pending`, `is_active`, `words_learned`.
+  - ✅ **Procesamiento de idiomas:** El backend procesa la lista y añade campos FASE 2.5 (daily_goal=10, is_active=True, etc.).
+  - ✅ **Primary language detection:** El primer idioma de la lista se asigna a `user.primary_language`.
+  - ✅ **Generación de PIN:** Código de 4 dígitos aleatorio para verificación email.
+  - ✅ **Integración Brevo:** Envío de email de verificación mediante `send_verification_code()` (HTTP API de Brevo).
+  - ✅ **Razón del cambio a Brevo:** El envío SMTP directo se bloqueaba en Render (port 587 blocked), se migró a Brevo HTTP API.
 
-#### B. Perfil Inteligente & UX de Detalles
+- **Verificación de Email:**
+  - ✅ **VerifyAccountActivity:** Pantalla para introducir el código PIN de 4 dígitos.
+  - ✅ **Endpoint `POST /api/v1/auth/verify`:** Valida el código y marca `is_verified=True`.
+  - ✅ **Login bloqueado:** Si el usuario no está verificado, el login retorna HTTP 403 con mensaje "Email no verificado".
+  - ✅ **Logs detallados:** Backend registra envío de emails y verificaciones exitosas.
 
-**🎯 Objetivo:** Mostrar información jerarquizada y permitir gestión fácil de idiomas.
+---
 
-- **Visualización Jerárquica (BottomSheet):**
-  - ❌ **Pendiente:** Implementar **BottomSheetDialogFragment** que se abre al pulsar:
-    - El texto del idioma principal ("EN • C1").
-    - Los contadores numéricos (Palabras, Racha, Repasos).
-  - ❌ **Pendiente:** Diseño del BottomSheet:
-    - **Título:** "Tus Idiomas" o "Desglose de Vocabulario".
-    - **Contenido:** RecyclerView con lista de idiomas:
-      - Ejemplo: 🇬🇧 **Inglés (C1)** - 100 palabras - 20 repasos pendientes
-      - Ejemplo: 🇫🇷 **Francés (A2)** - 20 palabras - 5 repasos pendientes
-    - **Total Global:** Suma de palabras y repasos de todos los idiomas.
-    - **Acción:** Botón "Cambiar idioma activo" para alternar el `primary_language`.
-
-- **Sección "Modificar Datos" (ProfileFragment):**
-  - ❌ **Pendiente:** Al pulsar "⚙ MODIFICAR DATOS", abrir nueva pantalla o BottomSheet con opciones:
-    - **Añadir nuevo idioma:** Selecciona idioma (Spinner) + nivel (Spinner) → Se añade a la lista.
-    - **Eliminar idioma:** Lista de idiomas actuales con botón de eliminar (marca como `archived`).
-    - **Cambiar nivel:** Para cada idioma, permitir actualizar el nivel.
-    - **Reordenar prioridad:** Cambiar cuál es el idioma principal (drag & drop o botón "Marcar como principal").
-
-- **Backend:**
-  - ❌ **Pendiente:** Endpoint `GET /users/profile/languages` para obtener lista de idiomas del usuario con estadísticas.
-  - ❌ **Pendiente:** Endpoint `POST /users/profile/languages/add` para añadir nuevo idioma.
-  - ❌ **Pendiente:** Endpoint `PUT /users/profile/languages/{lang_code}` para actualizar nivel o marcar como principal.
-  - ❌ **Pendiente:** Endpoint `DELETE /users/profile/languages/{lang_code}` para archivar idioma (soft delete).
-
-#### C. Gestión de Datos y "Soft Delete" (No romper nada)
-
-**🎯 Objetivo:** Permitir eliminar idiomas sin perder datos, con posibilidad de recuperación.
-
-- **Soft Delete de Idiomas:**
-  - ❌ **Pendiente:** Al eliminar un idioma (ej: Francés):
-    - **NO BORRAR** las palabras ni flashcards de la base de datos.
-    - **ACCIÓN:** Marcar el idioma como `archived: true` en el perfil del usuario.
-    - **EFECTO:**
-      - Las palabras desaparecen del diccionario (filtradas en el frontend).
-      - Las flashcards pausan su algoritmo SRS (`next_review_date` se ignora).
-      - La racha específica de ese idioma se resetea a 0.
-    - **RECUPERACIÓN:** Si el usuario vuelve a añadir Francés:
-      - Se reactiva (`archived: false`).
-      - Todas las palabras y flashcards reaparecen.
-      - El progreso SRS se reanuda desde el último estado.
-
-- **Backend:**
-  - ❌ **Pendiente:** Modificar lógica de endpoints de diccionario y flashcards para filtrar solo idiomas activos (`archived: false`).
-  - ❌ **Pendiente:** Añadir campo `archived` al modelo de idiomas en el usuario.
-
-#### D. Diccionario y Flashcards 2.0
-
-**🎯 Objetivo:** Filtrado por idioma y prevención de burnout en el aprendizaje.
-
-- **Diccionario con Chips de Filtrado:**
-  - ❌ **Pendiente:** Añadir **Material Chips** (píldoras) en la parte superior de DictionaryActivity:
-    - Chips: `[Todos]` `[🇬🇧 Inglés]` `[🇫🇷 Francés]` (dinámicos según idiomas del usuario).
-  - ❌ **Pendiente:** Al pulsar un chip, filtrar la lista sin recargar la Activity:
-    - Lógica: `adapter.filter(selectedLanguage)`.
-  - ❌ **Pendiente:** Por defecto, mostrar el idioma activo del usuario (`primary_language`).
-
-- **Flashcards con Tipos de Repaso:**
-  - ❌ **Pendiente:** Implementar selector de modo de repaso en FlashcardsActivity:
-    - **Normal:** Palabra → Definición.
-    - **Inverso:** Definición → Palabra.
-    - **Listening:** Audio (TTS) → Escribir la palabra.
-  - ❌ **Pendiente:** Integrar TTS (Text-to-Speech) para reproducir la palabra al mostrar la tarjeta.
-  - ❌ **Pendiente:** Botón "🎵 Oír en canción" que reproduce el fragmento de 5-10s usando timestamps + yt-dlp.
-
-- **Control de Burnout (Anti-Agobie):**
-  - ❌ **Pendiente:** Mostrar claramente "15 Cartas para hoy" vs "45 Total acumulado".
-  - ❌ **Pendiente:** Si `repasos_pendientes > 50`, bloquear aprendizaje de nuevas palabras:
-    - Mensaje: "¡Tienes muchas palabras pendientes! Termina tus repasos antes de añadir más 😊".
-  - ❌ **Pendiente:** Permitir al usuario ajustar cuántas palabras nuevas quiere ver por día (5, 10, 15, 20) desde Settings.
-
-- **Backend:**
-  - ❌ **Pendiente:** Endpoint `GET /flashcards/pending?language={code}` para obtener repasos pendientes por idioma.
-  - ❌ **Pendiente:** Endpoint `POST /flashcards/session` con parámetros: `language`, `mode` (normal/inverso/listening), `max_new_cards`.
-
-#### E. Recomendaciones Inteligentes y Grammys (Ajuste de Lógica)
-
-**🎯 Objetivo:** Personalizar las recomendaciones según el idioma activo del usuario y verificar la precisión de los nominados.
-
-- **HomeFragment (Descubrir) - Recomendaciones Personalizadas:**
-  - ❌ **Pendiente:** Revisar la lógica de búsqueda "Viral 50 Global" para que se adapte al idioma activo del usuario:
-    - En lugar de buscar "Viral 50 Global" genérico, buscar según el idioma principal:
-      - Inglés (EN): "Viral 50 Global" o "Top Hits USA"
-      - Español (ES): "Viral 50 Spain" o "Top Latin"
-      - Francés (FR): "Viral 50 France"
-      - Alemán (DE): "Viral 50 Germany"
-      - Italiano (IT): "Viral 50 Italy"
-      - Portugués (PT): "Viral 50 Brazil"
-  - ❌ **Pendiente:** Implementar filtro por idioma en la búsqueda inicial de HomeFragment:
-    - Al cargar el fragmento, obtener el `primary_language` del usuario desde el perfil.
-    - Buscar canciones en ese idioma usando el query adaptado.
-  - ❌ **Pendiente:** Mostrar en el header el idioma activo: "🎧 Descubrir (Inglés)" o "🎧 Descubrir (Español)".
-
-- **GrammysFragment - Verificación de Nominados:**
-  - ❌ **Pendiente:** Revisar la lógica actual de búsqueda de nominados a los Grammys para asegurar precisión:
-    - Verificar que la query de búsqueda retorna las canciones correctamente nominadas.
-    - Comprobar si es necesario ajustar filtros (año, categoría, región).
-    - Considerar usar una lista hardcodeada de nominados si la API no es precisa.
-  - ❌ **Pendiente:** Implementar fallback: Si la búsqueda de Grammys falla o retorna resultados vacíos, mostrar lista curada manualmente.
-  - ❌ **Pendiente:** Añadir filtro opcional por idioma en Grammys (ej: "Ver solo nominados en Inglés/Español").
-
-- **Backend:**
-  - ❌ **Pendiente:** Endpoint `GET /songs/recommendations?language={code}` que retorna canciones populares filtradas por idioma.
-  - ❌ **Pendiente:** Verificar/ajustar endpoint de Grammys para asegurar que los resultados son precisos.
-  - ❌ **Pendiente:** Considerar caché de nominados de Grammys para evitar búsquedas repetitivas (actualizar anualmente).
-
-#### 💡 Sugerencia Técnica: BottomSheet vs Pop-up
-
-**Recomendación:** Usar **BottomSheetDialogFragment** en lugar de Dialog tradicional.
-
-- **Ventajas:**
-  - Más moderno y alineado con Material Design 3.
-  - Sale desde abajo, se puede cerrar deslizando hacia abajo.
-  - Cómodo de usar con una mano (mejor UX en móviles).
-  - Permite scroll si el contenido es largo.
-
-- **Implementación:**
-  ```kotlin
-  class LanguageStatsBottomSheet : BottomSheetDialogFragment() {
-      // RecyclerView con lista de idiomas + estadísticas
-      // Botones de acción: "Cambiar idioma activo", "Gestionar idiomas"
-  }
-  ```
+#### ❌ B. Perfil Inteligente & Gestión de Idiomas (PENDIENTE PARA FASE 3)
 
 ---
 
