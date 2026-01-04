@@ -147,6 +147,9 @@ class DictionaryEntryResponse(DictionaryEntryCreate):
     last_reviewed: Optional[datetime] = None
     times_reviewed: int = 0
     is_learned: bool = False
+    
+    # 🔥 FASE 4: Anti-burnout
+    warning: Optional[str] = None  # Advertencia si superó daily_goal
 
 # ===============================================================================
 # 5️⃣ ANÁLISIS IA (Gemini)

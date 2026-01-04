@@ -226,8 +226,12 @@ private fun openCropper(uri: Uri) {
         }
 
         btnFlashcards.setOnClickListener {
-            val intent = Intent(requireContext(), FlashcardsActivity::class.java)
-            startActivity(intent)
+            // Mostrar BottomSheet para seleccionar idioma
+            currentUser?.let { user ->
+                showLanguageSelectionForFlashcards(user)
+            } ?: run {
+                Toast.makeText(requireContext(), "Cargando perfil...", Toast.LENGTH_SHORT).show()
+            }
         }
 
         btnLogout.setOnClickListener {
@@ -320,7 +324,7 @@ private fun openCropper(uri: Uri) {
         }
     }
 
-    // ✨ NUEVO: Mostrar BottomSheet con idiomas
+    // ✨ NUEVO: Mostrar BottomSheet con idiomas (solo info)
     private fun showLanguagesBottomSheet(user: User) {
         val bottomSheetDialog = BottomSheetDialog(requireContext())
         val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_languages, null)
@@ -351,6 +355,51 @@ private fun openCropper(uri: Uri) {
             val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
             manageLanguagesLauncher.launch(intent)
         }
+
+        bottomSheetDialog.show()
+    }
+
+    // 🔥 NUEVO: BottomSheet para seleccionar idioma antes de flashcards
+    private fun showLanguageSelectionForFlashcards(user: User) {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val view = LayoutInflater.from(requireContext()).inflate(R.layout.bottom_sheet_languages, null)
+        bottomSheetDialog.setContentView(view)
+
+        val rvLanguages = view.findViewById<RecyclerView>(R.id.rvLanguages)
+        val tvSheetTitle = view.findViewById<TextView>(R.id.tvSheetTitle)
+        val tvTotalWords = view.findViewById<TextView>(R.id.tvTotalWords)
+        val tvTotalReviews = view.findViewById<TextView>(R.id.tvTotalReviews)
+        val btnManageLanguages = view.findViewById<Button>(R.id.btnManageLanguages)
+
+        // Cambiar título
+        tvSheetTitle.text = "Selecciona un idioma"
+
+        // Filtrar idiomas activos
+        val activeLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
+
+        // Calcular totales
+        val totalWords = activeLanguages.sumOf { it.wordsLearned }
+        val totalReviews = activeLanguages.sumOf { it.reviewsPending }
+
+        tvTotalWords.text = "Total: $totalWords palabras"
+        tvTotalReviews.text = "Repasos pendientes: $totalReviews"
+
+        // Configurar RecyclerView con click listener
+        rvLanguages.layoutManager = LinearLayoutManager(requireContext())
+        rvLanguages.adapter = LanguageItemAdapter(
+            activeLanguages, 
+            user.primaryLanguage,
+            onLanguageClick = { selectedLanguage ->
+                bottomSheetDialog.dismiss()
+                // Abrir FlashcardsActivity con el idioma seleccionado
+                val intent = Intent(requireContext(), FlashcardsActivity::class.java)
+                intent.putExtra("language", selectedLanguage.language)
+                startActivity(intent)
+            }
+        )
+
+        // Ocultar botón gestionar (no es necesario aquí)
+        btnManageLanguages.visibility = View.GONE
 
         bottomSheetDialog.show()
     }
@@ -423,7 +472,8 @@ private fun openCropper(uri: Uri) {
     // ✨ NUEVO: Adapter para RecyclerView de idiomas
     inner class LanguageItemAdapter(
         private val languages: List<LearningLanguage>,
-        private val primaryLanguageCode: String
+        private val primaryLanguageCode: String,
+        private val onLanguageClick: ((LearningLanguage) -> Unit)? = null
     ) : RecyclerView.Adapter<LanguageItemAdapter.LanguageViewHolder>() {
 
         inner class LanguageViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -452,6 +502,13 @@ private fun openCropper(uri: Uri) {
                 holder.tvPrimaryBadge.visibility = View.VISIBLE
             } else {
                 holder.tvPrimaryBadge.visibility = View.GONE
+            }
+
+            // 🔥 Click listener para seleccionar idioma
+            onLanguageClick?.let { callback ->
+                holder.itemView.setOnClickListener {
+                    callback(lang)
+                }
             }
         }
 

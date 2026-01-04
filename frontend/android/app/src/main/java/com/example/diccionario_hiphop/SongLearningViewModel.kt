@@ -31,6 +31,13 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private val _errorState = MutableLiveData<String>()
     val errorState: LiveData<String> get() = _errorState
 
+    // 🔥 FASE 4: Validaciones anti-burnout
+    private val _burnoutError = MutableLiveData<String?>()
+    val burnoutError: LiveData<String?> get() = _burnoutError
+    
+    private val _dailyGoalWarning = MutableLiveData<String?>()
+    val dailyGoalWarning: LiveData<String?> get() = _dailyGoalWarning
+
     private val _audioStreamState = MutableLiveData<String?>()
     val audioStreamState: LiveData<String?> get() = _audioStreamState
 
@@ -173,6 +180,7 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * 💾 GUARDAR PALABRA EN DICCIONARIO
+     * 🔥 FASE 4: Con validación anti-burnout
      */
     fun addToDictionary(term: String, definition: String, explanation: String, example: String, isExpression: Boolean) {
        viewModelScope.launch {
@@ -192,7 +200,33 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                 )
                 val response = repository.addWord(request)
                 
+                // 🔥 BURNOUT CAP: HTTP 400
+                if (response.code() == 400) {
+                    val errorBody = response.errorBody()?.string() ?: "Error desconocido"
+                    // Parsear el detail del backend
+                    val errorMsg = try {
+                        // Backend devuelve: {"detail": "Tienes X flashcards pendientes..."}
+                        val regex = "\"detail\":\"([^\"]+)\"".toRegex()
+                        regex.find(errorBody)?.groupValues?.get(1) ?: errorBody
+                    } catch (e: Exception) {
+                        "Tienes demasiadas flashcards pendientes. Repasa antes de añadir más."
+                    }
+                    _burnoutError.value = errorMsg
+                    return@launch
+                }
+                
                 if (response.isSuccessful) {
+                    val responseBody = response.body()
+                    
+                    // 🔥 DAILY GOAL WARNING: Campo warning en respuesta
+                    if (responseBody != null) {
+                        val warning = responseBody.warning
+                        if (!warning.isNullOrEmpty()) {
+                            _dailyGoalWarning.value = warning
+                        }
+                    }
+                    
+                    // Marcar como guardado en la UI
                     val current = _analysisState.value
                     if (current != null) {
                          if (isExpression) {

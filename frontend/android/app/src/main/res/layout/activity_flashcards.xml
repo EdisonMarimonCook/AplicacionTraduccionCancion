@@ -42,6 +42,47 @@
         android:progressDrawable="@drawable/custom_progress_bar"
         app:layout_constraintTop_toBottomOf="@id/btnClose" />
 
+    <!-- 🔥 CHIPS DE FILTRADO (Global/Palabras/Expresiones) -->
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipGroupMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        app:singleSelection="true"
+        app:selectionRequired="true"
+        app:layout_constraintTop_toBottomOf="@id/progressBarLinear"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipGlobal"
+            style="@style/Widget.MaterialComponents.Chip.Choice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📌 Global"
+            android:checked="true"
+            app:chipBackgroundColor="@color/chip_background_selector"
+            android:textColor="@color/chip_text_selector"/>
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipWords"
+            style="@style/Widget.MaterialComponents.Chip.Choice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📝 Palabras"
+            app:chipBackgroundColor="@color/chip_background_selector"
+            android:textColor="@color/chip_text_selector"/>
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipExpressions"
+            style="@style/Widget.MaterialComponents.Chip.Choice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💬 Expresiones"
+            app:chipBackgroundColor="@color/chip_background_selector"
+            android:textColor="@color/chip_text_selector"/>
+    </com.google.android.material.chip.ChipGroup>
+
     <!-- TARJETA PRINCIPAL (La que se desliza) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardView"
@@ -51,7 +92,7 @@
         app:cardCornerRadius="24dp"
         app:cardElevation="8dp"
         app:cardBackgroundColor="@color/bg_card"
-        app:layout_constraintTop_toBottomOf="@id/progressBarLinear"
+        app:layout_constraintTop_toBottomOf="@id/chipGroupMode"
         app:layout_constraintBottom_toTopOf="@id/layoutSwipeHints">
 
         <androidx.constraintlayout.widget.ConstraintLayout
