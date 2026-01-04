@@ -82,10 +82,34 @@ class RegisterActivity : AppCompatActivity() {
         // Pre-seleccionar Español por defecto
         val spanishIndex = supportedLanguages.indexOfFirst { it.first == "es" } + 1
         spinnerNativeLanguage.setSelection(spanishIndex)
+        
+        // 🔥 Listener para refrescar checkboxes cuando cambia idioma nativo
+        spinnerNativeLanguage.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                setupLanguageCheckboxes()  // Refrescar lista
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
     }
 
     private fun setupLanguageCheckboxes() {
+        // 🔥 Limpiar checkboxes anteriores
+        llLanguageCheckboxes.removeAllViews()
+        
+        // 🔥 Obtener idioma nativo seleccionado
+        val nativeLanguageIndex = spinnerNativeLanguage.selectedItemPosition - 1
+        val nativeLanguageCode = if (nativeLanguageIndex >= 0) {
+            supportedLanguages[nativeLanguageIndex].first
+        } else {
+            null
+        }
+        
         supportedLanguages.forEach { (code, name) ->
+            // 🔥 Saltar si es el idioma nativo
+            if (code == nativeLanguageCode) {
+                return@forEach
+            }
+            
             // Crear fila horizontal para checkbox + spinner
             val rowLayout = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL

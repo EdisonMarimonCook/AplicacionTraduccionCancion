@@ -142,4 +142,7 @@ interface ApiService {
 
     @PUT("/api/v1/users/languages/{code}/daily-goal")
     suspend fun updateDailyGoal(@Path("code") code: String, @Body request: UpdateDailyGoalRequest): Response<MessageResponse>
+
+    @PUT("/api/v1/users/languages/{code}/level")
+    suspend fun updateLevel(@Path("code") code: String, @Body request: UpdateLevelRequest): Response<MessageResponse>
 }

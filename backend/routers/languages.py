@@ -146,10 +146,14 @@ async def reorder_languages(
         # Reordenar preservando todos los campos (incluido is_active actualizado)
         lang_dict = {lang.get("language"): lang for lang in current_languages}
         reordered = []
+        seen = set()  # 🔥 Para evitar duplicados
         
         for code in request.language_order:
-            lang_data = lang_dict[code]
-            reordered.append(lang_data)
+            # 🔥 Solo añadir si no lo hemos visto antes
+            if code not in seen and code in lang_dict:
+                lang_data = lang_dict[code]
+                reordered.append(lang_data)
+                seen.add(code)
         
         # Establecer primary_language como el primero
         new_primary = request.language_order[0]

@@ -53,6 +53,14 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     private var isLoadingProfile = false
     private var currentUser: User? = null  // ✨ Para el BottomSheet
 
+    // 🔥 Launcher para ManageLanguagesActivity que recarga al volver
+    private val manageLanguagesLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // Recargar perfil cuando se cierra ManageLanguagesActivity
+        loadUserProfile()
+    }
+
     // 🔥 NUEVO: Primero seleccionamos la imagen
 private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     uri?.let {
@@ -174,6 +182,7 @@ private fun openCropper(uri: Uri) {
 
     override fun onResume() {
         super.onResume()
+        isLoadingProfile = false  // 🔧 Resetear flag para permitir recarga
         loadUserProfile()
     }
 
@@ -340,7 +349,7 @@ private fun openCropper(uri: Uri) {
         btnManageLanguages.setOnClickListener {
             bottomSheetDialog.dismiss()
             val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
-            startActivity(intent)
+            manageLanguagesLauncher.launch(intent)
         }
 
         bottomSheetDialog.show()

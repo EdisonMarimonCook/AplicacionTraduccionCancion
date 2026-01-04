@@ -204,6 +204,7 @@ data class UserWord(
 data class AddWordRequest(
     val word: String,
     val translation: String?,
+    val language: String,  // 🌍 OBLIGATORIO: código del idioma
     val notes: String?,
     val type: String,
     val example: String?,
@@ -282,4 +283,8 @@ data class ReorderLanguagesRequest(
 
 data class UpdateDailyGoalRequest(
     @SerializedName("daily_goal") val dailyGoal: Int
+)
+
+data class UpdateLevelRequest(
+    @SerializedName("level") val level: String
 )
