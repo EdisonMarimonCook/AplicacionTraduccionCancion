@@ -258,11 +258,11 @@ class FlashcardsActivity : AppCompatActivity() {
 
     private fun loadFlashcards() {
         showLoading(true)
-        lifecycl// 🔥 Pasar idioma y tipo al API
-                val response = api.getDueFlashcards(selectedLanguage, selectedType
+        lifecycleScope.launch {
             try {
                 val api = RetrofitService.getInstance(this@FlashcardsActivity)
-                val response = api.getDueFlashcards()
+                // 🔥 Pasar idioma y tipo al API
+                val response = api.getDueFlashcards(selectedLanguage, selectedType)
 
                 if (response.isSuccessful && response.body() != null) {
                     flashcards = response.body()!!.toMutableList()

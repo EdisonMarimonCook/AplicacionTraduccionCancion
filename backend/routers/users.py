@@ -71,7 +71,7 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
                 })
                 
                 # Repasos pendientes en este idioma (flashcards con next_review_date <= hoy)
-                from datetime import datetime
+                from datetime import datetime, timezone
                 flashcards_due = 0
                 dictionary_words = await db.db["dictionary_entries"].find({
                     "user_id": str(current_user.id),
@@ -79,13 +79,19 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
                     "example": {"$exists": True, "$ne": None}  # Solo las que tienen flashcard
                 }).to_list(None)
                 
+                now_utc = datetime.now(timezone.utc)
                 for word in dictionary_words:
                     word_id = str(word.get("_id"))
-                    srs_data = await db.db["flashcards_srs"].find_one({"word_id": word_id})
+                    srs_data = await db.db["flashcard_srs"].find_one({"word_id": word_id})
                     if srs_data:
                         next_review = srs_data.get("next_review_date")
-                        if next_review and next_review <= datetime.utcnow():
-                            flashcards_due += 1
+                        if next_review:
+                            # Asegurar que ambas fechas sean comparables
+                            if next_review.tzinfo is None:
+                                # Si es naive, asumir UTC
+                                next_review = next_review.replace(tzinfo=timezone.utc)
+                            if next_review <= now_utc:
+                                flashcards_due += 1
                 
                 # Actualizar contadores en el diccionario
                 lang_dict['words_learned'] = words_learned

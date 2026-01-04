@@ -168,7 +168,6 @@ class SongLearningActivity : AppCompatActivity() {
                     .setMessage(errorMsg)
                     .setPositiveButton("Entendido") { dialog, _ ->
                         dialog.dismiss()
-                        viewModel.burnoutError.value = null  // Reset
                     }
                     .setCancelable(false)
                     .show()
@@ -183,11 +182,9 @@ class SongLearningActivity : AppCompatActivity() {
                     .setMessage(warningMsg)
                     .setPositiveButton("Continuar de todos modos") { dialog, _ ->
                         dialog.dismiss()
-                        viewModel.dailyGoalWarning.value = null  // Reset
                     }
                     .setNegativeButton("Detener por hoy") { dialog, _ ->
                         dialog.dismiss()
-                        viewModel.dailyGoalWarning.value = null  // Reset
                     }
                     .show()
             }

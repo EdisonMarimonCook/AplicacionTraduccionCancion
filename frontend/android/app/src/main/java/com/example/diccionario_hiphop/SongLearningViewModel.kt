@@ -212,6 +212,8 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                         "Tienes demasiadas flashcards pendientes. Repasa antes de añadir más."
                     }
                     _burnoutError.value = errorMsg
+                    // Auto-reset después de mostrar
+                    _burnoutError.value = null
                     return@launch
                 }
                 
@@ -223,6 +225,8 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                         val warning = responseBody.warning
                         if (!warning.isNullOrEmpty()) {
                             _dailyGoalWarning.value = warning
+                            // Auto-reset después de mostrar
+                            _dailyGoalWarning.value = null
                         }
                     }
                     
