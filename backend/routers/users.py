@@ -40,8 +40,9 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
     try:
         # 🔥 Obtener solo idiomas activos para contadores globales
         active_languages = [
-            lang.get('language') for lang in (current_user.learning_languages or [])
-            if lang.get('is_active', True)
+            getattr(lang, 'language', lang.get('language')) 
+            for lang in (current_user.learning_languages or [])
+            if getattr(lang, 'is_active', lang.get('is_active', True) if hasattr(lang, 'get') else True)
         ]
         
         reviews_count = await db.count_user_flashcards_reviews(
@@ -333,8 +334,9 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
     try:
         # 🔥 Filtrar solo idiomas activos
         active_languages = [
-            lang.get('language') for lang in (current_user.learning_languages or [])
-            if lang.get('is_active', True)
+            getattr(lang, 'language', lang.get('language')) 
+            for lang in (current_user.learning_languages or [])
+            if getattr(lang, 'is_active', lang.get('is_active', True) if hasattr(lang, 'get') else True)
         ]
         
         # 🔥 CALCULAR REPASOS DINÁMICAMENTE (solo idiomas activos)
