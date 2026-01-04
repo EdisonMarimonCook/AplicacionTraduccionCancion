@@ -469,9 +469,22 @@ class ManageLanguagesActivity : AppCompatActivity() {
             holder.tvLanguageName.text = "$flag $name • ${lang.level}"
             holder.tvStats.text = "${lang.wordsLearned} palabras | Meta: ${lang.dailyGoal}/día"
             
+            //Contar idiomas activos para deshabilitar switch del último
+            val activeCount = languages.count { it.isActive }
+            
             // 🔧 Remover listener antes de cambiar el estado para evitar triggers dobles
             holder.switchActive.setOnCheckedChangeListener(null)
             holder.switchActive.isChecked = lang.isActive
+            
+            // 🔥 Deshabilitar switch si es el único idioma activo
+            if (lang.isActive && activeCount == 1) {
+                holder.switchActive.isEnabled = false
+                holder.switchActive.alpha = 0.5f  // Visual feedback
+            } else {
+                holder.switchActive.isEnabled = true
+                holder.switchActive.alpha = 1.0f
+            }
+            
             holder.switchActive.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked != lang.isActive) {
                     onToggleActive(lang)
