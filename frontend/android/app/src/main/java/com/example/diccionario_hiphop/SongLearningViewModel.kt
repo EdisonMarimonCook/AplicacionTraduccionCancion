@@ -177,9 +177,13 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     fun addToDictionary(term: String, definition: String, explanation: String, example: String, isExpression: Boolean) {
        viewModelScope.launch {
             try {
+                 // 🔥 Obtener el idioma detectado del análisis actual
+                 val detectedLanguage = _analysisState.value?.detectedLanguage ?: "en"
+                 
                  val request = AddWordRequest(
                     word = term,
                     translation = definition,
+                    language = detectedLanguage,  // 🌍 IDIOMA DETECTADO
                     notes = explanation,
                     type = if (isExpression) "expression" else "word",
                     example = example,

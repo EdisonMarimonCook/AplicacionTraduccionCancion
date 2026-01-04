@@ -51,16 +51,31 @@ data class User(
     @SerializedName("avatar_url") 
     val avatarUrl: String?,
     
-    val streak: Int,
-    
-    @SerializedName("reviews_count") 
-    val reviewsCount: Int,
-    
-    @SerializedName("words_count")  // 🔥 AÑADIR ESTE CAMPO
-    val wordsCount: Int = 0,
-    
     @SerializedName("learning_languages") 
-    val learningLanguages: List<LearningLanguage>?
+    val learningLanguages: List<LearningLanguage>?,
+    
+    // ✨ FASE 2.5: Gamificación y multi-idioma
+    @SerializedName("primary_language")
+    val primaryLanguage: String = "en",
+    
+    @SerializedName("total_xp")
+    val totalXp: Int = 0,
+    
+    @SerializedName("current_streak")
+    val currentStreak: Int = 0,
+    
+    @SerializedName("longest_streak")
+    val longestStreak: Int = 0,
+    
+    @SerializedName("burnout_limit")
+    val burnoutLimit: Int = 50,
+    
+    // Estadísticas globales (compatibilidad)
+    @SerializedName("reviews_count") 
+    val reviewsCount: Int = 0,
+    
+    @SerializedName("words_count")
+    val wordsCount: Int = 0
 )
 
 data class LearningLanguage(
@@ -68,7 +83,12 @@ data class LearningLanguage(
     val level: String,
     @SerializedName("started_at") val startedAt: String? = null,
     @SerializedName("last_tested") val lastTested: String? = null,
-    @SerializedName("wordsLearned") val wordsLearned: Int = 0  // 🔥 AÑADIR ESTE CAMPO
+    
+    // ✨ FASE 2.5: Progreso y gestión
+    @SerializedName("daily_goal") val dailyGoal: Int = 10,
+    @SerializedName("reviews_pending") val reviewsPending: Int = 0,
+    @SerializedName("is_active") val isActive: Boolean = true,
+    @SerializedName("words_learned") val wordsLearned: Int = 0
 )
 
 // Solicitudes de cambio de perfil
@@ -184,6 +204,7 @@ data class UserWord(
 data class AddWordRequest(
     val word: String,
     val translation: String?,
+    val language: String,  // 🌍 OBLIGATORIO: código del idioma
     val notes: String?,
     val type: String,
     val example: String?,
@@ -246,4 +267,24 @@ data class MessageResponse(val message: String)
 data class AvatarUpdateResponse(
     @SerializedName("avatar_url") val avatarUrl: String,
     val message: String
+)
+
+// ===========================================================
+// 9️⃣ GESTIÓN DE IDIOMAS (Fase 2.5)
+// ===========================================================
+data class AddLanguageRequest(
+    val language: String,
+    val level: String
+)
+
+data class ReorderLanguagesRequest(
+    @SerializedName("language_order") val languageOrder: List<String>
+)
+
+data class UpdateDailyGoalRequest(
+    @SerializedName("daily_goal") val dailyGoal: Int
+)
+
+data class UpdateLevelRequest(
+    @SerializedName("level") val level: String
 )

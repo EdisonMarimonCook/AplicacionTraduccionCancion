@@ -49,6 +49,12 @@ class Settings(BaseSettings):
     MAIL_PORT: int = 587
     MAIL_SERVER: str = "smtp.gmail.com"
     
+    # ===== SENDGRID (Alternativa a SMTP para producción) =====
+    SENDGRID_API_KEY: Optional[str] = None
+    
+    # ===== BREVO (Antes Sendinblue - Mejor alternativa) =====
+    BREVO_API_KEY: Optional[str] = None
+    
     # ===== CLOUDINARY (Subida de avatares) =====
     CLOUDINARY_URL: Optional[str] = None
     

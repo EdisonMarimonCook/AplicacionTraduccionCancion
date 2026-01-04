@@ -18,6 +18,7 @@ import androidx.cardview.widget.CardView
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 
 class FlashcardsActivity : AppCompatActivity() {
 
@@ -57,6 +58,10 @@ class FlashcardsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_flashcards)
+
+        // 🔧 Aplicar WindowInsets para controles inferiores
+        val rootView = findViewById<View>(android.R.id.content)
+        WindowInsetsHelper.applySystemBarInsets(rootView)
 
         initViews()
         setupCardPhysics()

@@ -74,6 +74,11 @@
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
         <activity 
+            android:name=".ManageLanguagesActivity" 
+            android:exported="false" 
+            android:label="Gestionar idiomas"
+            android:screenOrientation="portrait" />
+        <activity 
             android:name=".SettingsActivity" 
             android:exported="false" 
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"

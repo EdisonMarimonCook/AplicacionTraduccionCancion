@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import coil.load
 import coil.transform.RoundedCornersTransformation
 import java.util.concurrent.TimeUnit
+import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 
 
 class SongLearningActivity : AppCompatActivity() {
@@ -68,7 +69,11 @@ class SongLearningActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_learning)
 
-        // 🔥 INICIALIZAR EL MOTOR NUCLEAR AQUÍ
+        // � Aplicar WindowInsets para controles de reproducción
+        val rootView = findViewById<View>(android.R.id.content)
+        WindowInsetsHelper.applySystemBarInsets(rootView)
+
+        // �🔥 INICIALIZAR EL MOTOR NUCLEAR AQUÍ
         try {
             com.yausername.youtubedl_android.YoutubeDL.getInstance().init(applicationContext)
             // Opcional: inicializar FFmpeg si fuera necesario, pero para sacar URL suele sobrar

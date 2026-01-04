@@ -7,6 +7,7 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 
 class MainActivity : AppCompatActivity() {
 
@@ -31,6 +32,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         viewPager = findViewById(R.id.viewPager)
         bottomNav = findViewById(R.id.bottom_navigation)
+
+        // 🔧 Aplicar insets solo a la barra inferior
+        WindowInsetsHelper.applyBottomInsets(bottomNav)
 
         // Restaurar página guardada
         currentPage = savedInstanceState?.getInt("current_page", 1) ?: 1

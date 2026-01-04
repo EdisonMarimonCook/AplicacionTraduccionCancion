@@ -44,6 +44,9 @@ from routers import (
     audio_router  # 👈 Importamos el OBJETO router, no el archivo
 )
 
+# 2. Routers Fase 2.5
+from routers.languages import router as languages_router
+
 # ===============================================================================
 # CONFIGURAR LOGGING
 # ===============================================================================
@@ -92,6 +95,9 @@ async def startup_event():
 
     # 3. Precargar Cache (Top 10) en segundo plano
     asyncio.create_task(update_top10_cache())
+    
+    # 4. 🧹 Iniciar tarea de limpieza de cuentas no verificadas
+    asyncio.create_task(periodic_cleanup())
 
 async def update_top10_cache():
     """Tarea en segundo plano para actualizar cache de canciones"""
@@ -105,6 +111,33 @@ async def update_top10_cache():
         logger.info("✅ Cache actualizada")
     except Exception as e:
         logger.error(f"❌ Error actualizando cache: {e}")
+
+async def periodic_cleanup():
+    """
+    🧹 Tarea periódica de limpieza (cada hora)
+    - Elimina cuentas no verificadas > 24h
+    - Limpia códigos de verificación expirados > 30min
+    """
+    from tasks.cleanup import cleanup_unverified_accounts, cleanup_old_verification_codes
+    
+    while True:
+        try:
+            # Esperar 1 hora entre limpiezas
+            await asyncio.sleep(3600)  # 3600 segundos = 1 hora
+            
+            logger.info("🧹 Ejecutando limpieza automática...")
+            
+            # Limpiar cuentas no verificadas
+            deleted_accounts = await cleanup_unverified_accounts()
+            
+            # Limpiar códigos expirados
+            deleted_codes = await cleanup_old_verification_codes()
+            
+            logger.info(f"✅ Limpieza completada: {deleted_accounts} cuentas, {deleted_codes} códigos")
+            
+        except Exception as e:
+            logger.error(f"❌ Error en limpieza periódica: {e}")
+            await asyncio.sleep(3600)  # Esperar 1 hora antes de reintentar
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -165,8 +198,7 @@ app.include_router(users_router)
 app.include_router(progress_router) 
 app.include_router(flashcards_router)
 app.include_router(audio_router)
-
-app.include_router(audio_router)
+app.include_router(languages_router)  # ✨ Fase 2.5
 # MANEJO DE ERRORES
 # ===============================================================================
 

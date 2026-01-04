@@ -19,7 +19,12 @@ class LearningLanguage(BaseModel):
     level: str = "A1"
     started_at: Optional[datetime] = None
     last_tested: Optional[datetime] = None
-    words_learned: int = 0  # 🔥 AÑADIR ESTE CAMPO
+    
+    # ✨ FASE 2.5: Campos de progreso y gestión
+    daily_goal: int = 10
+    reviews_pending: int = 0
+    is_active: bool = True
+    words_learned: int = 0
 
 class Token(BaseModel):
     access_token: str
@@ -95,7 +100,14 @@ class UserProfileResponse(BaseModel):
     created_at: datetime
     is_active: bool = True
     
-    streak: int = 0
+    # ✨ FASE 2.5: Gamificación y multi-idioma
+    primary_language: str = "en"
+    total_xp: int = 0
+    current_streak: int = 0
+    longest_streak: int = 0
+    burnout_limit: int = 50
+    
+    # Estadísticas globales (compatibilidad)
     reviews_count: int = 0
     words_count: int = 0
 
@@ -110,6 +122,9 @@ class DictionaryEntryCreate(BaseModel):
     """
     word: str = Field(..., min_length=1, max_length=100)
     translation: Optional[str] = None
+    
+    # 🌍 IDIOMA (OBLIGATORIO para multi-idioma)
+    language: str = Field(..., min_length=2, max_length=10, description="Código del idioma (en, es, fr, etc.)")
     
     # 📂 CARPETAS: 'word' vs 'expression'
     type: str = Field(default="word", description="word, expression, idiom")

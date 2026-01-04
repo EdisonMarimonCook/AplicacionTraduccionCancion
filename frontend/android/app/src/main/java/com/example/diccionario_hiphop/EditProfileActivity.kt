@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import retrofit2.Response
+import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 
 class EditProfileActivity : AppCompatActivity() {
 
@@ -40,6 +41,10 @@ class EditProfileActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_profile)
+
+        // 🔧 Aplicar WindowInsets para todos los elementos
+        val rootView = findViewById<View>(android.R.id.content)
+        WindowInsetsHelper.applySystemBarInsets(rootView)
 
         initViews()
         setupMenuNavigation()
