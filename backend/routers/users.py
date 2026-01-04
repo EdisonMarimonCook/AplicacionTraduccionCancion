@@ -39,11 +39,12 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 async def get_user_profile(current_user: User = Depends(get_current_user)):
     try:
         # 🔥 Obtener solo idiomas activos para contadores globales
-        active_languages = [
-            getattr(lang, 'language', lang.get('language')) 
-            for lang in (current_user.learning_languages or [])
-            if getattr(lang, 'is_active', lang.get('is_active', True) if hasattr(lang, 'get') else True)
-        ]
+        active_languages = []
+        if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
+            for lang in current_user.learning_languages:
+                lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+                if lang_dict.get('is_active', True):
+                    active_languages.append(lang_dict.get('language'))
         
         reviews_count = await db.count_user_flashcards_reviews(
             str(current_user.id), 
@@ -333,11 +334,12 @@ async def change_email(
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     try:
         # 🔥 Filtrar solo idiomas activos
-        active_languages = [
-            getattr(lang, 'language', lang.get('language')) 
-            for lang in (current_user.learning_languages or [])
-            if getattr(lang, 'is_active', lang.get('is_active', True) if hasattr(lang, 'get') else True)
-        ]
+        active_languages = []
+        if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
+            for lang in current_user.learning_languages:
+                lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+                if lang_dict.get('is_active', True):
+                    active_languages.append(lang_dict.get('language'))
         
         # 🔥 CALCULAR REPASOS DINÁMICAMENTE (solo idiomas activos)
         reviews_count = await db.count_user_flashcards_reviews(

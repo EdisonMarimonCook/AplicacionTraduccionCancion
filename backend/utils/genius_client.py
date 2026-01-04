@@ -20,11 +20,10 @@ logger = logging.getLogger(__name__)
 # Imports opcionales para YouTube
 try:
     from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound
-    from youtubesearchpython import VideosSearch
     YOUTUBE_AVAILABLE = True
 except ImportError:
     YOUTUBE_AVAILABLE = False
-    logger.warning("⚠️ youtube-transcript-api no disponible. Instala: pip install youtube-transcript-api youtube-search-python")
+    logger.warning("⚠️ youtube-transcript-api no disponible. Instala: pip install youtube-transcript-api")
 
 # Token de Genius (Solo se usa para la búsqueda inicial en la API oficial)
 GENIUS_ACCESS_TOKEN = settings.GENIUS_API_TOKEN
@@ -194,24 +193,29 @@ def get_lyrics_youtube_transcripts(title: str, artist: str) -> Optional[Dict]:
         return None
         
     try:
-        # 1. Buscar el video en YouTube
+        # 1. Buscar video en YouTube usando requests simple
         search_query = f"{title} {artist} lyrics"
         logger.info(f"🔍 [YouTube] Buscando: {search_query}")
         
-        videos_search = VideosSearch(search_query, limit=1)
-        results = videos_search.result()
+        # Usar la búsqueda web de YouTube (sin APIs complicadas)
+        search_url = "https://www.youtube.com/results"
+        params = {"search_query": search_query}
+        headers = {"User-Agent": "Mozilla/5.0"}
         
-        if not results.get('result'):
+        response = requests.get(search_url, params=params, headers=headers, timeout=10)
+        
+        # Extraer primer video_id del HTML (regex simple)
+        import re
+        video_id_match = re.search(r'"videoId":"([^"]{11})"', response.text)
+        
+        if not video_id_match:
             logger.warning("⚠️ [YouTube] No se encontró video")
             return None
             
-        video_id = results['result'][0]['id']
-        video_title = results['result'][0]['title']
-        
-        logger.info(f"📺 [YouTube] Video encontrado: {video_title} (ID: {video_id})")
+        video_id = video_id_match.group(1)
+        logger.info(f"📺 [YouTube] Video encontrado (ID: {video_id})")
         
         # 2. Intentar obtener transcripción
-        # Prioridad: Manual > Auto-generados
         transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
         
         # Intentar transcripción manual primero
