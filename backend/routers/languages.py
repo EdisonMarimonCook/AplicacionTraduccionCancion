@@ -193,6 +193,10 @@ async def toggle_language_active(
     - Si es el primary_language y se desactiva, asigna otro como primario
     """
     try:
+        # 🔥 Convertir ID a ObjectId
+        from bson import ObjectId
+        user_id = ObjectId(current_user.id) if isinstance(current_user.id, str) else current_user.id
+        
         # Buscar idioma
         language_index = None
         current_languages = current_user.learning_languages if current_user.learning_languages else []
@@ -209,13 +213,16 @@ async def toggle_language_active(
         lang = current_languages[language_index]
         lang_data = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
         new_state = not lang_data.get("is_active", True)
-        lang_data["is_active"] = new_state
+        
+        logger.info(f"🔄 Toggle {code}: {lang_data.get('is_active', True)} → {new_state}")
         
         # Actualizar en DB
-        await db.db["users"].update_one(
-            {"_id": current_user.id},
+        result = await db.db["users"].update_one(
+            {"_id": user_id},
             {"$set": {f"learning_languages.{language_index}.is_active": new_state}}
         )
+        
+        logger.info(f"💾 Update result: matched={result.matched_count}, modified={result.modified_count}")
         
         # Si desactivamos el primary_language, asignar otro
         updates = {}
@@ -231,7 +238,7 @@ async def toggle_language_active(
             if new_primary:
                 updates["primary_language"] = new_primary
                 await db.db["users"].update_one(
-                    {"_id": current_user.id},
+                    {"_id": user_id},
                     {"$set": updates}
                 )
                 logger.info(f"⚠️ Primary language cambiado de {code} a {new_primary}")
