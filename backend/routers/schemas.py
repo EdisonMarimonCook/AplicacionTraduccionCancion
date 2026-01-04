@@ -123,6 +123,9 @@ class DictionaryEntryCreate(BaseModel):
     word: str = Field(..., min_length=1, max_length=100)
     translation: Optional[str] = None
     
+    # 🌍 IDIOMA (OBLIGATORIO para multi-idioma)
+    language: str = Field(..., min_length=2, max_length=10, description="Código del idioma (en, es, fr, etc.)")
+    
     # 📂 CARPETAS: 'word' vs 'expression'
     type: str = Field(default="word", description="word, expression, idiom")
     
