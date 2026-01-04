@@ -147,7 +147,53 @@ def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
     return None
 
 # ===============================================================================
-# 🛡️ ESTRATEGIA 2: Genius con Stealth Mode (Fallback)
+# 🛡️ ESTRATEGIA 2: Genius API para obtener metadata exacta
+# ===============================================================================
+
+def get_genius_metadata(title: str, artist: str) -> Optional[Dict]:
+    """
+    Busca la canción en Genius API y retorna metadata exacta (título/artista oficiales).
+    No hace scraping, solo consulta la API.
+    Valida que el resultado sea relevante antes de retornarlo.
+    """
+    try:
+        search_url = "https://api.genius.com/search"
+        headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
+        
+        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=5)
+        
+        if resp.status_code != 200:
+            return None
+            
+        hits = resp.json().get("response", {}).get("hits", [])
+        if not hits:
+            return None
+            
+        hit = hits[0]["result"]
+        genius_title = hit["title"]
+        genius_artist = hit["primary_artist"]["name"]
+        
+        # 🔥 Validar relevancia: al menos una palabra del título original debe coincidir
+        title_words = set(title.lower().split())
+        genius_title_words = set(genius_title.lower().split())
+        
+        if not title_words & genius_title_words:  # Sin intersección
+            logger.warning(f"⚠️ [Genius API] Resultado irrelevante: '{genius_title}' vs '{title}'")
+            return None
+        
+        logger.info(f"✅ [Genius API] Metadata encontrada: {genius_title} - {genius_artist}")
+        
+        return {
+            "title": genius_title,
+            "artist": genius_artist,
+            "url": hit["url"]
+        }
+    except Exception as e:
+        logger.warning(f"⚠️ [Genius API] Error obteniendo metadata: {e}")
+        return None
+
+# ===============================================================================
+# 🛡️ ESTRATEGIA 3: Genius Scraping con Stealth Mode (Último recurso)
 # ===============================================================================
 
 def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
@@ -233,19 +279,31 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
 
 async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     """
-    Orquestador con 2 niveles de fallback:
-    1. LRCLIB (rápido, confiable, sin bloqueos)
-    2. Genius Stealth (scraping anti-Cloudflare)
+    Orquestador optimizado con 3 niveles:
+    1. LRClib con datos originales
+    2. Genius API (metadata) → Reintentar LRClib con datos exactos
+    3. Genius Scraping (último recurso)
     """
     logger.info(f"🎵 Buscando letra: '{song_title}' - {artist_name}")
 
-    # Prioridad 1: LRCLIB
+    # Nivel 1: LRClib con datos originales
     result = get_lyrics_lrclib(song_title, artist_name)
     if result:
         return result
-        
-    # Prioridad 2: Genius Stealth
-    logger.warning("⚠️ LRCLIB falló. Activando protocolo Genius Stealth...")
+    
+    # Nivel 2: Obtener metadata exacta de Genius y reintentar LRClib
+    logger.warning("⚠️ LRClib falló. Obteniendo metadata de Genius para reintento...")
+    genius_meta = get_genius_metadata(song_title, artist_name)
+    
+    if genius_meta:
+        # Reintentar LRClib con título/artista exactos de Genius
+        logger.info(f"🔄 Reintentando LRClib con datos de Genius: {genius_meta['title']} - {genius_meta['artist']}")
+        result = get_lyrics_lrclib(genius_meta['title'], genius_meta['artist'])
+        if result:
+            return result
+    
+    # Nivel 3: Scraping de Genius (último recurso)
+    logger.warning("⚠️ Última opción: Activando protocolo Genius Stealth...")
     result = get_lyrics_genius_advanced(song_title, artist_name)
     
     return result
