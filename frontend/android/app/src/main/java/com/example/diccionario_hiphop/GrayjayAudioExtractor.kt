@@ -16,10 +16,28 @@ data class AudioResult(
 
 object GrayjayAudioExtractor {
 
+    // 🔥 Función helper para normalizar búsqueda
+    private fun normalizeQuery(query: String): String {
+        val normalized = query
+            .replace(Regex("""\s*-\s*Anime Size""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*-\s*TV Size""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*-\s*Remake Ver\.?""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*\(Official.*?\)""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*\(Lyric.*?\)""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*\(Audio\)""", RegexOption.IGNORE_CASE), "")
+            .trim()
+            .replace(Regex("""\s+"""), " ") // Espacios múltiples
+        
+        Log.d("LocalExtractor", "🔄 Query normalizado: '$query' → '$normalized'")
+        return normalized
+    }
+
     // Esta función se debe llamar desde una Corrutina (Dispatchers.IO)
     suspend fun getAudioWithMetadata(originalQuery: String): AudioResult? {
         return withContext(Dispatchers.IO) {
-            val query = "$originalQuery lyrics audio"
+            // 🔥 Normalizar query antes de buscar
+            val cleanQuery = normalizeQuery(originalQuery)
+            val query = "$cleanQuery official audio"  // Cambiado: "official audio" más específico
             Log.d("LocalExtractor", "☢️ Iniciando yt-dlp local para: $query")
 
             try {

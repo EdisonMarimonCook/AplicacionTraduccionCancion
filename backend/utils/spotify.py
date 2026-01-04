@@ -3,6 +3,7 @@ Cliente de Spotify para enriquecer datos de canciones + Fallback iTunes + Grammy
 """
 
 import logging
+import re
 import requests
 from typing import Optional, Dict, List
 import spotipy
@@ -10,6 +11,25 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# ===============================================================================
+# UTILIDADES
+# ===============================================================================
+
+def normalize_title(text: str) -> str:
+    """Normaliza títulos para mejorar búsquedas (elimina ruido)"""
+    patterns = [
+        r'\s*-\s*Anime Size',
+        r'\s*-\s*TV Size',
+        r'\s*-\s*Remake Ver\.?',
+        r'\s*\(Official.*?\)',
+        r'\s*\(Lyric.*?\)',
+        r'\s*\(Audio\)',
+    ]
+    result = text
+    for pattern in patterns:
+        result = re.sub(pattern, '', result, flags=re.IGNORECASE)
+    return ' '.join(result.split()).strip()
 
 # ===============================================================================
 # CONFIGURACIÓN: Listas MVP (Grammys / Hits)
@@ -130,14 +150,38 @@ def get_grammy_songs(lang: str = "en") -> List[Dict]:
     return list(unique_tracks)
 
 async def enrich_single_song(title: str, artist: str) -> Dict:
-    """Busca metadatos detallados + intento fuerte de audio"""
+    """
+    Busca metadatos detallados + audio con validación de relevancia.
+    Intenta con título original y luego normalizado.
+    """
+    # Intentar primero con título original
     search_query = f"{title} {artist}"
-    # Pedimos 1 resultado, la función search_songs_spotify ya aplicará iTunes Rescue
-    tracks = search_songs_spotify(search_query, limit=1)
+    tracks = search_songs_spotify(search_query, limit=5)
+    
+    # Si no hay resultados, probar con título normalizado
+    if not tracks:
+        normalized_title = normalize_title(title)
+        if normalized_title != title:
+            logger.info(f"🔄 Reintentando con título normalizado: {normalized_title}")
+            search_query = f"{normalized_title} {artist}"
+            tracks = search_songs_spotify(search_query, limit=5)
     
     if not tracks:
         return {}
+    
+    # 🔥 Validar relevancia: al menos una palabra del título debe coincidir
+    title_words = set(normalize_title(title).lower().split())
+    
+    for track in tracks:
+        track_title_words = set(track['name'].lower().split())
         
+        # Si hay intersección de palabras, es un resultado válido
+        if title_words & track_title_words:
+            logger.info(f"✅ Audio encontrado: {track['name']} - {track['artist']}")
+            return track
+    
+    # Si ninguno coincide, retornar el primero con advertencia
+    logger.warning(f"⚠️ Sin coincidencias exactas, usando primer resultado: {tracks[0]['name']}")
     return tracks[0]
 
 # 🔥 ESTA ES LA FUNCIÓN QUE FALTABA Y DABA ERROR EN MAIN.PY
