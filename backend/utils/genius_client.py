@@ -8,10 +8,12 @@ ESTRATEGIA:
 
 import logging
 from typing import Optional, List, Dict
+import re
 import requests  # Para LRCLIB (API amigable)
 from curl_cffi import requests as cffi_requests  # 🚀 EL ARMA SECRETA ANTI-CLOUDFLARE
 from bs4 import BeautifulSoup
 from langdetect import detect, LangDetectException
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,32 @@ GENIUS_ACCESS_TOKEN = settings.GENIUS_API_TOKEN
 # ===============================================================================
 # 🛠️ UTILIDADES
 # ===============================================================================
+
+def normalize_search_query(text: str) -> str:
+    """
+    Normaliza nombres de canciones/artistas para mejorar búsquedas.
+    Elimina: "feat.", "Remix", "Remake Ver.", "(Official)", etc.
+    """
+    # Lista de patrones a eliminar
+    patterns = [
+        r'\s*-\s*Remake Ver\.?',
+        r'\s*-\s*Remaster',
+        r'\s*\(Remix\)',
+        r'\s*\(Official.*?\)',
+        r'\s*\(Lyric.*?\)',
+        r'\s*\(Audio\)',
+        r'\s*feat\..*',
+        r'\s*ft\..*',
+        r'\s*&.*',  # Colaboraciones después de &
+    ]
+    
+    result = text
+    for pattern in patterns:
+        result = re.sub(pattern, '', result, flags=re.IGNORECASE)
+    
+    # Limpiar espacios extras
+    result = ' '.join(result.split())
+    return result.strip()
 
 def detect_language_from_text(text: str, min_length: int = 50) -> str:
     """Detecta idioma del texto, default 'en' si falla o es muy corto"""
@@ -43,55 +71,129 @@ def detect_language_from_text(text: str, min_length: int = 50) -> str:
 # 🚀 ESTRATEGIA 1: LRCLIB (Prioridad Alta)
 # ===============================================================================
 
+@retry(
+    stop=stop_after_attempt(2),  # Solo 2 intentos (más rápido)
+    wait=wait_exponential(multiplier=1, min=1, max=2),  # Max 2s de espera
+    retry=retry_if_exception_type((requests.exceptions.SSLError, requests.exceptions.ConnectionError)),
+    reraise=True
+)
+def _lrclib_request(url: str, params: dict) -> requests.Response:
+    """Helper con retry automático para errores SSL/conexión temporales"""
+    return requests.get(url, params=params, timeout=5)  # Timeout reducido a 5s
+
 def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
     """
-    Busca letras en LRCLIB.net
+    Busca letras en LRCLIB.net con normalización y retry automático.
+    Máximo 2 variaciones para no tardar demasiado.
     Ventajas: Gratis, Open Source, Sin Cloudflare, Muy rápido.
     """
+    # Solo las 2 variaciones más útiles (no las 4)
+    variations = [
+        (title, artist),  # Original (siempre primero)
+        (normalize_search_query(title), normalize_search_query(artist)),  # Ambos normalizados
+    ]
+    
+    for attempt_title, attempt_artist in variations:
+        try:
+            url = "https://lrclib.net/api/get"
+            params = {
+                "artist_name": attempt_artist,
+                "track_name": attempt_title
+            }
+            
+            logger.info(f"🔍 [LRCLIB] Intentando: '{attempt_title}' - {attempt_artist}")
+            
+            # Usar helper con retry automático (2 intentos max, 5s timeout)
+            response = _lrclib_request(url, params)
+            
+            if response.status_code == 404:
+                continue  # Probar siguiente variación
+                
+            response.raise_for_status()
+            data = response.json()
+            
+            plain_lyrics = data.get("plainLyrics")
+            if not plain_lyrics:
+                continue
+
+            # Detectar idioma
+            lang = detect_language_from_text(plain_lyrics)
+            lines = [line.strip() for line in plain_lyrics.split("\n") if line.strip()]
+
+            logger.info(f"✅ [LRCLIB] Letra encontrada: {attempt_title} ({len(lines)} líneas)")
+            
+            return {
+                "source": "LRCLIB",
+                "title": data.get("trackName", title),
+                "artist": data.get("artistName", artist),
+                "url": None, 
+                "lyrics": plain_lyrics,
+                "lines": lines,
+                "line_count": len(lines),
+                "language": lang,
+                "synced_lyrics": data.get("syncedLyrics")
+            }
+
+        except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
+            # Si después de 2 reintentos sigue fallando, probar siguiente variación
+            logger.warning(f"⚠️ [LRCLIB] Error de conexión (reintentado 2 veces): {type(e).__name__}")
+            continue
+        except Exception as e:
+            logger.warning(f"⚠️ [LRCLIB] Error en búsqueda: {type(e).__name__}")
+            continue
+    
+    # Si ninguna variación funcionó
+    logger.warning(f"⚠️ [LRCLIB] No se encontró letra después de {len(variations)} intentos")
+    return None
+
+# ===============================================================================
+# 🛡️ ESTRATEGIA 2: Genius API para obtener metadata exacta
+# ===============================================================================
+
+def get_genius_metadata(title: str, artist: str) -> Optional[Dict]:
+    """
+    Busca la canción en Genius API y retorna metadata exacta (título/artista oficiales).
+    No hace scraping, solo consulta la API.
+    Valida que el resultado sea relevante antes de retornarlo.
+    """
     try:
-        url = "https://lrclib.net/api/get"
-        params = {
-            "artist_name": artist,
-            "track_name": title
-        }
+        search_url = "https://api.genius.com/search"
+        headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
         
-        # Usamos requests normal porque esta API es amigable
-        response = requests.get(url, params=params, timeout=8)
+        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=5)
         
-        if response.status_code == 404:
+        if resp.status_code != 200:
             return None
             
-        response.raise_for_status()
-        data = response.json()
-        
-        plain_lyrics = data.get("plainLyrics")
-        if not plain_lyrics:
+        hits = resp.json().get("response", {}).get("hits", [])
+        if not hits:
             return None
-
-        # Detectar idioma
-        lang = detect_language_from_text(plain_lyrics)
-        lines = [line.strip() for line in plain_lyrics.split("\n") if line.strip()]
-
-        logger.info(f"✅ [LRCLIB] Letra encontrada: {title} ({len(lines)} líneas)")
+            
+        hit = hits[0]["result"]
+        genius_title = hit["title"]
+        genius_artist = hit["primary_artist"]["name"]
+        
+        # 🔥 Validar relevancia: al menos una palabra del título original debe coincidir
+        title_words = set(title.lower().split())
+        genius_title_words = set(genius_title.lower().split())
+        
+        if not title_words & genius_title_words:  # Sin intersección
+            logger.warning(f"⚠️ [Genius API] Resultado irrelevante: '{genius_title}' vs '{title}'")
+            return None
+        
+        logger.info(f"✅ [Genius API] Metadata encontrada: {genius_title} - {genius_artist}")
         
         return {
-            "source": "LRCLIB",
-            "title": data.get("trackName", title),
-            "artist": data.get("artistName", artist),
-            "url": None, 
-            "lyrics": plain_lyrics,
-            "lines": lines,
-            "line_count": len(lines),
-            "language": lang,
-            "synced_lyrics": data.get("syncedLyrics") # 🎁 Guardado para futuro karaoke
+            "title": genius_title,
+            "artist": genius_artist,
+            "url": hit["url"]
         }
-
     except Exception as e:
-        logger.warning(f"⚠️ [LRCLIB] No encontrado o error: {e}")
+        logger.warning(f"⚠️ [Genius API] Error obteniendo metadata: {e}")
         return None
 
 # ===============================================================================
-# 🛡️ ESTRATEGIA 2: Genius con Stealth Mode (Fallback)
+# 🛡️ ESTRATEGIA 3: Genius Scraping con Stealth Mode (Último recurso)
 # ===============================================================================
 
 def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
@@ -122,7 +224,7 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
         response = cffi_requests.get(
             song_url, 
             impersonate="chrome120",  # 👈 Aquí ocurre la magia
-            timeout=15
+            timeout=10  # Timeout reducido
         )
 
         if response.status_code != 200:
@@ -177,17 +279,31 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
 
 async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
     """
-    Orquestador: Intenta LRCLIB primero, luego Genius.
+    Orquestador optimizado con 3 niveles:
+    1. LRClib con datos originales
+    2. Genius API (metadata) → Reintentar LRClib con datos exactos
+    3. Genius Scraping (último recurso)
     """
     logger.info(f"🎵 Buscando letra: '{song_title}' - {artist_name}")
 
-    # Prioridad 1: LRCLIB
+    # Nivel 1: LRClib con datos originales
     result = get_lyrics_lrclib(song_title, artist_name)
     if result:
         return result
-        
-    # Prioridad 2: Genius Stealth
-    logger.warning("⚠️ LRCLIB falló. Activando protocolo Genius Stealth...")
+    
+    # Nivel 2: Obtener metadata exacta de Genius y reintentar LRClib
+    logger.warning("⚠️ LRClib falló. Obteniendo metadata de Genius para reintento...")
+    genius_meta = get_genius_metadata(song_title, artist_name)
+    
+    if genius_meta:
+        # Reintentar LRClib con título/artista exactos de Genius
+        logger.info(f"🔄 Reintentando LRClib con datos de Genius: {genius_meta['title']} - {genius_meta['artist']}")
+        result = get_lyrics_lrclib(genius_meta['title'], genius_meta['artist'])
+        if result:
+            return result
+    
+    # Nivel 3: Scraping de Genius (último recurso)
+    logger.warning("⚠️ Última opción: Activando protocolo Genius Stealth...")
     result = get_lyrics_genius_advanced(song_title, artist_name)
     
     return result

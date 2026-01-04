@@ -38,9 +38,21 @@ router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 @router.get("/profile", response_model=UserProfileResponse)
 async def get_user_profile(current_user: User = Depends(get_current_user)):
     try:
-        reviews_count = await db.count_user_flashcards_reviews(str(current_user.id))
+        # 🔥 Obtener solo idiomas activos para contadores globales
+        active_languages = []
+        if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
+            for lang in current_user.learning_languages:
+                lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+                if lang_dict.get('is_active', True):
+                    active_languages.append(lang_dict.get('language'))
+        
+        reviews_count = await db.count_user_flashcards_reviews(
+            str(current_user.id), 
+            active_languages_only=active_languages
+        )
         words_count = await db.db["dictionary_entries"].count_documents({
-            "user_id": str(current_user.id)
+            "user_id": str(current_user.id),
+            "language": {"$in": active_languages} if active_languages else {"$exists": True}
         })
         streak = getattr(current_user, 'current_streak', 0)
         
@@ -321,8 +333,19 @@ async def change_email(
 @router.get("/me", response_model=UserProfileResponse)
 async def get_current_user_profile(current_user: User = Depends(get_current_user)):
     try:
-        # 🔥 CALCULAR REPASOS DINÁMICAMENTE
-        reviews_count = await db.count_user_flashcards_reviews(str(current_user.id))
+        # 🔥 Filtrar solo idiomas activos
+        active_languages = []
+        if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
+            for lang in current_user.learning_languages:
+                lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+                if lang_dict.get('is_active', True):
+                    active_languages.append(lang_dict.get('language'))
+        
+        # 🔥 CALCULAR REPASOS DINÁMICAMENTE (solo idiomas activos)
+        reviews_count = await db.count_user_flashcards_reviews(
+            str(current_user.id),
+            active_languages_only=active_languages
+        )
         
         # Racha actual
         streak = getattr(current_user, 'current_streak', 0)

@@ -6,7 +6,10 @@ import retrofit2.Response
 class DictionaryRepository(context: Context) {
     private val apiService = RetrofitService.getInstance(context)
 
-    suspend fun getDictionary(type: String? = null): Response<List<UserWord>> {
-        return apiService.getDictionary(type)
+    suspend fun getDictionary(
+        language: String? = null,
+        type: String? = null
+    ): Response<List<UserWord>> {
+        return apiService.getDictionary(language, type)
     }
 }

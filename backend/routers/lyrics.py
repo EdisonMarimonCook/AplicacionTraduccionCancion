@@ -26,8 +26,15 @@ async def get_lyrics(
     try:
         logger.info(f"📄 Procesando canción: {title} - {artist}")
         
-        # 1. Obtener Letras (Genius/LRCLIB) - TOLERANTE A FALLOS
-        lyrics_data = await get_song_lyrics(title, artist)
+        # 1. Obtener Letras con timeout máximo de 20s (no eternizar espera)
+        try:
+            lyrics_data = await asyncio.wait_for(
+                get_song_lyrics(title, artist),
+                timeout=20.0  # 20 segundos máximo total
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"⏱️ Timeout buscando letra (>20s): {title} - {artist}")
+            lyrics_data = None
         
         # 2. Buscar Preview en iTunes/Spotify (Rápido)
         song_meta = await enrich_single_song(title, artist)

@@ -218,16 +218,27 @@ class MongoDatabase:
             logger.error(f"Error contando diccionario: {e}")
             return 0
 
-    async def count_user_flashcards_reviews(self, user_id: str) -> int:
+    async def count_user_flashcards_reviews(
+        self, 
+        user_id: str, 
+        active_languages_only: list = None
+    ) -> int:
         """
         Cuenta flashcards pendientes de repaso (next_review_date <= HOY)
+        Opcionalmente filtra solo idiomas activos.
         """
         try:
             from datetime import datetime, timezone
             
             # 1. Obtener IDs de palabras del usuario que tienen ejemplo
+            query = {"user_id": user_id, "example": {"$exists": True, "$ne": ""}}
+            
+            # 🔥 Filtrar por idiomas activos si se especifica
+            if active_languages_only is not None:
+                query["language"] = {"$in": active_languages_only}
+            
             user_words = await self.db["dictionary_entries"].find(
-                {"user_id": user_id, "example": {"$exists": True, "$ne": ""}},
+                query,
                 {"_id": 1}
             ).to_list(None)
             

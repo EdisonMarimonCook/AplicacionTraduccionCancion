@@ -5,6 +5,7 @@ PROPÓSITO: Análisis contextual con ejemplos para Flashcards y clasificación.
 
 import logging
 import json
+import asyncio
 from typing import Optional
 from google.genai import Client
 from config import settings
@@ -14,7 +15,8 @@ from fastapi import HTTPException, status
 logger = logging.getLogger(__name__)
 
 # ===== CONFIGURACIÓN =====
-MODEL_NAME = "gemini-2.5-flash-lite" 
+MODEL_NAME = "gemini-2.5-flash-lite"
+GEMINI_TIMEOUT = 120  # 🔥 Timeout para canciones largas (2 minutos) 
 
 _client: Optional[Client] = None
 
@@ -28,6 +30,7 @@ def get_gemini_client() -> Client:
 async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: str = "es") -> HighlightWordsResponse:
     """
     Analiza la letra y extrae vocabulario con EJEMPLOS y CONTEXTO.
+    Usa timeout de 120s para canciones largas.
     """
     client = get_gemini_client()
     
@@ -98,13 +101,17 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL_NAME,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json"
-            }
-        )
+        # 🔥 Wrapper async para la llamada síncrona de Gemini con timeout
+        async def _generate_content():
+            return await asyncio.to_thread(
+                client.models.generate_content,
+                model=MODEL_NAME,
+                contents=prompt,
+                config={"response_mime_type": "application/json"}
+            )
+        
+        # Aplicar timeout de 120 segundos para canciones largas
+        response = await asyncio.wait_for(_generate_content(), timeout=GEMINI_TIMEOUT)
         
         # Parseamos JSON crudo
         data = json.loads(response.text)
@@ -133,6 +140,12 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
         # Validamos con Pydantic
         return HighlightWordsResponse(**data)
 
+    except asyncio.TimeoutError:
+        logger.error(f"❌ Timeout de Gemini ({GEMINI_TIMEOUT}s) - Canción demasiado larga")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"La canción es demasiado larga. Gemini tardó más de {GEMINI_TIMEOUT}s en responder."
+        )
     except json.JSONDecodeError as e:
         logger.error(f"❌ Gemini envió JSON inválido: {str(e)}")
         logger.debug(f"Respuesta cruda: {response.text[:500]}")
