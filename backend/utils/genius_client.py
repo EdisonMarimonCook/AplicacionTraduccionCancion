@@ -72,28 +72,29 @@ def detect_language_from_text(text: str, min_length: int = 50) -> str:
 # ===============================================================================
 
 @retry(
-    stop=stop_after_attempt(2),  # Solo 2 intentos (más rápido)
-    wait=wait_exponential(multiplier=1, min=1, max=2),  # Max 2s de espera
+    stop=stop_after_attempt(3),  # 3 intentos para casos difíciles
+    wait=wait_exponential(multiplier=1, min=1, max=3),  # Max 3s de espera entre reintentos
     retry=retry_if_exception_type((requests.exceptions.SSLError, requests.exceptions.ConnectionError)),
     reraise=True
 )
 def _lrclib_request(url: str, params: dict) -> requests.Response:
     """Helper con retry automático para errores SSL/conexión temporales"""
-    return requests.get(url, params=params, timeout=5)  # Timeout reducido a 5s
+    return requests.get(url, params=params, timeout=10)  # 🔥 Aumentado a 10s
 
 def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
     """
     Busca letras en LRCLIB.net con normalización y retry automático.
-    Máximo 2 variaciones para no tardar demasiado.
+    Máximo 3 variaciones para manejar artistas múltiples.
     Ventajas: Gratis, Open Source, Sin Cloudflare, Muy rápido.
     """
-    # Solo las 2 variaciones más útiles (no las 4)
+    # 🔥 3 variaciones para manejar casos como "Bowling For Soup" vs "Jaret Reddick"
     variations = [
         (title, artist),  # Original (siempre primero)
-        (normalize_search_query(title), normalize_search_query(artist)),  # Ambos normalizados
+        (normalize_search_query(title), normalize_search_query(artist)),  # Normalizados
+        (normalize_search_query(title), artist.split(',')[0].split('&')[0].strip()),  # Solo primer artista
     ]
     
-    for attempt_title, attempt_artist in variations:
+    for idx, (attempt_title, attempt_artist) in enumerate(variations, 1):
         try:
             url = "https://lrclib.net/api/get"
             params = {
@@ -101,9 +102,9 @@ def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
                 "track_name": attempt_title
             }
             
-            logger.info(f"🔍 [LRCLIB] Intentando: '{attempt_title}' - {attempt_artist}")
+            logger.info(f"🔍 [LRCLIB {idx}/3] '{attempt_title}' - {attempt_artist}")
             
-            # Usar helper con retry automático (2 intentos max, 5s timeout)
+            # Usar helper con retry automático (2 intentos max, 10s timeout)
             response = _lrclib_request(url, params)
             
             if response.status_code == 404:
@@ -160,7 +161,7 @@ def get_genius_metadata(title: str, artist: str) -> Optional[Dict]:
         search_url = "https://api.genius.com/search"
         headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
         
-        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=5)
+        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=10)
         
         if resp.status_code != 200:
             return None
@@ -206,7 +207,7 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
         search_url = "https://api.genius.com/search"
         headers = {"Authorization": f"Bearer {GENIUS_ACCESS_TOKEN}"}
         
-        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=5)
+        resp = requests.get(search_url, params={"q": f"{title} {artist}"}, headers=headers, timeout=10)
         
         if resp.status_code != 200:
             return None

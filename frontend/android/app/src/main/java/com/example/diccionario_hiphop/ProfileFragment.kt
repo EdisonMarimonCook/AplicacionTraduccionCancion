@@ -226,11 +226,21 @@ private fun openCropper(uri: Uri) {
         }
 
         btnFlashcards.setOnClickListener {
-            // Mostrar BottomSheet para seleccionar idioma
-            currentUser?.let { user ->
-                showLanguageSelectionForFlashcards(user)
-            } ?: run {
-                Toast.makeText(requireContext(), "Cargando perfil...", Toast.LENGTH_SHORT).show()
+            // 🔥 Recargar perfil para tener contadores actualizados
+            lifecycleScope.launch {
+                try {
+                    val apiService = RetrofitService.getInstance(requireContext())
+                    val response = apiService.getProfile() 
+
+                    if (response.isSuccessful && response.body() != null) {
+                        val user = response.body()!!
+                        showLanguageSelectionForFlashcards(user)
+                    } else {
+                        Toast.makeText(requireContext(), "Error al cargar idiomas", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 
