@@ -309,13 +309,17 @@ async def update_daily_goal(
         if language_index is None:
             raise HTTPException(status_code=404, detail=f"Idioma '{code}' no encontrado")
         
+        # 🔧 Convertir ID a ObjectId si es string
+        from bson import ObjectId
+        user_id = ObjectId(current_user.id) if isinstance(current_user.id, str) else current_user.id
+        
         # Actualizar daily_goal
-        await db.db["users"].update_one(
-            {"_id": current_user.id},
+        result = await db.db["users"].update_one(
+            {"_id": user_id},
             {"$set": {f"learning_languages.{language_index}.daily_goal": request.daily_goal}}
         )
         
-        logger.info(f"✅ Usuario {current_user.username} cambió meta de {code} a {request.daily_goal}")
+        logger.info(f"✅ Usuario {current_user.username} cambió meta de {code} a {request.daily_goal} (modified={result.modified_count})")
         
         return {
             "message": f"Meta diaria actualizada a {request.daily_goal} palabras/día",
@@ -365,13 +369,22 @@ async def update_level(
         if language_index is None:
             raise HTTPException(status_code=404, detail=f"Idioma '{code}' no encontrado en tu perfil")
         
+        # 🔧 Convertir ID a ObjectId si es string
+        from bson import ObjectId
+        user_id = ObjectId(current_user.id) if isinstance(current_user.id, str) else current_user.id
+        
         # Actualizar level en DB
-        await db.db["users"].update_one(
-            {"_id": current_user.id},
+        result = await db.db["users"].update_one(
+            {"_id": user_id},
             {"$set": {f"learning_languages.{language_index}.level": request.level}}
         )
         
-        logger.info(f"✅ Usuario {current_user.username} cambió nivel de {code} a {request.level}")
+        logger.info(f"✅ Usuario {current_user.username} cambió nivel de {code} a {request.level} (modified={result.modified_count})")
+        
+        if result.modified_count == 0:
+            logger.error(f"❌ update_one no modificó nada. user_id={user_id}, language_index={language_index}")
+            raise HTTPException(status_code=500, detail="No se pudo actualizar el nivel")
+        
         return {"message": f"Nivel actualizado a {request.level}"}
         
     except HTTPException:

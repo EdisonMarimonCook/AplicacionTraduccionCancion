@@ -542,4 +542,4 @@ El backend y la lógica funcionan. Todas las pantallas principales están organi
 
 - **Aviso Importante:** Se ha modificado la configuración de red (RetrofitClient o NetworkModule) para apuntar forzosamente a Render. Esto es para que todos puedan probar el audio y la IA sin configurar el entorno local.
 - **Cambio Crítico:** Se ha añadido lógica Python local (yt-dlp) en el cliente Android. La primera carga de una canción puede tardar unos segundos extra por la inicialización del entorno (necesario avisar a testers).
-- **Fase 2.5 Activa:** A partir del 3 de Enero de 2026, el foco está en implementar gestión multilenguaje. Revisar este documento antes de cualquier cambio en autenticación o perfil de usuario.
+
