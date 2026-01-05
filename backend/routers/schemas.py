@@ -271,3 +271,7 @@ class LyricsResponse(BaseModel):
     # 🎵 AUDIOS
     preview_url: Optional[str] = None      # iTunes (30s, carga instantánea)
     full_audio_url: Optional[str] = None   # Cobalt (Canción completa)
+    
+    # 🔍 VALIDACIÓN DE PRECISIÓN (NUEVO)
+    confidence: Optional[str] = "medium"   # high/medium/low - Confianza en el match
+    validation_warnings: Optional[list] = None  # Advertencias si hay discrepancias

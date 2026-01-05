@@ -55,6 +55,12 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         tvHeader = view.findViewById(R.id.tvHeader)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
         chipScrollView = view.findViewById(R.id.chipScrollView)
+        swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
+        
+        // Configurar SwipeRefreshLayout
+        swipeRefresh.setOnRefreshListener {
+            loadUserProfile()  // Recargar perfil y recomendaciones
+        }
     }
 
     private fun setupRecyclerView() {
@@ -167,6 +173,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 performSearch("Viral 50 Global", isRecommendation = true)
+            } finally {
+                swipeRefresh.isRefreshing = false  // 🔄 Detener animación de refresh
             }
         }
     }
@@ -225,24 +233,53 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
     
     private fun getRecommendationQuery(lang: String, level: String): String {
-        // Adaptar búsqueda según el nivel del usuario
-        val difficulty = when(level) {
-            "A1", "A2" -> "easy"
-            "B1", "B2" -> "popular"
-            "C1", "C2" -> "advanced"
-            else -> "popular"
-        }
-        
+        // Adaptar búsqueda según idioma CON QUERIES REALES Y ESPECÍFICAS
         return when(lang) {
-            "es" -> if (level in listOf("A1", "A2")) "canciones fáciles español" else "Top 50 Spain"
-            "fr" -> if (level in listOf("A1", "A2")) "chansons simples français" else "Top France"
-            "de" -> if (level in listOf("A1", "A2")) "einfache deutsche lieder" else "Top Germany"
-            "pt" -> if (level in listOf("A1", "A2")) "músicas fáceis português" else "Top Brazil"
-            "it" -> if (level in listOf("A1", "A2")) "canzoni facili italiano" else "Top Italy"
-            "ja" -> "J-Pop $difficulty"
-            "ko" -> "K-Pop $difficulty"
-            "zh" -> "C-Pop $difficulty"
-            else -> "Top Hits $difficulty" // inglés
+            "es" -> when(level) {
+                "A1", "A2" -> "Shakira Alejandro Sanz"  // Artistas claros
+                "B1", "B2" -> "Bad Bunny Karol G"
+                else -> "Top 50 Spain"
+            }
+            "fr" -> when(level) {
+                "A1", "A2" -> "Stromae Zaz"  // Francés claro
+                "B1", "B2" -> "Indila Aya Nakamura"
+                else -> "Top France"
+            }
+            "de" -> when(level) {
+                "A1", "A2" -> "Nena Helene Fischer"  // Alemán claro
+                "B1", "B2" -> "Apache 207 Rammstein"
+                else -> "Top Germany"
+            }
+            "pt" -> when(level) {
+                "A1", "A2" -> "Anitta Ivete Sangalo"  // Portugués brasileño
+                "B1", "B2" -> "Top Brasil"
+                else -> "Top Brazil"
+            }
+            "it" -> when(level) {
+                "A1", "A2" -> "Laura Pausini Eros Ramazzotti"  // Italiano claro
+                "B1", "B2" -> "Maneskin Tiziano Ferro"
+                else -> "Top Italy"
+            }
+            "ja" -> when(level) {
+                "N5", "N4" -> "YOASOBI Ado"  // J-Pop popular con pronunciación clara
+                "N3", "N2" -> "米津玄師 Kenshi Yonezu"  // Artistas populares
+                else -> "Official髭男dism King Gnu"
+            }
+            "ko" -> when(level) {
+                "1", "2" -> "BTS Blackpink"  // K-Pop mainstream
+                "3", "4" -> "IU NewJeans"
+                else -> "Stray Kids Seventeen"
+            }
+            "zh" -> when(level) {
+                "1", "2" -> "邓紫棋 GEM"  // Mandarín claro (cantante de Hong Kong/China)
+                "3", "4" -> "周杰伦 Jay Chou"
+                else -> "林俊杰 JJ Lin"
+            }
+            else -> when(level) {  // Inglés
+                "A1", "A2" -> "Ed Sheeran Taylor Swift"  // Inglés claro
+                "B1", "B2" -> "Billie Eilish The Weeknd"
+                else -> "Top Hits Global"
+            }
         }
     }
 
@@ -251,12 +288,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val isAutoRecommendation = isRecommendation || 
             query.startsWith("Viral 50") || 
             query.startsWith("Top ") ||
-            query.contains("-Pop") ||
-            query.contains("canciones fáciles") ||
-            query.contains("chansons simples") ||
-            query.contains("einfache deutsche") ||
-            query.contains("músicas fáceis") ||
-            query.contains("canzoni facili")
+            query.contains("BTS") ||
+            query.contains("YOASOBI") ||
+            query.contains("Shakira") ||
+            query.contains("Stromae") ||
+            query.contains("Nena") ||
+            query.contains("Anitta") ||
+            query.contains("Pausini") ||
+            query.contains("周杰伦") ||
+            query.contains("邓紫棋")
         
         tvHeader.text = if(isAutoRecommendation) "🎧 Descubrir" else "Resultados para '$query'"
         

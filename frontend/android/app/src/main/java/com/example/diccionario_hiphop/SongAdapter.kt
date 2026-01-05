@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
@@ -50,8 +51,35 @@ class SongAdapter(
 
     override fun getItemCount() = songs.size
 
+    // 🔥 OPTIMIZACIÓN: DiffUtil para animaciones suaves (en vez de notifyDataSetChanged)
     fun updateData(newSongs: List<SongItem>) {
+        val diffCallback = SongDiffCallback(songs, newSongs)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        
         songs = newSongs
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
+    }
+    
+    // 🔥 DiffUtil Callback para comparar listas eficientemente
+    private class SongDiffCallback(
+        private val oldList: List<SongItem>,
+        private val newList: List<SongItem>
+    ) : DiffUtil.Callback() {
+        
+        override fun getOldListSize() = oldList.size
+        override fun getNewListSize() = newList.size
+        
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            // Comparar por ID único (asumiendo que SongItem tiene un identificador)
+            val oldItem = oldList[oldItemPosition]
+            val newItem = newList[newItemPosition]
+            // Si no hay ID, comparamos por título + artista (único razonable)
+            return oldItem.title == newItem.title && oldItem.artist == newItem.artist
+        }
+        
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            // Comparar si el contenido completo es igual
+            return oldList[oldItemPosition] == newList[newItemPosition]
+        }
     }
 }
