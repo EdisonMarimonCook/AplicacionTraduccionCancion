@@ -66,7 +66,8 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
         adapter = DictionaryAdapter(
             mutableListOf(),
             onDeleteClick = { word ->
-                // Acción al borrar (opcional por ahora)
+                // Mostrar diálogo de confirmación
+                showDeleteConfirmation(word)
             },
             onAudioClick = { word ->
                 // 🎵 Reproducir audio
@@ -75,6 +76,35 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
         )
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
+    }
+    
+    private fun showDeleteConfirmation(word: UserWord) {
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("¿Eliminar palabra?")
+            .setMessage("¿Estás seguro de que quieres eliminar \"${word.word}\"?")
+            .setPositiveButton("Eliminar") { _, _ ->
+                deleteWord(word)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+    
+    private fun deleteWord(word: UserWord) {
+        lifecycleScope.launch {
+            try {
+                val response = repository.deleteWord(word.id)
+                
+                if (response.isSuccessful) {
+                    // Actualizar UI
+                    adapter.removeWord(word)
+                    Toast.makeText(requireContext(), "Palabra eliminada", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Error al eliminar: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Error de conexión: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
     
     /**

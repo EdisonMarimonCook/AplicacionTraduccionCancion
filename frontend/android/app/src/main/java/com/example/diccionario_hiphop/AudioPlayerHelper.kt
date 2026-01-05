@@ -19,8 +19,8 @@ object AudioPlayerHelper {
     
     /**
      * Reproduce audio con la siguiente prioridad:
-     * 1. Fragmento de YouTube (si tiene URL + timestamps)
-     * 2. TTS del backend (fallback)
+     * 1. TTS del backend (rápido y confiable)
+     * 2. Fragmento de YouTube (si falla TTS o configurado)
      * 
      * @param context Contexto de Android
      * @param text Palabra o expresión a pronunciar
@@ -44,22 +44,23 @@ object AudioPlayerHelper {
                 // Liberar MediaPlayer anterior si existe
                 releasePlayer()
                 
-                // 1️⃣ Intentar fragmento de YouTube si hay datos
-                if (!songYoutubeUrl.isNullOrEmpty() && timestampStart != null && timestampEnd != null) {
-                    Log.d(TAG, "🎯 Intentando extraer fragmento de YouTube...")
-                    val fragmentUrl = extractAudioFragment(songYoutubeUrl, timestampStart, timestampEnd)
-                    
-                    if (fragmentUrl != null) {
-                        playAudioFromUrl(fragmentUrl, timestampStart, timestampEnd, onComplete)
-                        return@withContext
-                    } else {
-                        Log.w(TAG, "⚠️ Fragmento no disponible, usando TTS...")
-                    }
+                // 1️⃣ PRIORIDAD: TTS del backend (rápido y confiable)
+                Log.d(TAG, "🔊 Reproduciendo TTS para: '$text' ($language)")
+                playTTS(context, text, language) {
+                    // Callback cuando TTS termina
+                    onComplete?.invoke()
                 }
                 
-                // 2️⃣ Fallback: TTS del backend
-                Log.d(TAG, "🔊 Usando TTS para: '$text' ($language)")
-                playTTS(context, text, language, onComplete)
+                // 2️⃣ OPCIONAL: Intentar fragmento en segundo plano (para mejorar cache)
+                // Comentado por ahora para evitar consumo de recursos
+                /*
+                if (!songYoutubeUrl.isNullOrEmpty() && timestampStart != null && timestampEnd != null) {
+                    lifecycleScope.launch {
+                        Log.d(TAG, "🎯 Pre-cargando fragmento en background...")
+                        extractAudioFragment(songYoutubeUrl, timestampStart, timestampEnd)
+                    }
+                }
+                */
                 
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error reproduciendo audio: ${e.message}")
@@ -70,6 +71,7 @@ object AudioPlayerHelper {
     
     /**
      * Extrae fragmento de audio usando yt-dlp
+     * Acepta tanto URLs directas como búsquedas ytsearch:
      */
     private suspend fun extractAudioFragment(
         youtubeUrl: String,
@@ -77,9 +79,21 @@ object AudioPlayerHelper {
         endSeconds: Float
     ): String? {
         return try {
-            GrayjayAudioExtractor.getAudioFragment(youtubeUrl, startSeconds, endSeconds)
+            Log.d(TAG, "🔍 Procesando: $youtubeUrl")
+            
+            // Si es ytsearch:, extraer directamente
+            // Si es URL completa, también funciona
+            val audioUrl = GrayjayAudioExtractor.getAudioFragment(youtubeUrl, startSeconds, endSeconds)
+            
+            if (audioUrl != null) {
+                Log.d(TAG, "✅ Audio URL obtenida: ${audioUrl.take(100)}...")
+            } else {
+                Log.e(TAG, "❌ No se pudo obtener audio URL")
+            }
+            
+            audioUrl
         } catch (e: Exception) {
-            Log.e(TAG, "Error extrayendo fragmento: ${e.message}")
+            Log.e(TAG, "Error extrayendo fragmento: ${e.message}", e)
             null
         }
     }

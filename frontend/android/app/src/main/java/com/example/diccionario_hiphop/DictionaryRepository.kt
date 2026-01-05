@@ -12,4 +12,8 @@ class DictionaryRepository(context: Context) {
     ): Response<List<UserWord>> {
         return apiService.getDictionary(language, type)
     }
+    
+    suspend fun deleteWord(wordId: String): Response<Void> {
+        return apiService.deleteWord(wordId)
+    }
 }

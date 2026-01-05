@@ -206,7 +206,12 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                  
                  // 🎵 Intentar extraer timestamp del synced_lyrics
                  val timestamps = parseLrcTimestamp(_syncedLyrics.value, term)
-                 val youtubeUrl = getCurrentYoutubeUrl()  // Ahora es suspend
+                 val youtubeUrl = getYoutubeSearchUrl()
+                 
+                 // Log para debugging
+                 Log.d("SongLearningViewModel", "💾 Guardando palabra: $term")
+                 Log.d("SongLearningViewModel", "🎵 YouTube URL: $youtubeUrl")
+                 Log.d("SongLearningViewModel", "⏱️ Timestamps: $timestamps")
                  
                  val request = AddWordRequest(
                     word = term,
@@ -345,29 +350,18 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
 
     /**
      * 🎬 OBTENER URL DE YOUTUBE DE LA CANCIÓN ACTUAL
-     * Si no está en audioStreamState, construye la query de búsqueda para YouTube
+     * Construye una URL de búsqueda de YouTube con el título y artista
      */
-    suspend fun getCurrentYoutubeUrl(): String? {
-        val audioUrl = _audioStreamState.value
-        
-        // Verificar si ya tenemos una URL de YouTube válida
-        if (audioUrl != null && (audioUrl.contains("youtube.com") || audioUrl.contains("youtu.be"))) {
-            return audioUrl
+    private fun getYoutubeSearchUrl(): String? {
+        if (currentSongTitle.isEmpty() || currentSongArtist.isEmpty()) {
+            return null
         }
         
-        // Si no, intentar obtenerla con yt-dlp usando título y artista
-        if (currentSongTitle.isNotEmpty() && currentSongArtist.isNotEmpty()) {
-            return withContext(Dispatchers.IO) {
-                try {
-                    val result = GrayjayAudioExtractor.getAudioWithMetadata("$currentSongArtist - $currentSongTitle")
-                    result?.url
-                } catch (e: Exception) {
-                    Log.e("SongLearningViewModel", "Error getting YouTube URL", e)
-                    null
-                }
-            }
-        }
+        // Construir query de búsqueda
+        val searchQuery = "$currentSongArtist $currentSongTitle"
+        val encodedQuery = java.net.URLEncoder.encode(searchQuery, "UTF-8")
         
-        return null
+        // Retornar URL de búsqueda que yt-dlp puede procesar
+        return "ytsearch:$searchQuery"
     }
 }

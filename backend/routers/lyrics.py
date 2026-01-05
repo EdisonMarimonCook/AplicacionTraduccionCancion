@@ -96,6 +96,7 @@ async def get_lyrics(
                     "title": lyrics_data.get("title"),
                     "artist": lyrics_data.get("artist"),
                     "lyrics": lyrics_data.get("lyrics"),
+                    "synced_lyrics": lyrics_data.get("synced_lyrics"),  # 🎵 Agregar synced_lyrics
                     "image_url": lyrics_data.get("image_url"),
                     "genius_url": lyrics_data.get("url"),
                     "confidence": confidence,
@@ -112,7 +113,9 @@ async def get_lyrics(
                 )
                 logger.info(f"💾 Letra guardada en caché (TTL 30 días): {title}")
             except Exception as e:
-                logger.warning(f"⚠️ Error guardando en caché: {e}")
+                # Ignorar error de duplicado (condición de carrera entre requests)
+                if "E11000" not in str(e):
+                    logger.warning(f"⚠️ Error guardando en caché: {e}")
         
         return {
             "title": lyrics_data.get("title"),

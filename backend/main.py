@@ -195,7 +195,14 @@ async def create_indexes():
         except:
             pass  # No existe, continuar
         
-        # 2. Crear índice único en spotify_id
+        # 2. Eliminar índice TTL antiguo si existe
+        try:
+            await db.db["lyrics_cache"].drop_index("expires_atTTL")
+            logger.info("🗑️ Índice antiguo 'expires_atTTL' eliminado")
+        except:
+            pass  # No existe, continuar
+        
+        # 3. Crear índices nuevos
         await db.db["lyrics_cache"].create_index([("spotify_id", 1)], unique=True)
         await db.db["lyrics_cache"].create_index([("expires_at", 1)], expireAfterSeconds=0)  # TTL index
         logger.info("✅ Índices creados: lyrics_cache(spotify_id), TTL(expires_at)")
