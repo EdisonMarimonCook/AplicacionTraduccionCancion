@@ -135,6 +135,13 @@ async def get_due_flashcards(
                     example=word.get("example"),
                     explanation=word.get("notes"),  # 🔥 Mapear 'notes' del diccionario a 'explanation'
                     type=word.get("type", "word"),
+                    language=word.get("language", "en"),  # 🌍 Código del idioma
+                    
+                    # 🔊 AUDIO (NUEVO)
+                    song_youtube_url=word.get("song_youtube_url"),
+                    timestamp_start=word.get("timestamp_start"),
+                    timestamp_end=word.get("timestamp_end"),
+                    
                     easiness_factor=srs_data.get("easiness_factor", 2.5),
                     interval=srs_data.get("interval", 0),
                     repetitions=srs_data.get("repetitions", 0),

@@ -136,6 +136,11 @@ class DictionaryEntryCreate(BaseModel):
     # 🎵 METADATOS
     song_id: Optional[str] = None
     
+    # 🔊 AUDIO (NUEVO)
+    song_youtube_url: Optional[str] = Field(None, description="URL de YouTube si viene de una canción")
+    timestamp_start: Optional[float] = Field(None, description="Segundo exacto donde empieza la palabra")
+    timestamp_end: Optional[float] = Field(None, description="Segundo exacto donde termina la palabra")
+    
     # ⭐ IMPORTANTE MVP
     is_recommended: bool = Field(default=False, description="Si la IA lo marcó con estrellita")
 
@@ -148,7 +153,12 @@ class DictionaryEntryResponse(DictionaryEntryCreate):
     times_reviewed: int = 0
     is_learned: bool = False
     
-    # 🔥 FASE 4: Anti-burnout
+    # � AUDIO (heredado de DictionaryEntryCreate, pero lo exponemos explícitamente)
+    song_youtube_url: Optional[str] = None
+    timestamp_start: Optional[float] = None
+    timestamp_end: Optional[float] = None
+    
+    # �🔥 FASE 4: Anti-burnout
     warning: Optional[str] = None  # Advertencia si superó daily_goal
 
 # ===============================================================================
@@ -221,6 +231,12 @@ class FlashcardData(BaseModel):
     example: str
     explanation: Optional[str] = None  # 🔥 Explicación de la IA (mapeada desde 'notes')
     type: str
+    language: str  # Código del idioma (ja, ko, zh, es, etc.)
+    
+    # 🔊 AUDIO (NUEVO)
+    song_youtube_url: Optional[str] = None  # URL de YouTube si viene de una canción
+    timestamp_start: Optional[float] = None  # Segundo exacto donde empieza la palabra
+    timestamp_end: Optional[float] = None  # Segundo exacto donde termina la palabra
     
     # Datos SRS
     easiness_factor: float = 2.5  # Factor de facilidad (1.3-2.5+)
