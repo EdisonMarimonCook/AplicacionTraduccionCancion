@@ -174,6 +174,14 @@ async def create_indexes():
         logger.info("✅ Índices únicos creados: users(email), users(username)")
         
         # 🆕 Índice en caché de letras (búsqueda por spotify_id)
+        # 1. Eliminar índice antiguo de song_id si existe
+        try:
+            await db.db["lyrics_cache"].drop_index("song_id_1")
+            logger.info("🗑️ Índice antiguo 'song_id_1' eliminado")
+        except:
+            pass  # No existe, continuar
+        
+        # 2. Crear índice único en spotify_id
         await db.db["lyrics_cache"].create_index([("spotify_id", 1)], unique=True)
         await db.db["lyrics_cache"].create_index([("expires_at", 1)], expireAfterSeconds=0)  # TTL index
         logger.info("✅ Índices creados: lyrics_cache(spotify_id), TTL(expires_at)")

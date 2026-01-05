@@ -291,3 +291,6 @@ class LyricsResponse(BaseModel):
     # 🔍 VALIDACIÓN DE PRECISIÓN (NUEVO)
     confidence: Optional[str] = "medium"   # high/medium/low - Confianza en el match
     validation_warnings: Optional[list] = None  # Advertencias si hay discrepancias
+    
+    # 🔊 SYNCED LYRICS (para extraer fragmentos de audio)
+    synced_lyrics: Optional[str] = None  # Formato LRC con timestamps

@@ -125,7 +125,9 @@ async def get_lyrics(
             "preview_url": song_meta.get("preview_url"),
             # 🔍 Metadata de validación (para debugging en frontend)
             "confidence": confidence,
-            "validation_warnings": warnings if warnings else None
+            "validation_warnings": warnings if warnings else None,
+            # 🔊 SYNCED LYRICS (para extraer fragmentos de audio)
+            "synced_lyrics": lyrics_data.get("synced_lyrics")
         }
     
     except HTTPException:

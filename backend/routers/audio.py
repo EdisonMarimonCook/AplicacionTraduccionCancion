@@ -77,12 +77,15 @@ async def generate_tts(
         tts.write_to_fp(audio_buffer)
         audio_buffer.seek(0)
         
+        # Filename seguro (solo ASCII)
+        safe_filename = "tts_audio.mp3"
+        
         # Devolver como stream de audio
         return StreamingResponse(
             audio_buffer,
             media_type="audio/mpeg",
             headers={
-                "Content-Disposition": f'inline; filename="tts_{text[:20]}.mp3"',
+                "Content-Disposition": f'inline; filename="{safe_filename}"',
                 "Cache-Control": "public, max-age=86400"  # Cache de 24 horas
             }
         )
