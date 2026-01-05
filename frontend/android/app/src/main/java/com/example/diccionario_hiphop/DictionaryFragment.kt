@@ -1,4 +1,4 @@
-package com.example.diccionario_hiphop
+﻿package com.example.diccionario_hiphop
 
 import android.os.Bundle
 import android.view.View
@@ -26,7 +26,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
     private lateinit var adapter: DictionaryAdapter
     private lateinit var repository: DictionaryRepository
     
-    // 🔥 Estado de filtros
+    // ðŸ”¥ Estado de filtros
     private var selectedLanguage: String? = null
     private var selectedType: String? = null
     private var userLanguages: List<LearningLanguage> = emptyList()
@@ -50,7 +50,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
         chipWords = view.findViewById(R.id.chipWords)
         chipExpressions = view.findViewById(R.id.chipExpressions)
         
-        // 🔥 Listeners para chips de tipo
+        // ðŸ”¥ Listeners para chips de tipo
         chipWords.setOnClickListener {
             selectedType = if (chipWords.isChecked) "word" else null
             loadDictionary()
@@ -63,11 +63,39 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
     }
 
     private fun setupRecyclerView() {
-        adapter = DictionaryAdapter(mutableListOf()) { word ->
-            // Acción al borrar (opcional por ahora)
-        }
+        adapter = DictionaryAdapter(
+            mutableListOf(),
+            onDeleteClick = { word ->
+                // Acción al borrar (opcional por ahora)
+            },
+            onAudioClick = { word ->
+                // 🎵 Reproducir audio
+                playWordAudio(word)
+            }
+        )
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
+    }
+    
+    /**
+     * 🎵 REPRODUCIR AUDIO DE UNA PALABRA
+     * Usa AudioPlayerHelper con prioridad: fragmento original > TTS
+     */
+    private fun playWordAudio(word: UserWord) {
+        lifecycleScope.launch {
+            try {
+                AudioPlayerHelper.playAudio(
+                    context = requireContext(),
+                    text = word.word,
+                    language = word.language,
+                    songYoutubeUrl = word.songYoutubeUrl,
+                    timestampStart = word.timestampStart,
+                    timestampEnd = word.timestampEnd
+                )
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "Error al reproducir audio", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
     
     private fun loadUserLanguages() {
@@ -80,7 +108,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                     val user = response.body()!!
                     userLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
                     
-                    // 🔥 Crear chips de idiomas dinámicamente
+                    // ðŸ”¥ Crear chips de idiomas dinÃ¡micamente
                     chipGroupLanguages.removeAllViews()
                     
                     userLanguages.forEach { lang ->
@@ -94,7 +122,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                         chipGroupLanguages.addView(chip)
                     }
                     
-                    // 🔥 Cargar diccionario (por defecto: primary_language)
+                    // ðŸ”¥ Cargar diccionario (por defecto: primary_language)
                     loadDictionary()
                 } else {
                     Toast.makeText(requireContext(), "Error cargando idiomas", Toast.LENGTH_SHORT).show()
@@ -166,5 +194,10 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
             "ko" -> "Coreano"
             else -> code.uppercase()
         }
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        AudioPlayerHelper.releasePlayer()
     }
 }

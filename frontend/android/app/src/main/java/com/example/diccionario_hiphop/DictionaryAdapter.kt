@@ -10,7 +10,8 @@ import androidx.recyclerview.widget.RecyclerView
 
 class DictionaryAdapter(
     private var words: MutableList<UserWord>,
-    private val onDeleteClick: (UserWord) -> Unit
+    private val onDeleteClick: (UserWord) -> Unit,
+    private val onAudioClick: (UserWord) -> Unit  // 🎵 Nuevo callback para audio
 ) : RecyclerView.Adapter<DictionaryAdapter.WordViewHolder>() {
 
     class WordViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -18,6 +19,7 @@ class DictionaryAdapter(
         val tvTranslation: TextView = view.findViewById(R.id.tvTranslation)
         val tvContext: TextView = view.findViewById(R.id.tvContext)
         val tvSource: TextView = view.findViewById(R.id.tvSource) // Reutilizamos este ID para mostrar el TIPO
+        val btnAudio: ImageButton = view.findViewById(R.id.btnAudio)  // 🎵 Nuevo botón
         val btnDelete: ImageButton = view.findViewById(R.id.btnDelete)
     }
 
@@ -41,6 +43,11 @@ class DictionaryAdapter(
         } else {
             holder.tvSource.text = "📖 Palabra"
             holder.tvSource.setTextColor(ContextCompat.getColor(holder.itemView.context, R.color.purple_700))
+        }
+
+        // 🎵 Configurar botón de audio
+        holder.btnAudio.setOnClickListener {
+            onAudioClick(item)
         }
 
         holder.btnDelete.setOnClickListener {

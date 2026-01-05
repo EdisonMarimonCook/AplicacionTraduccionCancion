@@ -94,14 +94,14 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
                         setupLanguageChips()
                     }
                 }
-              finally {
-                swipeRefresh.isRefreshing = false  // 🔄 Detener animación
-            }   
+                
                 // 2. Cargar Grammys con el idioma seleccionado
                 loadGrammyNominees()
             } catch (e: Exception) { 
                 e.printStackTrace()
                 loadGrammyNominees()
+            } finally {
+                swipeRefresh.isRefreshing = false  // 🔄 Detener animación
             }
         }
     }

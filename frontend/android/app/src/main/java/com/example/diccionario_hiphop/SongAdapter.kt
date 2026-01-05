@@ -1,4 +1,4 @@
-package com.example.diccionario_hiphop
+﻿package com.example.diccionario_hiphop
 
 import android.view.LayoutInflater
 import android.view.View
@@ -32,8 +32,9 @@ class SongAdapter(
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
 
-        holder.tvTitle.text = song.title
-        holder.tvArtist.text = song.artist
+        // Limpiar caracteres corruptos por encoding
+        holder.tvTitle.text = cleanText(song.title)
+        holder.tvArtist.text = cleanText(song.artist)
 
         // Carga optimizada con Glide
         Glide.with(holder.itemView.context)
@@ -47,6 +48,16 @@ class SongAdapter(
         holder.itemView.setOnClickListener {
             onSongClick(song)
         }
+    }
+
+    /**
+     * Limpia caracteres corruptos por problemas de encoding UTF-8
+     */
+    private fun cleanText(text: String): String {
+        // Remover caracteres de control y caracteres no imprimibles
+        return text.replace(Regex("[\\p{C}]"), "")
+            .trim()
+            .takeIf { it.isNotEmpty() } ?: text
     }
 
     override fun getItemCount() = songs.size

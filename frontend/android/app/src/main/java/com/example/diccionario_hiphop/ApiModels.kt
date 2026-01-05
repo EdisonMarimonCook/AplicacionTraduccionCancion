@@ -147,7 +147,10 @@ data class LyricsResponse(
     
     // 👇 ¡ESTE ES EL NUEVO!
     @SerializedName("full_audio_url")
-    val fullAudioUrl: String?     // El de Cobalt (YouTube completo)
+    val fullAudioUrl: String?,     // El de Cobalt (YouTube completo)
+    
+    @SerializedName("synced_lyrics")
+    val syncedLyrics: String?      // Formato LRC con timestamps
 )
 
 data class AnalyzeLyricsRequest(
@@ -198,6 +201,13 @@ data class UserWord(
     @SerializedName("notes") val context: String?,
     val type: String = "word",
     val example: String? = null,
+    val language: String = "en",  // 🌍 Código del idioma
+    
+    // 🔊 AUDIO (NUEVO)
+    @SerializedName("song_youtube_url") val songYoutubeUrl: String? = null,
+    @SerializedName("timestamp_start") val timestampStart: Float? = null,
+    @SerializedName("timestamp_end") val timestampEnd: Float? = null,
+    
     @SerializedName("is_recommended") val isRecommended: Boolean = false,
     val warning: String? = null  // 🔥 FASE 4: Warning si superó daily_goal
 ) : Serializable
@@ -209,6 +219,12 @@ data class AddWordRequest(
     val notes: String?,
     val type: String,
     val example: String?,
+    
+    // 🔊 AUDIO (NUEVO)
+    @SerializedName("song_youtube_url") val songYoutubeUrl: String? = null,
+    @SerializedName("timestamp_start") val timestampStart: Float? = null,
+    @SerializedName("timestamp_end") val timestampEnd: Float? = null,
+    
     @SerializedName("is_recommended") val isRecommended: Boolean,
     @SerializedName("song_id") val songId: String?
 )
@@ -239,6 +255,13 @@ data class FlashcardData(
     val example: String,
     val explanation: String?,
     val type: String,
+    val language: String,  // 🌍 Código del idioma (ja, ko, zh, es, etc.)
+    
+    // 🔊 AUDIO (NUEVO)
+    @SerializedName("song_youtube_url") val songYoutubeUrl: String? = null,
+    @SerializedName("timestamp_start") val timestampStart: Float? = null,
+    @SerializedName("timestamp_end") val timestampEnd: Float? = null,
+    
     @SerializedName("easiness_factor") val easinessFactor: Float,
     val interval: Int,
     val repetitions: Int,

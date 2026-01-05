@@ -83,4 +83,48 @@ object GrayjayAudioExtractor {
 
     // Método helper por si lo llamas directamente
     suspend fun getAudioStreamUrl(query: String): String? = getAudioWithMetadata(query)?.url
+    
+    /**
+     * 🎵 Extrae fragmento de audio con timestamp específico
+     * @param youtubeUrl URL completa de YouTube (ej: https://youtube.com/watch?v=...)
+     * @param startSeconds Segundo donde empieza la palabra (ej: 45.5)
+     * @param endSeconds Segundo donde termina la palabra (ej: 47.2)
+     * @return URL del audio extraído o null si falla
+     */
+    suspend fun getAudioFragment(
+        youtubeUrl: String,
+        startSeconds: Float,
+        endSeconds: Float
+    ): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val duration = endSeconds - startSeconds
+                Log.d("LocalExtractor", "🎯 Extrayendo fragmento: ${startSeconds}s - ${endSeconds}s (${duration}s)")
+                
+                val request = YoutubeDLRequest(youtubeUrl)
+                
+                // Extraer solo el fragmento específico
+                request.addOption("-f", "bestaudio[ext=m4a]/bestaudio")
+                request.addOption("-g")  // Get URL
+                
+                // Nota: yt-dlp no soporta cortar audio directamente con -ss/-to
+                // Necesitamos la URL completa y cortar con MediaPlayer en Android
+                val response = YoutubeDL.getInstance().execute(request)
+                val url = response.out.trim().lines().find { it.startsWith("http") }
+                
+                if (!url.isNullOrEmpty()) {
+                    Log.d("LocalExtractor", "✅ URL de fragmento obtenida: $url")
+                    // Devolvemos la URL + los timestamps para que MediaPlayer haga seekTo()
+                    return@withContext url
+                } else {
+                    Log.e("LocalExtractor", "⚠️ No se pudo obtener URL del fragmento")
+                    return@withContext null
+                }
+                
+            } catch (e: Exception) {
+                Log.e("LocalExtractor", "❌ Error extrayendo fragmento: ${e.message}")
+                return@withContext null
+            }
+        }
+    }
 }

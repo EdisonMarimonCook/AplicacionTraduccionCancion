@@ -3,6 +3,7 @@ package com.example.diccionario_hiphop
 import com.example.diccionario_hiphop.WordDefinition
 import com.example.diccionario_hiphop.ExpressionDefinition
 import com.example.diccionario_hiphop.HighlightWordsResponse
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Bundle

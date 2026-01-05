@@ -60,6 +60,17 @@
             app:layout_constraintEnd_toEndOf="parent"/>
 
         <ImageButton
+            android:id="@+id/btnAudio"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="12dp"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="#4CAF50"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnDelete"/>
+
+        <ImageButton
             android:id="@+id/btnDelete"
             android:layout_width="48dp"
             android:layout_height="48dp"

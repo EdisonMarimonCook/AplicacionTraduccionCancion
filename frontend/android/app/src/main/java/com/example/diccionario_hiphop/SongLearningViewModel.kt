@@ -47,10 +47,22 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     private val _isPreviewOnly = MutableLiveData<Boolean>()
     val isPreviewOnly: LiveData<Boolean> get() = _isPreviewOnly
 
+    // 🎵 Letras sincronizadas (LRC) para fragmentos de audio
+    private val _syncedLyrics = MutableLiveData<String?>()
+    val syncedLyrics: LiveData<String?> get() = _syncedLyrics
+
+    // 🎬 Metadata de la canción actual
+    private var currentSongTitle: String = ""
+    private var currentSongArtist: String = ""
+
     /**
      * 🎯 ESTRATEGIA NUEVA: Esperar Audio Completo (Loading...) -> Fallback Preview
      */
     fun loadContent(title: String, artist: String, userLevel: String, fallbackPreviewUrl: String?) {
+        // Guardar metadatos de la canción
+        currentSongTitle = title
+        currentSongArtist = artist
+        
         // 1. Iniciamos carga
         _loadingState.value = true
         _audioStreamState.value = null
@@ -88,6 +100,9 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
             if (lyricsResponse != null && lyricsResponse.isSuccessful && lyricsResponse.body() != null) {
                 val data = lyricsResponse.body()!!
                 val lyricsText = data.lyrics
+                
+                // Guardar synced_lyrics para uso posterior
+                _syncedLyrics.value = data.syncedLyrics
                 
                 // Verificar si hay letra o está vacía
                 if (lyricsText.isNullOrEmpty()) {
@@ -181,12 +196,17 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     /**
      * 💾 GUARDAR PALABRA EN DICCIONARIO
      * 🔥 FASE 4: Con validación anti-burnout
+     * 🎵 FASE 5: Con metadatos de audio para fragmentos originales
      */
     fun addToDictionary(term: String, definition: String, explanation: String, example: String, isExpression: Boolean) {
        viewModelScope.launch {
             try {
                  // 🔥 Obtener el idioma detectado del análisis actual
                  val detectedLanguage = _analysisState.value?.detectedLanguage ?: "en"
+                 
+                 // 🎵 Intentar extraer timestamp del synced_lyrics
+                 val timestamps = parseLrcTimestamp(_syncedLyrics.value, term)
+                 val youtubeUrl = getCurrentYoutubeUrl()  // Ahora es suspend
                  
                  val request = AddWordRequest(
                     word = term,
@@ -196,7 +216,11 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                     type = if (isExpression) "expression" else "word",
                     example = example,
                     isRecommended = false,
-                    songId = null
+                    songId = null,
+                    // 🎵 Metadatos de audio para fragmentos
+                    songYoutubeUrl = youtubeUrl,
+                    timestampStart = timestamps?.first,
+                    timestampEnd = timestamps?.second
                 )
                 val response = repository.addWord(request)
                 
@@ -256,5 +280,94 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                 _errorState.value = "Error de red: ${e.message}"
             }
        }
+    }
+
+    /**
+     * 🎵 PARSEAR TIMESTAMPS DEL FORMATO LRC
+     * Busca una palabra/expresión en synced_lyrics y extrae el timestamp
+     * Formato LRC: "[MM:SS.mm]texto de la canción"
+     * 
+     * @param syncedLyrics Letras sincronizadas en formato LRC
+     * @param searchTerm Palabra o expresión a buscar
+     * @return Par de (timestamp_start, timestamp_end) en segundos, o null si no se encuentra
+     */
+    private fun parseLrcTimestamp(syncedLyrics: String?, searchTerm: String): Pair<Float, Float>? {
+        if (syncedLyrics.isNullOrEmpty()) {
+            Log.d("SongLearningViewModel", "No hay synced_lyrics disponibles")
+            return null
+        }
+        
+        // Regex para parsear líneas LRC: [MM:SS.mm]texto o [MM:SS]texto
+        val lrcRegex = """\[(\d{2}):(\d{2})(?:\.(\d{2}))?\](.+)""".toRegex()
+        val lines = syncedLyrics.lines()
+        
+        Log.d("SongLearningViewModel", "Buscando '$searchTerm' en ${lines.size} líneas de synced_lyrics")
+        
+        for (i in lines.indices) {
+            val match = lrcRegex.find(lines[i]) ?: continue
+            val groups = match.groupValues
+            val minutes = groups[1].toInt()
+            val seconds = groups[2].toInt()
+            val centiseconds = if (groups[3].isNotEmpty()) groups[3].toInt() else 0
+            val text = groups[4]
+            
+            // Buscar la palabra/expresión en el texto (case-insensitive)
+            if (text.contains(searchTerm, ignoreCase = true)) {
+                // Convertir a segundos
+                val startTime = minutes * 60 + seconds + centiseconds / 100f
+                
+                Log.d("SongLearningViewModel", "✅ Encontrado '$searchTerm' en: $text (timestamp: $startTime)")
+                
+                // Para timestamp_end, usar la siguiente línea o añadir 3 segundos
+                val endTime = if (i + 1 < lines.size) {
+                    val nextMatch = lrcRegex.find(lines[i + 1])
+                    if (nextMatch != null) {
+                        val nextGroups = nextMatch.groupValues
+                        val nextMin = nextGroups[1].toInt()
+                        val nextSec = nextGroups[2].toInt()
+                        val nextCenti = if (nextGroups[3].isNotEmpty()) nextGroups[3].toInt() else 0
+                        nextMin * 60 + nextSec + nextCenti / 100f
+                    } else {
+                        startTime + 3f // Buffer de 3 segundos si no hay siguiente línea válida
+                    }
+                } else {
+                    startTime + 3f
+                }
+                
+                Log.d("SongLearningViewModel", "⏱️ Timestamps: start=$startTime, end=$endTime")
+                return Pair(startTime, endTime)
+            }
+        }
+        
+        Log.d("SongLearningViewModel", "❌ No se encontró '$searchTerm' en las letras sincronizadas")
+        return null // No se encontró la palabra en las letras sincronizadas
+    }
+
+    /**
+     * 🎬 OBTENER URL DE YOUTUBE DE LA CANCIÓN ACTUAL
+     * Si no está en audioStreamState, construye la query de búsqueda para YouTube
+     */
+    suspend fun getCurrentYoutubeUrl(): String? {
+        val audioUrl = _audioStreamState.value
+        
+        // Verificar si ya tenemos una URL de YouTube válida
+        if (audioUrl != null && (audioUrl.contains("youtube.com") || audioUrl.contains("youtu.be"))) {
+            return audioUrl
+        }
+        
+        // Si no, intentar obtenerla con yt-dlp usando título y artista
+        if (currentSongTitle.isNotEmpty() && currentSongArtist.isNotEmpty()) {
+            return withContext(Dispatchers.IO) {
+                try {
+                    val result = GrayjayAudioExtractor.getAudioWithMetadata("$currentSongArtist - $currentSongTitle")
+                    result?.url
+                } catch (e: Exception) {
+                    Log.e("SongLearningViewModel", "Error getting YouTube URL", e)
+                    null
+                }
+            }
+        }
+        
+        return null
     }
 }

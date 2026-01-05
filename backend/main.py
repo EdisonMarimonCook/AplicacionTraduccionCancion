@@ -169,6 +169,20 @@ async def create_indexes():
         logger.info("✅ Índice creado: flashcard_srs(user_id, language, next_review)")
         
         # Índice en usuarios (búsqueda por email y username únicos)
+        # 1. Eliminar índices antiguos si existen con nombres diferentes
+        try:
+            await db.db["users"].drop_index("emailUNIQUE")
+            logger.info("🗑️ Índice antiguo 'emailUNIQUE' eliminado")
+        except:
+            pass  # No existe, continuar
+        
+        try:
+            await db.db["users"].drop_index("usernameUNIQUE")
+            logger.info("🗑️ Índice antiguo 'usernameUNIQUE' eliminado")
+        except:
+            pass  # No existe, continuar
+        
+        # 2. Crear índices únicos con nombres estándar
         await db.db["users"].create_index([("email", 1)], unique=True)
         await db.db["users"].create_index([("username", 1)], unique=True)
         logger.info("✅ Índices únicos creados: users(email), users(username)")
