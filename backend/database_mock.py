@@ -165,10 +165,19 @@ class MockDatabase:
             return []
     
     async def delete_dictionary_entry(self, entry_id: str) -> bool:
-        """Eliminar entrada del diccionario"""
+        """Eliminar entrada del diccionario y su flashcard SRS asociada"""
         try:
             if entry_id in self.dictionary_entries:
+                # 1. Borrar entrada del diccionario
                 del self.dictionary_entries[entry_id]
+                
+                # 2. Borrar flashcard SRS asociada si existe
+                for srs_id, srs_data in list(self.flashcard_srs.items()):
+                    if srs_data.get("word_id") == entry_id:
+                        del self.flashcard_srs[srs_id]
+                        logger.info(f"🗑️ MOCK: Flashcard SRS eliminada para word_id={entry_id}")
+                        break
+                
                 logger.info(f"✅ MOCK: Palabra eliminada - {entry_id}")
                 return True
             

@@ -111,6 +111,13 @@ class DictionaryEntry(BaseModel):
     is_recommended: bool = False
     notes: Optional[str] = None
     song_id: Optional[str] = None
+    language: str = "en"  # Código del idioma
+    
+    # 🔊 AUDIO (NUEVO)
+    song_youtube_url: Optional[str] = None  # URL de YouTube si viene de una canción
+    timestamp_start: Optional[float] = None  # Segundo exacto donde empieza la palabra
+    timestamp_end: Optional[float] = None  # Segundo exacto donde termina la palabra
+    
     created_at: datetime = Field(default_factory=datetime.now)
     last_reviewed: Optional[datetime] = None
     times_reviewed: int = 0

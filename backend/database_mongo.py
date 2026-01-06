@@ -172,12 +172,19 @@ class MongoDatabase:
 
     async def delete_dictionary_entry(self, entry_id: str) -> bool:
         try:
-            # Intentar borrar por ObjectId
+            # 1. Borrar entrada del diccionario
             result = await self.db["dictionary_entries"].delete_one({"_id": ObjectId(entry_id)})
             if result.deleted_count == 0:
                 result = await self.db["dictionary_entries"].delete_one({"id": entry_id})
+            
+            # 2. Si se borró exitosamente, también borrar la flashcard SRS asociada
+            if result.deleted_count > 0:
+                await self.db["flashcard_srs"].delete_one({"word_id": entry_id})
+                logger.info(f"🗑️ Entrada de diccionario {entry_id} y flashcard SRS eliminadas")
+            
             return result.deleted_count > 0
-        except:
+        except Exception as e:
+            logger.error(f"❌ Error eliminando entrada: {e}")
             return False
 
     # ================================================================

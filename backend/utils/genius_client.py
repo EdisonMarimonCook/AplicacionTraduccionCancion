@@ -51,6 +51,95 @@ def normalize_search_query(text: str) -> str:
     result = ' '.join(result.split())
     return result.strip()
 
+def validate_lyrics_match(lyrics_data: Dict, spotify_metadata: Optional[Dict] = None) -> Dict:
+    """
+    🔍 VALIDACIÓN AVANZADA: Verifica que la letra corresponda a la canción correcta.
+    Compara: duración (si tiene timestamps), título, artista, álbum.
+    Retorna: lyrics_data con campo 'confidence' (high/medium/low)
+    """
+    confidence = "high"  # Por defecto confiamos
+    warnings = []
+    
+    # Si no tenemos metadata de Spotify, no podemos validar
+    if not spotify_metadata:
+        lyrics_data["confidence"] = "medium"
+        lyrics_data["validation_warnings"] = ["No Spotify metadata available for validation"]
+        return lyrics_data
+    
+    # 1. Validar duración (si existen synced_lyrics con timestamps)
+    synced = lyrics_data.get("synced_lyrics")
+    spotify_duration_ms = spotify_metadata.get("duration_ms")
+    
+    if synced and spotify_duration_ms:
+        # Extraer último timestamp de las letras sincronizadas
+        # Formato: "[00:23.45] Letra..." -> extraer 23.45 segundos
+        last_timestamp = 0
+        for line in synced.split("\n"):
+            match = re.search(r'\[(\d{2}):(\d{2}\.\d{2})\]', line)
+            if match:
+                minutes, seconds = match.groups()
+                timestamp_ms = (int(minutes) * 60 + float(seconds)) * 1000
+                last_timestamp = max(last_timestamp, timestamp_ms)
+        
+        # Comparar: si difiere más de 30 segundos, es sospechoso
+        duration_diff = abs(last_timestamp - spotify_duration_ms)
+        if duration_diff > 30000:  # 30 segundos
+            confidence = "low"
+            warnings.append(f"Duration mismatch: lyrics end at {last_timestamp/1000:.1f}s, song is {spotify_duration_ms/1000:.1f}s")
+            logger.warning(f"⚠️ Duración sospechosa: letra termina en {last_timestamp/1000:.1f}s pero canción dura {spotify_duration_ms/1000:.1f}s")
+    
+    # 2. Validar título (similitud básica)
+    lyrics_title = lyrics_data.get("title", "").lower()
+    spotify_title = spotify_metadata.get("title", "").lower()
+    
+    # Normalizar ambos para comparar
+    lyrics_title_norm = normalize_search_query(lyrics_title)
+    spotify_title_norm = normalize_search_query(spotify_title)
+    
+    # Si no hay palabras en común, es sospechoso
+    lyrics_words = set(lyrics_title_norm.split())
+    spotify_words = set(spotify_title_norm.split())
+    common_words = lyrics_words & spotify_words
+    
+    if not common_words and confidence == "high":
+        confidence = "medium"
+        warnings.append(f"Title mismatch: '{lyrics_title}' vs '{spotify_title}'")
+        logger.warning(f"⚠️ Títulos sin palabras en común: '{lyrics_title}' vs '{spotify_title}'")
+    
+    # 3. Validar artista (al menos una palabra en común)
+    lyrics_artist = lyrics_data.get("artist", "").lower()
+    spotify_artist = spotify_metadata.get("artist", "").lower()
+    
+    artist_words_lyrics = set(lyrics_artist.split())
+    artist_words_spotify = set(spotify_artist.split())
+    common_artists = artist_words_lyrics & artist_words_spotify
+    
+    if not common_artists and confidence != "low":
+        confidence = "medium"
+        warnings.append(f"Artist mismatch: '{lyrics_artist}' vs '{spotify_artist}'")
+        logger.warning(f"⚠️ Artistas sin palabras en común: '{lyrics_artist}' vs '{spotify_artist}'")
+    
+    # 4. Validar álbum (si está disponible)
+    spotify_album = spotify_metadata.get("album")
+    if spotify_album:
+        # LRCLib puede tener info de álbum en algunos casos
+        lyrics_album = lyrics_data.get("albumName")
+        if lyrics_album and lyrics_album.lower() not in spotify_album.lower():
+            warnings.append(f"Album mismatch: '{lyrics_album}' vs '{spotify_album}'")
+    
+    # Añadir resultados de validación
+    lyrics_data["confidence"] = confidence
+    lyrics_data["validation_warnings"] = warnings
+    
+    if confidence == "low":
+        logger.error(f"❌ BAJA CONFIANZA en letra encontrada: {warnings}")
+    elif confidence == "medium":
+        logger.warning(f"⚠️ CONFIANZA MEDIA en letra: {warnings}")
+    else:
+        logger.info(f"✅ Alta confianza en letra encontrada")
+    
+    return lyrics_data
+
 def detect_language_from_text(text: str, min_length: int = 50) -> str:
     """Detecta idioma del texto, default 'en' si falla o es muy corto"""
     try:
@@ -132,7 +221,10 @@ def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
                 "lines": lines,
                 "line_count": len(lines),
                 "language": lang,
-                "synced_lyrics": data.get("syncedLyrics")
+                "synced_lyrics": data.get("syncedLyrics"),
+                "albumName": data.get("albumName"),  # 🔍 Metadata para validación
+                "duration": data.get("duration"),  # Duración en segundos
+                "instrumental": data.get("instrumental", False)
             }
 
         except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
@@ -278,19 +370,21 @@ def get_lyrics_genius_advanced(title: str, artist: str) -> Optional[Dict]:
 # 🚦 ENTRY POINT (Función Principal)
 # ===============================================================================
 
-async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
+async def get_song_lyrics(song_title: str, artist_name: str, spotify_metadata: Optional[Dict] = None) -> Optional[Dict]:
     """
-    Orquestador optimizado con 3 niveles:
+    Orquestador optimizado con 3 niveles + validación:
     1. LRClib con datos originales
     2. Genius API (metadata) → Reintentar LRClib con datos exactos
     3. Genius Scraping (último recurso)
+    4. Validación de match usando metadata de Spotify
     """
     logger.info(f"🎵 Buscando letra: '{song_title}' - {artist_name}")
 
     # Nivel 1: LRClib con datos originales
     result = get_lyrics_lrclib(song_title, artist_name)
     if result:
-        return result
+        # Validar con metadata de Spotify si está disponible
+        return validate_lyrics_match(result, spotify_metadata)
     
     # Nivel 2: Obtener metadata exacta de Genius y reintentar LRClib
     logger.warning("⚠️ LRClib falló. Obteniendo metadata de Genius para reintento...")
@@ -301,11 +395,14 @@ async def get_song_lyrics(song_title: str, artist_name: str) -> Optional[Dict]:
         logger.info(f"🔄 Reintentando LRClib con datos de Genius: {genius_meta['title']} - {genius_meta['artist']}")
         result = get_lyrics_lrclib(genius_meta['title'], genius_meta['artist'])
         if result:
-            return result
+            return validate_lyrics_match(result, spotify_metadata)
     
     # Nivel 3: Scraping de Genius (último recurso)
     logger.warning("⚠️ Última opción: Activando protocolo Genius Stealth...")
     result = get_lyrics_genius_advanced(song_title, artist_name)
+    
+    if result:
+        return validate_lyrics_match(result, spotify_metadata)
     
     return result
 

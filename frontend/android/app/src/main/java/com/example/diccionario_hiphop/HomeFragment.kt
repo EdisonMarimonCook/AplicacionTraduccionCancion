@@ -1,4 +1,4 @@
-package com.example.diccionario_hiphop
+﻿package com.example.diccionario_hiphop
 
 import android.content.Intent
 import android.os.Bundle
@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.facebook.shimmer.ShimmerFrameLayout
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,6 +24,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private lateinit var tvHeader: TextView
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
+    private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
     private var searchJob: Job? = null
     private var userLanguages: List<LearningLanguage> = emptyList()
     private var selectedLanguage: String = "en"
@@ -55,6 +57,12 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         tvHeader = view.findViewById(R.id.tvHeader)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
         chipScrollView = view.findViewById(R.id.chipScrollView)
+        swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
+        
+        // Configurar SwipeRefreshLayout
+        swipeRefresh.setOnRefreshListener {
+            loadUserProfile()  // Recargar perfil y recomendaciones
+        }
     }
 
     private fun setupRecyclerView() {
@@ -167,6 +175,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 performSearch("Viral 50 Global", isRecommendation = true)
+            } finally {
+                swipeRefresh.isRefreshing = false  // 🔄 Detener animación de refresh
             }
         }
     }
@@ -225,24 +235,53 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
     
     private fun getRecommendationQuery(lang: String, level: String): String {
-        // Adaptar búsqueda según el nivel del usuario
-        val difficulty = when(level) {
-            "A1", "A2" -> "easy"
-            "B1", "B2" -> "popular"
-            "C1", "C2" -> "advanced"
-            else -> "popular"
-        }
-        
+        // Búsqueda INTELIGENTE por género/playlists para evitar duplicados
         return when(lang) {
-            "es" -> if (level in listOf("A1", "A2")) "canciones fáciles español" else "Top 50 Spain"
-            "fr" -> if (level in listOf("A1", "A2")) "chansons simples français" else "Top France"
-            "de" -> if (level in listOf("A1", "A2")) "einfache deutsche lieder" else "Top Germany"
-            "pt" -> if (level in listOf("A1", "A2")) "músicas fáceis português" else "Top Brazil"
-            "it" -> if (level in listOf("A1", "A2")) "canzoni facili italiano" else "Top Italy"
-            "ja" -> "J-Pop $difficulty"
-            "ko" -> "K-Pop $difficulty"
-            "zh" -> "C-Pop $difficulty"
-            else -> "Top Hits $difficulty" // inglés
+            "es" -> when(level) {
+                "A1", "A2" -> "Top 50 Spain"  // Español claro y popular
+                "B1", "B2" -> "Reggaeton Latino"  // Más dinámico
+                else -> "Rock en Español"
+            }
+            "fr" -> when(level) {
+                "A1", "A2" -> "Top 50 France"  // Francés estándar
+                "B1", "B2" -> "Chanson Française"
+                else -> "Rap Français"
+            }
+            "de" -> when(level) {
+                "A1", "A2" -> "Top 50 Germany"  // Alemán claro
+                "B1", "B2" -> "Deutschpop"
+                else -> "Neue Deutsche Welle"
+            }
+            "pt" -> when(level) {
+                "A1", "A2" -> "Top 50 Brazil"  // Portugués brasileño
+                "B1", "B2" -> "Samba MPB"
+                else -> "Funk Brasileiro"
+            }
+            "it" -> when(level) {
+                "A1", "A2" -> "Top 50 Italy"  // Italiano estándar
+                "B1", "B2" -> "Pop Italiano"
+                else -> "Indie Italiano"
+            }
+            "ja" -> when(level) {
+                "N5", "N4" -> "J-Pop Hits"  // Japonés claro y popular
+                "N3", "N2" -> "Japanese City Pop"  // Más complejo
+                else -> "J-Rock Anime"
+            }
+            "ko" -> when(level) {
+                "1", "2" -> "K-Pop Daebak"  // K-Pop mainstream
+                "3", "4" -> "Korean Indie"  // Más variado
+                else -> "K-Hip Hop"
+            }
+            "zh" -> when(level) {
+                "1", "2" -> "Mandopop"  // Mandarín estándar
+                "3", "4" -> "C-Pop Hits"  // Chino popular
+                else -> "Taiwan Pop"
+            }
+            else -> when(level) {  // Inglés
+                "A1", "A2" -> "Today's Top Hits"  // Inglés claro
+                "B1", "B2" -> "Pop Rising"
+                else -> "RapCaviar"
+            }
         }
     }
 
@@ -251,12 +290,15 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val isAutoRecommendation = isRecommendation || 
             query.startsWith("Viral 50") || 
             query.startsWith("Top ") ||
-            query.contains("-Pop") ||
-            query.contains("canciones fáciles") ||
-            query.contains("chansons simples") ||
-            query.contains("einfache deutsche") ||
-            query.contains("músicas fáceis") ||
-            query.contains("canzoni facili")
+            query.contains("BTS") ||
+            query.contains("YOASOBI") ||
+            query.contains("Shakira") ||
+            query.contains("Stromae") ||
+            query.contains("Nena") ||
+            query.contains("Anitta") ||
+            query.contains("Pausini") ||
+            query.contains("周杰伦") ||
+            query.contains("邓紫棋")
         
         tvHeader.text = if(isAutoRecommendation) "🎧 Descubrir" else "Resultados para '$query'"
         

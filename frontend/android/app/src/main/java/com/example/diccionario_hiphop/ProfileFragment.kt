@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.signature.ObjectKey
@@ -38,6 +39,7 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
     private lateinit var btnEditProfilePic: ImageView 
     private lateinit var tvUsername: TextView
     private lateinit var tvLevelInfo: TextView
+    private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
     
     // Contadores
     private lateinit var tvWordCount: TextView
@@ -191,6 +193,7 @@ private fun openCropper(uri: Uri) {
         btnEditProfilePic = view.findViewById(R.id.btnEditProfilePic)
         tvUsername = view.findViewById(R.id.tvUsername)
         tvLevelInfo = view.findViewById(R.id.tvLevelInfo)
+        swipeRefresh = view.findViewById(R.id.swipeRefreshProfile)  // 🔄 Pull-to-refresh
 
         tvWordCount = view.findViewById(R.id.tvWordCount)
         tvStreak = view.findViewById(R.id.tvStreak)
@@ -200,6 +203,12 @@ private fun openCropper(uri: Uri) {
         btnDictionary = view.findViewById(R.id.btnDictionary)
         btnFlashcards = view.findViewById(R.id.btnFlashcards)
         btnLogout = view.findViewById(R.id.btnLogout)
+        
+        // Configurar SwipeRefreshLayout
+        swipeRefresh.setOnRefreshListener {
+            isLoadingProfile = false  // Permitir recarga
+            loadUserProfile()
+        }
     }
 
     private fun setupListeners() {
@@ -330,6 +339,7 @@ private fun openCropper(uri: Uri) {
                 // Error silencioso o log
             } finally {
                 isLoadingProfile = false
+                swipeRefresh.isRefreshing = false  // 🔄 Detener animación
             }
         }
     }

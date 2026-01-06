@@ -3,6 +3,7 @@ package com.example.diccionario_hiphop
 import com.example.diccionario_hiphop.WordDefinition
 import com.example.diccionario_hiphop.ExpressionDefinition
 import com.example.diccionario_hiphop.HighlightWordsResponse
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Bundle
@@ -481,13 +482,28 @@ class SongLearningActivity : AppCompatActivity() {
             
             if (itemData.alreadySaved) {
                 builder.setNeutralButton("✓ Ya guardado") { _, _ ->
-                    Toast.makeText(this, "Esta palabra ya está guardada", Toast.LENGTH_SHORT).show()
+                    // Snackbar informativo (sin acción)
+                    com.google.android.material.snackbar.Snackbar.make(
+                        findViewById(android.R.id.content),
+                        "Esta palabra ya está en tu diccionario",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
+                    ).show()
                 }
             } else {
                 builder.setNeutralButton("Guardar") { _, _ ->
                     viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
                     wordWasAdded = true
-                    Toast.makeText(this, "Guardado", Toast.LENGTH_SHORT).show()
+                    
+                    // 🔥 Snackbar con acción "VER" para abrir diccionario
+                    com.google.android.material.snackbar.Snackbar.make(
+                        findViewById(android.R.id.content),
+                        "✓ \"$term\" añadida al diccionario",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                    ).setAction("VER") {
+                        // Abrir diccionario
+                        val intent = Intent(this, DictionaryActivity::class.java)
+                        startActivity(intent)
+                    }.show()
                 }
             }
 
@@ -505,13 +521,28 @@ class SongLearningActivity : AppCompatActivity() {
             
             if (itemData.alreadySaved) {
                 builder.setNeutralButton("✓ Ya guardado") { _, _ ->
-                    Toast.makeText(this, "Esta expresión ya está guardada", Toast.LENGTH_SHORT).show()
+                    // Snackbar informativo (sin acción)
+                    com.google.android.material.snackbar.Snackbar.make(
+                        findViewById(android.R.id.content),
+                        "Esta expresión ya está en tu diccionario",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
+                    ).show()
                 }
             } else {
                 builder.setNeutralButton("Guardar") { _, _ ->
                     viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
                     wordWasAdded = true
-                    Toast.makeText(this, "Guardado", Toast.LENGTH_SHORT).show()
+                    
+                    // 🔥 Snackbar con acción "VER" para abrir diccionario
+                    com.google.android.material.snackbar.Snackbar.make(
+                        findViewById(android.R.id.content),
+                        "✓ \"$term\" añadida al diccionario",
+                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+                    ).setAction("VER") {
+                        // Abrir diccionario
+                        val intent = Intent(this, DictionaryActivity::class.java)
+                        startActivity(intent)
+                    }.show()
                 }
             }
         }

@@ -9,6 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.facebook.shimmer.ShimmerFrameLayout
 import kotlinx.coroutines.launch
 
@@ -19,6 +20,7 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
     private lateinit var tvHeader: TextView
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
+    private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
     private var userLanguages: List<LearningLanguage> = emptyList()
     private var selectedLanguage: String = "en"
     private lateinit var chipGroup: com.google.android.material.chip.ChipGroup
@@ -43,11 +45,17 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
         shimmerContainer = view.findViewById(R.id.shimmerViewContainer)
         tvHeader = view.findViewById(R.id.tvHeader)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
+        swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
         
         // OCULTAR BUSCADOR EN ESTA PANTALLA
         view.findViewById<SearchView>(R.id.searchView).visibility = View.GONE
         
         tvHeader.text = "🏆 Top Hits & Grammys"
+        
+        // Configurar SwipeRefreshLayout
+        swipeRefresh.setOnRefreshListener {
+            loadUserProfileAndGrammys()  // Recargar todo
+        }
     }
 
     private fun setupRecyclerView() {
@@ -92,6 +100,8 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
             } catch (e: Exception) { 
                 e.printStackTrace()
                 loadGrammyNominees()
+            } finally {
+                swipeRefresh.isRefreshing = false  // 🔄 Detener animación
             }
         }
     }

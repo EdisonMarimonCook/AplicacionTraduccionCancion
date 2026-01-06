@@ -35,6 +35,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var tvMessage: TextView
     private lateinit var cardView: CardView
     private lateinit var tvIntervalIndicator: TextView
+    private lateinit var btnAudio: ImageButton  // 🔊 Botón de audio (estilo Anki)
     
     // Barras de Progreso
     private lateinit var progressBarLinear: ProgressBar // Barra superior
@@ -45,6 +46,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private var dY = 0f
     private var initialRawX = 0f
     private var isAnswerRevealed = false
+    private var hasPlayedAutoAudio = false  // 🔊 Flag para audio automático
     
     // 🔥 SEMÁFORO: Evita que se salte cartas si deslizas rápido o doble
     private var isProcessingSwipe = false 
@@ -90,12 +92,16 @@ class FlashcardsActivity : AppCompatActivity() {
         tvMessage = findViewById(R.id.tvMessage)
         cardView = findViewById(R.id.cardView)
         tvIntervalIndicator = findViewById(R.id.tvIntervalIndicator)
+        btnAudio = findViewById(R.id.btnAudio)  // 🔊 Botón de audio
         
         // Enlazamos las dos barras (importante para que se muevan)
         progressBarLinear = findViewById(R.id.progressBarLinear)
         progressBarLoading = findViewById(R.id.progressBar)
 
         touchOverlay.setOnClickListener { revealAnswer() }
+        
+        // 🔊 Configurar botón de audio (reproducción manual)
+        btnAudio.setOnClickListener { playCurrentCardAudio() }
         
         // 🔥 Configurar chips de modo
         setupModeChips()
@@ -289,6 +295,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private fun showCard() {
         // 🟢 DESBLOQUEAMOS INTERACCIÓN (Ya cargó la nueva carta)
         isProcessingSwipe = false
+        hasPlayedAutoAudio = false  // 🔊 Resetear flag para permitir audio automático en la siguiente carta
         
         if (currentIndex >= flashcards.size) {
             showEmptyState("¡Repaso completado! 🎉")
@@ -323,6 +330,7 @@ class FlashcardsActivity : AppCompatActivity() {
         tvExplanation.visibility = View.INVISIBLE
         divider.visibility = View.INVISIBLE
         layoutSwipeArrows.visibility = View.INVISIBLE
+        btnAudio.visibility = View.INVISIBLE  // 🔊 Ocultar botón de audio inicialmente
         touchOverlay.visibility = View.VISIBLE
         tvTapHint.visibility = View.VISIBLE
 
@@ -345,6 +353,13 @@ class FlashcardsActivity : AppCompatActivity() {
         layoutSwipeArrows.visibility = View.VISIBLE
         touchOverlay.visibility = View.GONE
         tvTapHint.visibility = View.GONE
+        btnAudio.visibility = View.VISIBLE  // 🔊 Mostrar botón de audio
+        
+        // 🔊 REPRODUCIR AUDIO AUTOMÁTICAMENTE LA PRIMERA VEZ
+        if (!hasPlayedAutoAudio) {
+            hasPlayedAutoAudio = true
+            playCurrentCardAudio()
+        }
     }
 
     private fun submitReview(quality: Int) {
@@ -401,5 +416,40 @@ class FlashcardsActivity : AppCompatActivity() {
     private fun showGameUI() {
         tvMessage.visibility = View.GONE
         cardView.visibility = View.VISIBLE
+    }
+    
+    // ========================================================================
+    // 🔊 FUNCIONES DE AUDIO
+    // ========================================================================
+    
+    /**
+     * Reproduce audio de la tarjeta actual
+     * Prioridad: 1) Fragmento de YouTube, 2) TTS
+     */
+    private fun playCurrentCardAudio() {
+        if (currentIndex >= flashcards.size) return
+        
+        val card = flashcards[currentIndex]
+        
+        lifecycleScope.launch {
+            try {
+                AudioPlayerHelper.playAudio(
+                    context = this@FlashcardsActivity,
+                    text = card.word,
+                    language = card.language,
+                    songYoutubeUrl = card.songYoutubeUrl,
+                    timestampStart = card.timestampStart,
+                    timestampEnd = card.timestampEnd
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FlashcardsActivity", "Error reproduciendo audio: ${e.message}")
+            }
+        }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // 🔊 Liberar recursos de audio
+        AudioPlayerHelper.releasePlayer()
     }
 }

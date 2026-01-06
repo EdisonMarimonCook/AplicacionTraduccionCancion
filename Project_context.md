@@ -498,36 +498,300 @@ El backend y la lógica funcionan. Todas las pantallas principales están organi
   - ✅ **Login bloqueado:** Si el usuario no está verificado, el login retorna HTTP 403 con mensaje "Email no verificado".
   - ✅ **Logs detallados:** Backend registra envío de emails y verificaciones exitosas.
 
----
-
-#### ❌ B. Perfil Inteligente & Gestión de Idiomas (PENDIENTE PARA FASE 3)
 
 ---
 
-### 🟠 FASE 3: MANTENIMIENTO Y OPTIMIZACIÓN (PENDIENTE)
-   - SearchView configurado sin popup de sugerencias del teclado
+### 🟠 FASE 3: MANTENIMIENTO Y OPTIMIZACIÓN (EN PROGRESO)
 
-- **Theme Switching con State Preservation:** ✅ COMPLETADO
-   - Sistema de colores centralizado (colors.xml / colors-night.xml)
-   - Atributos adaptativos (?attr/colorOnSurface, ?attr/colorSurface, @color/card_background)
-   - MainActivity guarda y restaura el estado (página del ViewPager) al cambiar tema
-   - `windowSoftInputMode="adjustPan"` para evitar compresión de pantalla con teclado
+**Fecha de Inicio:** 5 de Enero de 2026  
+**Objetivo:** Mejorar rendimiento, robustez, y experiencia de usuario mediante optimizaciones técnicas y funcionales.
 
-- **UI/UX Polish:** ✅ COMPLETADO
-   - Colores adaptativos en ProfileFragment para visibilidad en modo claro y oscuro
-   - Ripple effect eliminado del Bottom Navigation (`itemRippleColor="@android:color/transparent"`)
-   - Padding y márgenes ajustados para mejor uso del espacio (fitsSystemWindows, paddingTop 24dp)
-   - Contadores de estadísticas con colores temáticos (Palabras: adaptativo, Racha: naranja, Repasos: teal)
+---
 
-- **Gestión de Datos UI:**
-   - Visualizar las listas de diccionarios/flashcards (ya existentes en BD) dentro de la nueva estructura de navegación (Fragmentos).
+#### ✅ A. Validación de Precisión en Letras (COMPLETADO)
 
-### � FASE 3: MANTENIMIENTO Y OPTIMIZACIÓN (PENDIENTE)
+**🎯 Objetivo:** Asegurar que las letras descargadas correspondan exactamente a la canción correcta, reduciendo falsos positivos.
 
-- **Configuración Retrofit:** Automatizar el switch DEBUG/RELEASE para la URL de Render.
-- **Wake-Up Screen:** Optimizar la carga inicial de datos (Top Grammys, Perfil) al abrir la app.
-- **Modo Offline:** Persistencia local de datos críticos (Room) para cuando falle la red.
-- **Health Check:** Validación rápida de conexión al iniciar (Splash Screen) para despertar a Render.
+- **Sistema de Validación Multi-Criterio:**
+  - ✅ **Comparación de duración:** Si la letra tiene timestamps sincronizados (LRCLib), compara el último timestamp con la duración de Spotify.
+  - ✅ **Validación de título:** Normaliza y compara palabras clave entre título de la letra y Spotify.
+  - ✅ **Validación de artista:** Verifica que haya al menos una palabra en común entre artistas.
+  - ✅ **Validación de álbum:** Compara álbum si está disponible en LRCLib.
+  
+- **Confidence Score:**
+  - ✅ **high:** Todos los criterios coinciden (duración ±30s, título y artista match).
+  - ✅ **medium:** Algunas discrepancias menores (título ligeramente diferente).
+  - ✅ **low:** Discrepancias significativas (duración muy diferente, título/artista sin palabras comunes).
+  
+- **Logs y Debugging:**
+  - ✅ Backend registra warnings cuando `confidence == "low"` o `confidence == "medium"`.
+  - ✅ Frontend recibe campos `confidence` y `validation_warnings` para mostrar alertas al usuario si es necesario.
+
+- **Archivos Modificados:**
+  - `backend/utils/genius_client.py` - Nueva función `validate_lyrics_match()`
+  - `backend/routers/lyrics.py` - Endpoint actualizado para pasar metadata de Spotify
+  - `backend/routers/schemas.py` - LyricsResponse con campos `confidence` y `validation_warnings`
+
+---
+
+#### 🔄 B. Optimizaciones de Performance (PROPUESTAS)
+
+**Backend:**
+
+1. **Caché de Letras y Metadatos:**
+   - **Problema:** Cada vez que se abre una canción, se busca la letra desde cero (LRCLib/Genius).
+   - **Solución:** Crear colección MongoDB `lyrics_cache` con TTL de 30 días.
+   - **Estructura:**
+     ```python
+     {
+       "spotify_id": "7qiZfU4dY1lWllzX7mPBI",
+       "title": "アイドル",
+       "artist": "YOASOBI",
+       "lyrics": "...",
+       "synced_lyrics": "...",
+       "confidence": "high",
+       "cached_at": ISODate(...),
+       "expires_at": ISODate(...)  # TTL index
+     }
+     ```
+   - **Beneficio:** Reducir latencia en canciones populares de ~3-5s a <500ms.
+
+2. **Índices en MongoDB:**
+   - **Problema:** Queries lentas en colecciones grandes (usuarios, diccionario, flashcards).
+   - **Solución:** Crear índices compuestos:
+     ```python
+     # Diccionario
+     db.dictionary.create_index([("user_id", 1), ("language", 1), ("type", 1)])
+     
+     # Flashcards
+     db.flashcard_srs.create_index([("user_id", 1), ("language", 1), ("next_review", 1)])
+     
+     # Usuarios
+     db.users.create_index([("email", 1)], unique=True)
+     db.users.create_index([("username", 1)], unique=True)
+     ```
+   - **Beneficio:** Reducir tiempo de carga de flashcards/diccionario de ~1-2s a <200ms.
+
+3. **Rate Limiting Inteligente:**
+   - **Problema:** APIs externas (Genius, LRCLib, Spotify) pueden bloquear por exceso de requests.
+   - **Solución:** Implementar rate limiter con Redis o memoria:
+     ```python
+     from slowapi import Limiter, _rate_limit_exceeded_handler
+     from slowapi.util import get_remote_address
+     
+     limiter = Limiter(key_func=get_remote_address)
+     app.state.limiter = limiter
+     
+     @router.get("/lyrics")
+     @limiter.limit("10/minute")  # Max 10 búsquedas de letras por minuto
+     async def get_lyrics(...):
+     ```
+   - **Beneficio:** Proteger el backend de abusos y evitar bans de APIs externas.
+
+4. **Compresión de Respuestas API:**
+   - **Problema:** Respuestas grandes (letras largas, listas de canciones) consumen mucho ancho de banda.
+   - **Solución:** Habilitar Gzip en FastAPI:
+     ```python
+     from fastapi.middleware.gzip import GZipMiddleware
+     app.add_middleware(GZipMiddleware, minimum_size=1000)
+     ```
+   - **Beneficio:** Reducir tamaño de payload en ~60-70%.
+
+5. **Batch Endpoints para Flashcards:**
+   - **Problema:** Frontend hace múltiples requests al cargar flashcards (uno por idioma/tipo).
+   - **Solución:** Crear endpoint `POST /api/v1/flashcards/batch` que acepte múltiples filtros.
+   - **Beneficio:** Reducir número de requests de 3-5 a 1.
+
+**Frontend:**
+
+1. **Lazy Loading de Imágenes:**
+   - **Problema:** Glide carga todas las imágenes de canciones/avatares inmediatamente.
+   - **Solución:** Configurar placeholders y error handling:
+     ```kotlin
+     Glide.with(context)
+         .load(imageUrl)
+         .placeholder(R.drawable.placeholder_album)
+         .error(R.drawable.error_album)
+         .diskCacheStrategy(DiskCacheStrategy.ALL)
+         .into(imageView)
+     ```
+   - **Beneficio:** Mejorar percepción de velocidad.
+
+2. **RecyclerView con DiffUtil:**
+   - **Problema:** Adapters usan `notifyDataSetChanged()` que redibuja toda la lista.
+   - **Solución:** Implementar DiffUtil para actualizaciones granulares:
+     ```kotlin
+     class SongDiffCallback(
+         private val oldList: List<Song>,
+         private val newList: List<Song>
+     ) : DiffUtil.Callback() {
+         override fun areItemsTheSame(oldPos: Int, newPos: Int) = 
+             oldList[oldPos].id == newList[newPos].id
+         override fun areContentsTheSame(oldPos: Int, newPos: Int) = 
+             oldList[oldPos] == newList[newPos]
+     }
+     ```
+   - **Beneficio:** Animaciones suaves, menos re-renderizado.
+
+3. **Preload de Audio en Background:**
+   - **Problema:** Usuario abre canción → espera ~3-5s mientras se descarga audio.
+   - **Solución:** Precargar audio al hacer scroll por lista de canciones (top 3 visibles):
+     ```kotlin
+     // En SongAdapter
+     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+         // ... código existente
+         
+         // Precargar audio de siguiente canción
+         if (position < songs.size - 1) {
+             lifecycleScope.launch {
+                 GrayjayAudioExtractor.prefetchAudio(songs[position + 1])
+             }
+         }
+     }
+     ```
+   - **Beneficio:** Audio instantáneo al abrir canción.
+
+4. **Room para Offline Mode:**
+   - **Problema:** Sin conexión, la app no funciona.
+   - **Solución:** Cachear datos críticos localmente:
+     ```kotlin
+     @Database(entities = [Song::class, UserProfile::class, DictionaryEntry::class], version = 1)
+     abstract class AppDatabase : RoomDatabase() {
+         abstract fun songDao(): SongDao
+         abstract fun profileDao(): ProfileDao
+         abstract fun dictionaryDao(): DictionaryDao
+     }
+     ```
+   - **Beneficio:** Usuario puede practicar flashcards offline.
+
+5. **ViewPager2 Preloading:**
+   - **Problema:** Al cambiar de fragment (Home → Grammys → Profile), hay lag.
+   - **Solución:** Configurar preloading:
+     ```kotlin
+     viewPager.offscreenPageLimit = 2  // Mantener 2 fragments en memoria
+     ```
+   - **Beneficio:** Transiciones instantáneas entre tabs.
+
+---
+
+#### 🎨 C. Mejoras de UX (PROPUESTAS)
+
+1. **Skeleton Screens:**
+   - **Problema:** Pantallas en blanco mientras carga contenido.
+   - **Solución:** Mostrar placeholders animados (shimmer effect):
+     ```xml
+     <com.facebook.shimmer.ShimmerFrameLayout>
+         <LinearLayout>...</LinearLayout>
+     </com.facebook.shimmer.ShimmerFrameLayout>
+     ```
+   - **Beneficio:** Percepción de app más rápida.
+
+2. **Pull-to-Refresh:**
+   - **Problema:** Usuario no puede forzar recarga de Grammys/Perfil.
+   - **Solución:** SwipeRefreshLayout en fragmentos:
+     ```kotlin
+     swipeRefresh.setOnRefreshListener {
+         loadUserProfileAndGrammys()
+         swipeRefresh.isRefreshing = false
+     }
+     ```
+
+3. **Snackbar para Feedback Inmediato:**
+   - **Problema:** Toasts desaparecen antes de que el usuario lea.
+   - **Solución:** Usar Snackbar con acciones:
+     ```kotlin
+     Snackbar.make(view, "Palabra añadida al diccionario", Snackbar.LENGTH_LONG)
+         .setAction("Deshacer") { /* undo logic */ }
+         .show()
+     ```
+
+4. **Animaciones de Transición:**
+   - **Problema:** Navegación entre activities es brusca.
+   - **Solución:** Implementar Shared Element Transitions:
+     ```kotlin
+     val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+         this,
+         imageView,
+         "song_image_transition"
+     )
+     startActivity(intent, options.toBundle())
+     ```
+
+5. **Tutorial Interactivo (First Time User Experience):**
+   - **Problema:** Nuevos usuarios no entienden cómo funciona el SRS o el diccionario.
+   - **Solución:** Agregar TapTargetView con tooltips:
+     ```kotlin
+     TapTargetView.showFor(activity,
+         TapTarget.forView(findViewById(R.id.addWordButton), 
+             "Añade palabras",
+             "Toca una palabra en la letra para añadirla a tu diccionario")
+     )
+     ```
+
+---
+
+#### 🔧 D. Optimizaciones Técnicas (PROPUESTAS)
+
+1. **Logs Estructurados:**
+   - **Problema:** Logs mezclados dificultan debugging en producción.
+   - **Solución:** Usar logging estructurado:
+     ```python
+     import structlog
+     logger = structlog.get_logger()
+     logger.info("lyrics_fetch", song_id=song_id, confidence=confidence, duration_ms=duration)
+     ```
+
+2. **Health Check Endpoint:**
+   - **Problema:** Render duerme backend, primera request tarda ~30s.
+   - **Solución:** Endpoint dedicado para UptimeRobot:
+     ```python
+     @app.get("/health")
+     async def health_check():
+         return {"status": "ok", "timestamp": datetime.now().isoformat()}
+     ```
+
+3. **Analytics y Telemetría:**
+   - **Problema:** No sabemos qué features usa más el usuario.
+   - **Solución:** Integrar Firebase Analytics:
+     ```kotlin
+     firebaseAnalytics.logEvent("song_opened") {
+         param("song_id", song.id)
+         param("language", song.language)
+     }
+     ```
+
+4. **Error Tracking:**
+   - **Problema:** Crashes en producción sin stacktrace.
+   - **Solución:** Integrar Sentry:
+     ```python
+     import sentry_sdk
+     sentry_sdk.init(dsn="...")
+     ```
+
+5. **Database Backups:**
+   - **Problema:** Sin backups automáticos, un error puede perder datos.
+   - **Solución:** MongoDB Atlas Continuous Backup + export semanal.
+
+---
+
+#### 📊 E. Métricas de Éxito (FASE 3)
+
+**Performance:**
+- ✅ Tiempo de carga de letra: <2s (actualmente ~5s)
+- ✅ Tiempo de carga de flashcards: <500ms (actualmente ~1-2s)
+- ✅ Tiempo de inicio de app: <3s (actualmente ~5-7s)
+
+**Robustez:**
+- ✅ Tasa de éxito en búsqueda de letras: >90% (actualmente ~75-80%)
+- ✅ Confianza en letras: >80% con `confidence == "high"`
+- ✅ Uptime del backend: >99% (UptimeRobot monitoring)
+
+**UX:**
+- ✅ Modo offline funcional para flashcards
+- ✅ Pull-to-refresh en todos los fragmentos
+- ✅ Skeleton screens en cargas largas
+
+---
 
 ### 🔵 FASE 4: EXTRAS (OPCIONALES / "SI DA TIEMPO")
 
