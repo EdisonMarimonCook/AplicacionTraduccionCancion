@@ -120,6 +120,7 @@ async def get_user_profile(current_user: User = Depends(get_current_user)):
             learning_languages=learning_languages,
             created_at=current_user.created_at,
             is_active=current_user.is_active,
+            onboarding_completed=getattr(current_user, 'onboarding_completed', False),
             
             # ✨ FASE 2.5: Campos nuevos
             primary_language=getattr(current_user, 'primary_language', 'en'),
@@ -246,6 +247,52 @@ async def update_profile(
             is_active=True
         )
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ✅ Endpoint para verificar onboarding (usado en MainActivity)
+@router.get("/me", response_model=UserProfileResponse)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Devuelve información básica del usuario incluyendo onboarding_completed"""
+    try:
+        # Obtener usuario actualizado de BD
+        user_doc = await db.db["users"].find_one({"email": current_user.email})
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return UserProfileResponse(
+            id=str(user_doc["_id"]),
+            email=user_doc["email"],
+            username=user_doc["username"],
+            full_name=user_doc.get("full_name"),
+            native_language=user_doc.get("native_language", "en"),
+            avatar_url=user_doc.get("avatar_url"),
+            onboarding_completed=user_doc.get("onboarding_completed", False),
+            learning_languages=[],
+            created_at=user_doc.get("created_at"),
+            is_active=True
+        )
+    except Exception as e:
+        logger.error(f"❌ Error obteniendo usuario actual: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ✅ Endpoint para marcar onboarding como completado
+@router.post("/complete-onboarding")
+async def complete_onboarding(current_user: User = Depends(get_current_user)):
+    """Marca el onboarding como completado para el usuario actual"""
+    try:
+        result = await db.db["users"].update_one(
+            {"email": current_user.email},
+            {"$set": {"onboarding_completed": True}}
+        )
+        
+        if result.modified_count == 0:
+            logger.warning(f"⚠️ No se pudo actualizar onboarding para {current_user.email}")
+        else:
+            logger.info(f"✅ Onboarding completado para {current_user.email}")
+        
+        return {"message": "Onboarding completed successfully"}
+    except Exception as e:
+        logger.error(f"❌ Error al completar onboarding: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/change-password")

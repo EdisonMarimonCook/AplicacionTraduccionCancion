@@ -78,6 +78,7 @@ class User(UserBase):
     last_activity_date: Optional[datetime] = None
     longest_streak: int = 0
     avatar_url: Optional[str] = None
+    onboarding_completed: bool = False  # ✅ Para mostrar tutorial solo la primera vez
     
     class Config:
         populate_by_name = True

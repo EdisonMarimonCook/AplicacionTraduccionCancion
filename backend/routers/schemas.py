@@ -99,6 +99,7 @@ class UserProfileResponse(BaseModel):
     learning_languages: List[LearningLanguage] = []
     created_at: datetime
     is_active: bool = True
+    onboarding_completed: bool = False  # ✅ Para tutorial por cuenta
     
     # ✨ FASE 2.5: Gamificación y multi-idioma
     primary_language: str = "en"
