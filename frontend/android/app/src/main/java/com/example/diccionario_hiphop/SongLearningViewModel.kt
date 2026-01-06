@@ -17,6 +17,7 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
     val isAiAnalyzing: LiveData<Boolean> get() = _isAiAnalyzing
    
     private val repository = SongRepository(application)
+    private val profileRepository = ProfileRepository(application.applicationContext)
 
     // Estados UI
     private val _lyricsState = MutableLiveData<String>()
@@ -259,7 +260,10 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                         }
                     }
                     
-                    // Marcar como guardado en la UI
+                    // 🆕 Incrementar contador en caché del perfil
+                    profileRepository.incrementCachedCounter("words", 1)
+                    
+                    // Marcar como guardado en la UI (forzar en Main thread)
                     val current = _analysisState.value
                     if (current != null) {
                          if (isExpression) {
@@ -268,14 +272,14 @@ class SongLearningViewModel(application: Application) : AndroidViewModel(applica
                                     it.copy(alreadySaved = true, color = "gray")
                                 else it
                             }
-                            _analysisState.value = current.copy(expressions = updatedExpressions)
+                            _analysisState.postValue(current.copy(expressions = updatedExpressions))
                         } else {
                             val updatedWords = current.words.map {
                                 if (it.word.equals(term, ignoreCase = true))
                                     it.copy(alreadySaved = true, color = "gray")
                                 else it
                             }
-                            _analysisState.value = current.copy(words = updatedWords)
+                            _analysisState.postValue(current.copy(words = updatedWords))
                         }
                     }
                 } else {

@@ -30,6 +30,14 @@ interface ApiService {
     // 🔥 CAMBIO 1: Usar 'User' en lugar de 'UserProfile' para que funcionen los contadores
     @GET("/api/v1/users/profile")
     suspend fun getProfile(): Response<User>
+    
+    // ✅ Para verificar onboarding desde cualquier parte
+    @GET("/api/v1/users/me")
+    suspend fun getCurrentUser(): Response<User>
+    
+    // ✅ Marcar onboarding como completado
+    @POST("/api/v1/users/complete-onboarding")
+    suspend fun completeOnboarding(): Response<Void>
 
     // 🔥 CAMBIO 2: Usar 'User' aquí también
     @PUT("/api/v1/users/profile")

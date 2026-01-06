@@ -75,7 +75,11 @@ data class User(
     val reviewsCount: Int = 0,
     
     @SerializedName("words_count")
-    val wordsCount: Int = 0
+    val wordsCount: Int = 0,
+    
+    // ✅ Para onboarding por cuenta (no por dispositivo)
+    @SerializedName("onboarding_completed")
+    val onboardingCompleted: Boolean = false
 )
 
 data class LearningLanguage(

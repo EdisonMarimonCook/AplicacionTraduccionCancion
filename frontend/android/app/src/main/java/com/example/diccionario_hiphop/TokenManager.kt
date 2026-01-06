@@ -119,6 +119,16 @@ class TokenManager(private val context: Context) {
     fun clearSession() {
         clearPersistedTokens()
         clearTemporaryTokens()
+        
+        // ✅ Borrar también SharedPreferences de onboarding (por si acaso)
+        try {
+            context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .remove("onboarding_completed")
+                .apply()
+        } catch (e: Exception) {
+            android.util.Log.e("TokenManager", "Error limpiando app_prefs", e)
+        }
     }
 /**
  * 🔥 FORCE LOGOUT: Borra TODO y redirige al Login.

@@ -125,17 +125,56 @@ async def highlight_by_level(lyrics: str, user_level: str = "B1", native_lang: s
                 cleaned_expressions.append(expr)
             data["expressions"] = cleaned_expressions
         
-        # 🔥 ASIGNAR COLORES CORRECTOS (Gemini a veces ignora esto)
+        # 🔥 VALIDACIÓN: Asegurar que todas las palabras tengan campos requeridos
         if "words" in data:
+            cleaned_words = []
             for word in data["words"]:
+                # Campos obligatorios con valores por defecto
+                if "word" not in word or not word["word"]:
+                    logger.warning(f"⚠️ Palabra sin 'word' field, saltando: {word}")
+                    continue
+                
+                word.setdefault("translation", f"[Sin traducción para: {word['word']}]")
+                word.setdefault("type", "noun")
+                word.setdefault("explanation", "")
+                word.setdefault("example", "")
+                word.setdefault("difficulty", user_level)
+                word.setdefault("recommended", False)
+                
+                # Asignar colores correctos
                 if word.get("recommended"):
                     word["color"] = "green"  # ✅ Palabras recomendadas en VERDE
                 else:
                     word["color"] = "orange"  # Palabras normales en naranja
+                
+                cleaned_words.append(word)
+            data["words"] = cleaned_words
         
+        # 🔥 VALIDACIÓN: Asegurar que todas las expresiones tengan campos requeridos
         if "expressions" in data:
+            cleaned_expressions = []
             for expr in data["expressions"]:
+                # Campos obligatorios con valores por defecto
+                if "expression" not in expr or not expr["expression"]:
+                    logger.warning(f"⚠️ Expresión sin 'expression' field, saltando: {expr}")
+                    continue
+                
+                expr.setdefault("translation", f"[Sin traducción para: {expr['expression']}]")
+                expr.setdefault("type", "expression")
+                expr.setdefault("explanation", "")
+                expr.setdefault("example", "")
+                expr.setdefault("difficulty", "B2")
+                expr.setdefault("recommended", False)
                 expr["color"] = "red"  # 🔥 Expresiones SIEMPRE en ROJO
+                
+                cleaned_expressions.append(expr)
+            data["expressions"] = cleaned_expressions
+        
+        # Asegurar que existan las listas (aunque estén vacías)
+        data.setdefault("words", [])
+        data.setdefault("expressions", [])
+        data.setdefault("suggestions", [])
+        data.setdefault("detected_language", "en")
         
         # Validamos con Pydantic
         return HighlightWordsResponse(**data)

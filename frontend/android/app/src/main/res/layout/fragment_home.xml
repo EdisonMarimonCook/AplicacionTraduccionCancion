@@ -90,4 +90,17 @@
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+    <!-- 📴 Mensaje de estado offline (centrado) -->
+    <TextView
+        android:id="@+id/tvOfflineMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:text="📴 Sin conexión\n\nNecesitas internet para\ndescubrir canciones"
+        android:textAlignment="center"
+        android:textSize="18sp"
+        android:lineSpacingExtra="4dp"
+        android:padding="24dp" />
+
 </FrameLayout>
