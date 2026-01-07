@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.example.diccionario_hiphop.utils.NetworkMonitor
 import com.facebook.shimmer.ShimmerFrameLayout
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,8 +23,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private lateinit var shimmerContainer: ShimmerFrameLayout
     private lateinit var searchView: SearchView
     private lateinit var tvHeader: TextView
+    private lateinit var tvOfflineMessage: TextView
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var networkMonitor: NetworkMonitor
     private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
     private var searchJob: Job? = null
     private var userLanguages: List<LearningLanguage> = emptyList()
@@ -35,19 +39,32 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         repository = SongRepository(requireContext())
+        profileRepository = ProfileRepository(requireContext())
+        networkMonitor = NetworkMonitor.getInstance(requireContext())
         
         initViews(view)
         setupRecyclerView()
         setupSearchView()
         
-        // Cargar perfil para obtener idioma del usuario
-        loadUserProfile()
+        // 🌐 Observar cambios de conectividad para actualizar UI
+        lifecycleScope.launch {
+            networkMonitor.isConnected.collect { isOnline ->
+                if (!isOnline) {
+                    showOfflineState()
+                }
+                // No cargar automáticamente cuando vuelve online - onResume lo hará
+            }
+        }
     }
     
     override fun onResume() {
         super.onResume()
-        // Recargar idiomas cuando volvemos de ManageLanguagesActivity
-        loadUserProfile()
+        // Verificar conectividad y cargar solo si hay conexión
+        if (networkMonitor.isConnected.value) {
+            loadUserProfile()
+        } else {
+            showOfflineState()
+        }
     }
 
     private fun initViews(view: View) {
@@ -55,6 +72,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         shimmerContainer = view.findViewById(R.id.shimmerViewContainer)
         searchView = view.findViewById(R.id.searchView)
         tvHeader = view.findViewById(R.id.tvHeader)
+        tvOfflineMessage = view.findViewById(R.id.tvOfflineMessage)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
         chipScrollView = view.findViewById(R.id.chipScrollView)
         swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
@@ -144,10 +162,18 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun loadUserProfile() {
+        // Re-habilitar controles (por si volvimos de offline)
+        searchView.isEnabled = true
+        searchView.alpha = 1f
+        swipeRefresh.isEnabled = true
+        chipScrollView.visibility = View.VISIBLE
+        tvHeader.visibility = View.VISIBLE
+        tvOfflineMessage.visibility = View.GONE
+        
         lifecycleScope.launch {
             try {
-                val apiService = RetrofitService.getInstance(requireContext())
-                val response = apiService.getProfile()
+                // 🚀 Usar ProfileRepository que aprovecha la precarga de MainActivity
+                val response = profileRepository.getProfile()
                 
                 if (response.isSuccessful && response.body() != null) {
                     val user = response.body()!!
@@ -319,11 +345,17 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                         Toast.makeText(requireContext(), "No se encontraron canciones", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                     Toast.makeText(requireContext(), "Error al buscar", Toast.LENGTH_SHORT).show()
+                    // Solo mostrar error si estamos online
+                    if (networkMonitor.isConnected.value) {
+                        Toast.makeText(requireContext(), "Error al buscar", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) { 
                 e.printStackTrace()
-                Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
+                // Solo mostrar error si estamos online
+                if (networkMonitor.isConnected.value) {
+                    Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
+                }
             } finally { 
                 showLoading(false) 
             }
@@ -340,5 +372,28 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             shimmerContainer.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
         }
+    }
+    
+    private fun showOfflineState() {
+        // Ocultar loading
+        showLoading(false)
+        
+        // Limpiar resultados
+        adapter.updateData(emptyList())
+        
+        // Deshabilitar búsqueda
+        searchView.isEnabled = false
+        searchView.alpha = 0.5f
+        
+        // Ocultar chips y header
+        chipScrollView.visibility = View.GONE
+        tvHeader.visibility = View.GONE
+        
+        // Mostrar mensaje centrado
+        tvOfflineMessage.visibility = View.VISIBLE
+        
+        // Detener refresh si está activo
+        swipeRefresh.isRefreshing = false
+        swipeRefresh.isEnabled = false
     }
 }

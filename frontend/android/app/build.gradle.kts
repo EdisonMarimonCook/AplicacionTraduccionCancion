@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("kotlin-kapt") // Para Room annotation processor
 }
 
 android {
@@ -95,6 +96,11 @@ dependencies {
     
     // 🔄 SwipeRefreshLayout para Pull-to-Refresh (Fase 3 Optimización)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    
+    // 🗄️ Room Database para modo offline (Fase 3 Extra)
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 
     implementation("io.github.junkfood02.youtubedl-android:library:0.18.1")
     implementation("io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1")

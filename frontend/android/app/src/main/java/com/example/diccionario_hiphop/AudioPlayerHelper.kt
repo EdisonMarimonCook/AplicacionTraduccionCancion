@@ -3,24 +3,30 @@ package com.example.diccionario_hiphop
 import android.content.Context
 import android.media.MediaPlayer
 import android.util.Log
+import com.example.diccionario_hiphop.utils.AudioFragmentCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 /**
  * 🔊 Helper para reproducir audio TTS y fragmentos de canciones
- * Lógica:
- * 1. Si hay song_youtube_url + timestamps → Extraer fragmento con yt-dlp
- * 2. Si no → Usar TTS del backend
+ * Lógica mejorada con cache y timeout:
+ * 1. Verificar cache de fragmentos
+ * 2. Si no hay cache, intentar extraer con timeout de 5s
+ * 3. Fallback automático a TTS si falla o tarda mucho
  */
 object AudioPlayerHelper {
     
     private var mediaPlayer: MediaPlayer? = null
     private const val TAG = "AudioPlayerHelper"
+    private const val FRAGMENT_TIMEOUT_MS = 10000L // 10 segundos timeout
     
     /**
-     * Reproduce audio con la siguiente prioridad:
-     * 1. TTS del backend (rápido y confiable)
-     * 2. Fragmento de YouTube (si falla TTS o configurado)
+     * Reproduce audio con estrategia inteligente:
+     * 1. Si hay fragmento cacheado → usar fragmento
+     * 2. Si no hay cache → intentar extraer (timeout 5s)
+     * 3. Si falla o tarda → fallback a TTS
      * 
      * @param context Contexto de Android
      * @param text Palabra o expresión a pronunciar
@@ -44,28 +50,79 @@ object AudioPlayerHelper {
                 // Liberar MediaPlayer anterior si existe
                 releasePlayer()
                 
-                // 1️⃣ PRIORIDAD: TTS del backend (rápido y confiable)
-                Log.d(TAG, "🔊 Reproduciendo TTS para: '$text' ($language)")
-                playTTS(context, text, language) {
-                    // Callback cuando TTS termina
+                // 🔊 USAR SOLO TTS (extracción de fragmentos deshabilitada)
+                // Verificar conectividad
+                val networkMonitor = com.example.diccionario_hiphop.utils.NetworkMonitor.getInstance(context)
+                if (!networkMonitor.isConnected.value) {
+                    Log.d(TAG, "📴 Sin conexión, audio TTS no disponible")
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "📴 Audio no disponible sin conexión", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                     onComplete?.invoke()
+                    return@withContext
                 }
                 
-                // 2️⃣ OPCIONAL: Intentar fragmento en segundo plano (para mejorar cache)
-                // Comentado por ahora para evitar consumo de recursos
-                /*
-                if (!songYoutubeUrl.isNullOrEmpty() && timestampStart != null && timestampEnd != null) {
-                    lifecycleScope.launch {
-                        Log.d(TAG, "🎯 Pre-cargando fragmento en background...")
-                        extractAudioFragment(songYoutubeUrl, timestampStart, timestampEnd)
-                    }
+                // Reproducir TTS directamente
+                Log.d(TAG, "🔊 Reproduciendo TTS para: '$text' ($language)")
+                playTTS(context, text, language) {
+                    onComplete?.invoke()
                 }
-                */
                 
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error reproduciendo audio: ${e.message}")
                 onComplete?.invoke()
             }
+        }
+    }
+    
+    /**
+     * Reproduce un fragmento desde URL con timestamps específicos
+     * @param audioUrl URL del audio completo
+     * @param startSeconds Segundo de inicio del fragmento
+     * @param endSeconds Segundo de fin del fragmento
+     * @return true si se reprodujo correctamente, false si hubo error
+     */
+    private fun playFragmentUrl(
+        audioUrl: String, 
+        startSeconds: Float, 
+        endSeconds: Float,
+        onComplete: (() -> Unit)?
+    ): Boolean {
+        return try {
+            Log.d(TAG, "🎵 Configurando reproducción: ${startSeconds}s - ${endSeconds}s")
+            
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(audioUrl)
+                
+                setOnPreparedListener { mp ->
+                    // Saltar al timestamp de inicio
+                    val startMs = (startSeconds * 1000).toInt()
+                    mp.seekTo(startMs)
+                    mp.start()
+                    
+                    Log.d(TAG, "▶️ Reproduciendo fragmento desde ${startSeconds}s")
+                    
+                    // Programar detención en el timestamp de fin
+                    val durationMs = ((endSeconds - startSeconds) * 1000).toLong()
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        Log.d(TAG, "⏹️ Fragmento completado en ${endSeconds}s")
+                        stopPlayer()
+                        onComplete?.invoke()
+                    }, durationMs)
+                }
+                
+                setOnErrorListener { _, what, extra ->
+                    Log.e(TAG, "❌ Error MediaPlayer: what=$what, extra=$extra")
+                    stopPlayer()
+                    false  // Retornar false para intentar TTS
+                }
+                
+                prepareAsync()
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error reproduciendo fragmento: ${e.message}")
+            false
         }
     }
     
@@ -79,21 +136,23 @@ object AudioPlayerHelper {
         endSeconds: Float
     ): String? {
         return try {
-            Log.d(TAG, "🔍 Procesando: $youtubeUrl")
+            Log.d(TAG, "🔍 Extrayendo audio: $youtubeUrl")
+            Log.d(TAG, "⏱️ Fragmento: ${startSeconds}s - ${endSeconds}s")
             
             // Si es ytsearch:, extraer directamente
             // Si es URL completa, también funciona
             val audioUrl = GrayjayAudioExtractor.getAudioFragment(youtubeUrl, startSeconds, endSeconds)
             
             if (audioUrl != null) {
-                Log.d(TAG, "✅ Audio URL obtenida: ${audioUrl.take(100)}...")
+                Log.d(TAG, "✅ Audio URL obtenida (${audioUrl.length} chars)")
+                Log.d(TAG, "🔗 URL: ${audioUrl.take(150)}...")
             } else {
                 Log.e(TAG, "❌ No se pudo obtener audio URL")
             }
             
             audioUrl
         } catch (e: Exception) {
-            Log.e(TAG, "Error extrayendo fragmento: ${e.message}", e)
+            Log.e(TAG, "❌ Error extrayendo fragmento: ${e.message}", e)
             null
         }
     }

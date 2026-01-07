@@ -25,8 +25,11 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
 
     private lateinit var adapter: DictionaryAdapter
     private lateinit var repository: DictionaryRepository
+    private lateinit var profileRepository: ProfileRepository  // 🆕 Para invalidar caché
+    private lateinit var networkMonitor: com.example.diccionario_hiphop.utils.NetworkMonitor
+    private lateinit var offlineManager: com.example.diccionario_hiphop.utils.OfflineManager  // 🗑️ Para borrar flashcards
     
-    // ðŸ”¥ Estado de filtros
+    // 🔥 Estado de filtros
     private var selectedLanguage: String? = null
     private var selectedType: String? = null
     private var userLanguages: List<LearningLanguage> = emptyList()
@@ -35,10 +38,35 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
         super.onViewCreated(view, savedInstanceState)
 
         repository = DictionaryRepository(requireContext())
+        profileRepository = ProfileRepository(requireContext())  // 🆕 Inicializar
+        networkMonitor = com.example.diccionario_hiphop.utils.NetworkMonitor.getInstance(requireContext())
+        offlineManager = com.example.diccionario_hiphop.utils.OfflineManager(requireContext())  // 🗑️ Inicializar
 
         initViews(view)
         setupRecyclerView()
         loadUserLanguages()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Sincronizar borrados pendientes si hay conexión
+        if (networkMonitor.isConnected.value) {
+            syncPendingDeletions()
+        }
+    }
+    
+    private fun syncPendingDeletions() {
+        lifecycleScope.launch {
+            try {
+                val synced = repository.syncPendingDeletions()
+                if (synced > 0) {
+                    Toast.makeText(requireContext(), "✓ $synced palabras sincronizadas", Toast.LENGTH_SHORT).show()
+                    loadDictionary() // Recargar para actualizar UI
+                }
+            } catch (e: Exception) {
+                // Silencioso si falla
+            }
+        }
     }
 
     private fun initViews(view: View) {
@@ -50,7 +78,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
         chipWords = view.findViewById(R.id.chipWords)
         chipExpressions = view.findViewById(R.id.chipExpressions)
         
-        // ðŸ”¥ Listeners para chips de tipo
+        // 🔥 Listeners para chips de tipo
         chipWords.setOnClickListener {
             selectedType = if (chipWords.isChecked) "word" else null
             loadDictionary()
@@ -97,12 +125,25 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                 if (response.isSuccessful) {
                     // Actualizar UI
                     adapter.removeWord(word)
-                    Toast.makeText(requireContext(), "Palabra eliminada", Toast.LENGTH_SHORT).show()
+                    
+                    // 🆕 Decrementar contador en caché del perfil
+                    profileRepository.decrementCachedCounter("words", 1)
+                    
+                    // 🗑️ Eliminar flashcard asociada de la caché offline
+                    offlineManager.deleteFlashcard(word.id)
+                    
+                    val isOnline = networkMonitor.isConnected.value
+                    val message = if (isOnline) {
+                        "Palabra eliminada"
+                    } else {
+                        "Palabra eliminada (se sincronizará al conectar)"
+                    }
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(requireContext(), "Error al eliminar: ${response.code()}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Error al eliminar", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error de conexión: ${e.message}", Toast.LENGTH_SHORT).show()
+                // No mostrar toast de error de conexión en modo offline
             }
         }
     }
@@ -138,7 +179,7 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                     val user = response.body()!!
                     userLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
                     
-                    // ðŸ”¥ Crear chips de idiomas dinÃ¡micamente
+                    // 🔥 Crear chips de idiomas dinámicamente
                     chipGroupLanguages.removeAllViews()
                     
                     userLanguages.forEach { lang ->
@@ -152,13 +193,21 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                         chipGroupLanguages.addView(chip)
                     }
                     
-                    // ðŸ”¥ Cargar diccionario (por defecto: primary_language)
+                    // 🔥 Cargar diccionario (por defecto: primary_language)
                     loadDictionary()
                 } else {
-                    Toast.makeText(requireContext(), "Error cargando idiomas", Toast.LENGTH_SHORT).show()
+                    // Solo mostrar error si estamos online
+                    val isOnline = networkMonitor.isConnected.value
+                    if (isOnline) {
+                        Toast.makeText(requireContext(), "Error cargando idiomas", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                // No mostrar toast en modo offline
+                val isOnline = networkMonitor.isConnected.value
+                if (isOnline) {
+                    Toast.makeText(requireContext(), "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -174,6 +223,12 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                     val words = response.body()!!
                     
                     if (words.isEmpty()) {
+                        val isOnline = networkMonitor.isConnected.value
+                        tvEmpty.text = if (isOnline) {
+                            "No tienes palabras guardadas aún"
+                        } else {
+                            "📴 Sin conexión\nNo hay datos guardados offline"
+                        }
                         tvEmpty.visibility = View.VISIBLE
                         recyclerView.visibility = View.GONE
                     } else {
@@ -181,11 +236,9 @@ class DictionaryFragment : Fragment(R.layout.fragment_dictionary) {
                         recyclerView.visibility = View.VISIBLE
                         adapter.updateData(words)
                     }
-                } else {
-                    Toast.makeText(requireContext(), "Error al cargar", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
+                // Error silencioso - el banner ya muestra que no hay conexión
             } finally {
                 showLoading(false)
             }

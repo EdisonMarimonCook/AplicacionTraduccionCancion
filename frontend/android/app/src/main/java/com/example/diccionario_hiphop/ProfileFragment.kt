@@ -1,10 +1,11 @@
-package com.example.diccionario_hiphop
+﻿package com.example.diccionario_hiphop
 
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.LayoutInflater
 import android.widget.*
@@ -22,6 +23,7 @@ import com.canhub.cropper.CropImageContract
 import com.canhub.cropper.CropImageContractOptions
 import com.canhub.cropper.CropImageOptions
 import com.canhub.cropper.CropImageView
+import com.example.diccionario_hiphop.utils.NetworkMonitor
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,12 +56,15 @@ class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
     private var isLoadingProfile = false
     private var currentUser: User? = null  // ✨ Para el BottomSheet
+    private lateinit var profileRepository: ProfileRepository  // 🆕 Repository con caché
+    private lateinit var networkMonitor: NetworkMonitor
 
     // 🔥 Launcher para ManageLanguagesActivity que recarga al volver
     private val manageLanguagesLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        // Recargar perfil cuando se cierra ManageLanguagesActivity
+        // Invalidar caché y recargar perfil cuando se cierra ManageLanguagesActivity
+        profileRepository.invalidateCache()
         loadUserProfile()
     }
 
@@ -178,6 +183,8 @@ private fun openCropper(uri: Uri) {
 }
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        profileRepository = ProfileRepository(requireContext())  // 🆕 Inicializar repository
+        networkMonitor = NetworkMonitor.getInstance(requireContext())
         initViews(view)
         setupListeners()
     }
@@ -185,7 +192,10 @@ private fun openCropper(uri: Uri) {
     override fun onResume() {
         super.onResume()
         isLoadingProfile = false  // 🔧 Resetear flag para permitir recarga
-        loadUserProfile()
+        // Solo cargar si hay conexión
+        if (networkMonitor.isConnected.value) {
+            loadUserProfile()
+        }
     }
 
     private fun initViews(view: View) {
@@ -235,7 +245,6 @@ private fun openCropper(uri: Uri) {
         }
 
         btnFlashcards.setOnClickListener {
-            // 🔥 Recargar perfil para tener contadores actualizados
             lifecycleScope.launch {
                 try {
                     val apiService = RetrofitService.getInstance(requireContext())
@@ -245,10 +254,13 @@ private fun openCropper(uri: Uri) {
                         val user = response.body()!!
                         showLanguageSelectionForFlashcards(user)
                     } else {
-                        Toast.makeText(requireContext(), "Error al cargar idiomas", Toast.LENGTH_SHORT).show()
+                        // Si falla, usar datos locales o abrir directamente
+                        openFlashcardsActivity("en", "vocabulary")
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
+                    // ✅ En offline, abrir directamente FlashcardsActivity
+                    Log.d("ProfileFragment", "📴 Offline, abriendo flashcards desde cache")
+                    openFlashcardsActivity("en", "vocabulary")
                 }
             }
         }
@@ -258,18 +270,32 @@ private fun openCropper(uri: Uri) {
         try {
             val tokenManager = TokenManager(requireContext())
             
-            // 1. Limpiar tokens PRIMERO
-            tokenManager.clearSession()  // 🔥 CAMBIO AQUÍ
+            // 1. Limpiar caché de imágenes de Glide (avatares) en background
+            try {
+                // clearMemory() en main thread
+                Glide.get(requireContext()).clearMemory()
+                
+                // clearDiskCache() en background thread
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    Glide.get(requireContext()).clearDiskCache()
+                }
+                android.util.Log.d("ProfileFragment", "🗑️ Caché de Glide limpiada")
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileFragment", "Error limpiando caché de Glide", e)
+            }
             
-            // 2. Delay de seguridad
+            // 2. Limpiar tokens
+            tokenManager.clearSession()
+            
+            // 3. Delay de seguridad
             delay(300)
             
-            // 3. Navegar a Login
+            // 4. Navegar a Login
             val intent = Intent(requireContext(), LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
             
-            // 4. Cerrar actividad actual
+            // 5. Cerrar actividad actual
             requireActivity().finish()
             
         } catch (e: Exception) {
@@ -292,8 +318,7 @@ private fun openCropper(uri: Uri) {
         
         lifecycleScope.launch {
             try {
-                val apiService = RetrofitService.getInstance(requireContext())
-                val response = apiService.getProfile() 
+                val response = profileRepository.getProfile()
 
                 if (response.isSuccessful && response.body() != null) {
                     val user = response.body()!!
@@ -326,8 +351,8 @@ private fun openCropper(uri: Uri) {
                             Glide.with(this@ProfileFragment)
                                 .load(fullImageUrl)
                                 .signature(ObjectKey(System.currentTimeMillis())) 
-                                .skipMemoryCache(true)
-                                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                                .skipMemoryCache(false)  // 💾 Permitir caché en memoria
+                                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)  // 💾 Cachear en disco para offline
                                 .placeholder(R.drawable.ic_person) 
                                 .into(ivProfileImage)
                         }
@@ -379,6 +404,14 @@ private fun openCropper(uri: Uri) {
         bottomSheetDialog.show()
     }
 
+    // ✅ Función auxiliar para abrir FlashcardsActivity
+    private fun openFlashcardsActivity(language: String, type: String) {
+        val intent = Intent(requireContext(), FlashcardsActivity::class.java)
+        intent.putExtra("SELECTED_LANGUAGE", language)
+        intent.putExtra("SELECTED_TYPE", type)
+        startActivity(intent)
+    }
+    
     // 🔥 NUEVO: BottomSheet para seleccionar idioma antes de flashcards
     private fun showLanguageSelectionForFlashcards(user: User) {
         val bottomSheetDialog = BottomSheetDialog(requireContext())

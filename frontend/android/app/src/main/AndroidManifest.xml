@@ -39,6 +39,13 @@
             android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
             android:screenOrientation="portrait" />
 
+        <!-- 2.5 ONBOARDING (Tutorial primera vez) -->
+        <activity 
+            android:name=".OnboardingActivity" 
+            android:exported="false" 
+            android:theme="@style/Theme.DiccionarioHipHop.NoActionBar"
+            android:screenOrientation="portrait" />
+
         <!-- 3. MAIN (Contenedor con Menú Inferior) -->
         <activity 
             android:name=".MainActivity" 

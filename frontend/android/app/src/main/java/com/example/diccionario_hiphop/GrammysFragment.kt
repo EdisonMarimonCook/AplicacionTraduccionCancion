@@ -10,6 +10,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.example.diccionario_hiphop.utils.NetworkMonitor
 import com.facebook.shimmer.ShimmerFrameLayout
 import kotlinx.coroutines.launch
 
@@ -18,8 +19,10 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
     private lateinit var recyclerView: RecyclerView
     private lateinit var shimmerContainer: ShimmerFrameLayout
     private lateinit var tvHeader: TextView
+    private lateinit var tvOfflineMessage: TextView
     private lateinit var adapter: SongAdapter
     private lateinit var repository: SongRepository
+    private lateinit var networkMonitor: NetworkMonitor
     private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
     private var userLanguages: List<LearningLanguage> = emptyList()
     private var selectedLanguage: String = "en"
@@ -28,22 +31,37 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         repository = SongRepository(requireContext())
+        networkMonitor = NetworkMonitor.getInstance(requireContext())
         
         initViews(view)
         setupRecyclerView()
-        loadUserProfileAndGrammys()
+        
+        // 🌐 Observar cambios de conectividad para actualizar UI
+        lifecycleScope.launch {
+            networkMonitor.isConnected.collect { isOnline ->
+                if (!isOnline) {
+                    showOfflineState()
+                }
+                // No cargar automáticamente cuando vuelve online - onResume lo hará
+            }
+        }
     }
     
     override fun onResume() {
         super.onResume()
-        // Recargar idiomas cuando volvemos de ManageLanguagesActivity
-        loadUserProfileAndGrammys()
+        // Verificar conectividad y cargar solo si hay conexión
+        if (networkMonitor.isConnected.value) {
+            loadUserProfileAndGrammys()
+        } else {
+            showOfflineState()
+        }
     }
 
     private fun initViews(view: View) {
         recyclerView = view.findViewById(R.id.rvSongs)
         shimmerContainer = view.findViewById(R.id.shimmerViewContainer)
         tvHeader = view.findViewById(R.id.tvHeader)
+        tvOfflineMessage = view.findViewById(R.id.tvOfflineMessage)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
         swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
         
@@ -72,6 +90,12 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
     }
 
     private fun loadUserProfileAndGrammys() {
+        // Re-habilitar controles (por si volvimos de offline)
+        swipeRefresh.isEnabled = true
+        chipGroup.visibility = View.VISIBLE
+        tvHeader.visibility = View.VISIBLE
+        tvOfflineMessage.visibility = View.GONE
+        
         showLoading(true)
         lifecycleScope.launch {
             try {
@@ -184,5 +208,24 @@ class GrammysFragment : Fragment(R.layout.fragment_home) { // Reutilizamos layou
             shimmerContainer.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
         }
+    }
+    
+    private fun showOfflineState() {
+        // Ocultar loading
+        showLoading(false)
+        
+        // Limpiar resultados
+        adapter.updateData(emptyList())
+        
+        // Ocultar chips y header
+        chipGroup.visibility = View.GONE
+        tvHeader.visibility = View.GONE
+        
+        // Mostrar mensaje centrado
+        tvOfflineMessage.visibility = View.VISIBLE
+        
+        // Detener refresh si está activo
+        swipeRefresh.isRefreshing = false
+        swipeRefresh.isEnabled = false
     }
 }

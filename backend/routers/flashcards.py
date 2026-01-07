@@ -59,36 +59,30 @@ def calculate_next_review(quality: int, repetitions: int, easiness_factor: float
 @router.get("/due", response_model=List[FlashcardData])
 async def get_due_flashcards(
     current_user: User = Depends(get_current_user),
-    language: str = None,  # 🔥 Filtro por idioma (None = todos los activos)
+    language: str = None,  # 🔥 Filtro por idioma (None = idioma principal)
     type: str = None       # 🔥 Filtro por tipo: word, expression (None = ambos)
 ):
     """
     📚 Obtiene las tarjetas que deben revisarse HOY
-    ✨ FASE 2.5: Filtra por idioma activo + tipo
-    - language=None → todos los idiomas activos
+    ✨ FASE 2.5: Filtra por idioma + tipo
+    - language=None → SOLO idioma principal (NO todos los idiomas)
     - type=None → palabras + expresiones ("Global")
     """
     try:
-        # ✨ SOFT DELETE: Obtener idiomas activos
-        active_language_codes = []
-        if hasattr(current_user, 'learning_languages') and current_user.learning_languages:
-            for lang in current_user.learning_languages:
-                lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
-                if lang_dict.get("is_active", True):
-                    active_language_codes.append(lang_dict.get("language"))
+        # ✨ Determinar idioma a filtrar
+        target_language = language
+        if not target_language:
+            # Si no se especifica idioma, usar el idioma principal
+            target_language = current_user.primary_language
         
         # Obtener palabras del diccionario que tengan ejemplo (son flashcards)
         all_words = await db.get_user_dictionary(current_user.id)
         
-        # Filtrar por idiomas activos + que tengan ejemplo
+        # Filtrar por idioma específico + que tengan ejemplo
         flashcard_words = [
             w for w in all_words 
-            if w.get("example") and (not active_language_codes or w.get("language") in active_language_codes)
+            if w.get("example") and w.get("language") == target_language
         ]
-        
-        # 🔥 Filtrar por idioma específico si se proporciona
-        if language:
-            flashcard_words = [w for w in flashcard_words if w.get("language") == language]
         
         # 🔥 Filtrar por tipo si se proporciona
         if type:
