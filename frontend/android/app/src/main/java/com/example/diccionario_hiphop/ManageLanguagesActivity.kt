@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.ItemTouchHelper
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.example.diccionario_hiphop.utils.LevelIndicator
 import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -449,6 +450,8 @@ class ManageLanguagesActivity : AppCompatActivity() {
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvLanguageName: TextView = view.findViewById(R.id.tvManageLanguageName)
             val tvStats: TextView = view.findViewById(R.id.tvManageStats)
+            val pbLevelIndicator: ProgressBar = view.findViewById(R.id.pbLevelIndicator)
+            val tvLevelDifficulty: TextView = view.findViewById(R.id.tvLevelDifficulty)
             val switchActive: SwitchMaterial = view.findViewById(R.id.switchActive)
             val btnPrimary: Button = view.findViewById(R.id.btnSetPrimary)
             val btnLevel: Button = view.findViewById(R.id.btnEditLevel)
@@ -468,8 +471,13 @@ class ManageLanguagesActivity : AppCompatActivity() {
 
             holder.tvLanguageName.text = "$flag $name • ${lang.level}"
             holder.tvStats.text = "${lang.wordsLearned} palabras | Meta: ${lang.dailyGoal}/día"
-            
-            //Contar idiomas activos para deshabilitar switch del último
+                        // 🔥 Actualizar indicador visual de nivel
+            val levelInfo = LevelIndicator.getLevelInfo(lang.level, lang.language)
+            holder.pbLevelIndicator.progress = levelInfo.progress
+            holder.pbLevelIndicator.progressTintList = android.content.res.ColorStateList.valueOf(levelInfo.color)
+            holder.tvLevelDifficulty.text = levelInfo.description
+            holder.tvLevelDifficulty.setTextColor(levelInfo.color)
+                        //Contar idiomas activos para deshabilitar switch del último
             val activeCount = languages.count { it.isActive }
             
             // 🔧 Remover listener antes de cambiar el estado para evitar triggers dobles

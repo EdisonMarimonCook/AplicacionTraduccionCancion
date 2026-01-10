@@ -45,12 +45,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:scrollbars="none">
+            android:scrollbars="none"
+            android:overScrollMode="never"
+            android:fadeScrollbars="false">
 
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chipGroupLanguages"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                app:singleLine="true"
+                app:chipSpacing="8dp"
                 app:singleSelection="true"
                 app:selectionRequired="true" />
 

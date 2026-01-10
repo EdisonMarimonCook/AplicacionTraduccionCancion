@@ -59,6 +59,35 @@
             android:textColor="@color/gray"
             android:layout_marginTop="4dp"/>
 
+        <!-- Indicador de nivel -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical">
+
+            <ProgressBar
+                android:id="@+id/pbLevelIndicator"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="0dp"
+                android:layout_height="6dp"
+                android:layout_weight="1"
+                android:max="6"
+                android:progress="2"
+                android:progressTint="#FDD835"/>
+
+            <TextView
+                android:id="@+id/tvLevelDifficulty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Intermedio"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#FDD835"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
         <!-- Botones de acción -->
         <LinearLayout
             android:layout_width="match_parent"

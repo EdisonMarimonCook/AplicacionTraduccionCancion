@@ -41,7 +41,10 @@ GRAMMY_SEARCHES = {
     "de": ["Top Germany", "Apache 207"],
     "pt": ["Top Brasil", "Anitta"],
     "it": ["Top Italy", "Maneskin"],
-    "jp": ["Top Japan", "J-Pop Hits"]
+    # 🔥 MEJORADO: Búsquedas más específicas para idiomas asiáticos
+    "ja": ["YOASOBI", "Ado", "米津玄師", "Official髭男dism", "Aimer", "LiSA"],  # J-Pop específico
+    "ko": ["BTS", "BLACKPINK", "NewJeans", "IU", "Stray Kids", "SEVENTEEN"],  # K-Pop top
+    "zh": ["周杰伦", "邓紫棋", "林俊杰", "五月天", "王心凌", "田馥甄"]  # Mandopop
 }
 
 # ===============================================================================
@@ -105,7 +108,21 @@ def search_songs_spotify(query: str, limit: int = 10) -> List[Dict]:
         return []
 
     try:
-        results = sp.search(q=query, limit=limit, type='track')
+        # 🔥 MEJORADO: Detectar idioma asiático y añadir filtro
+        enhanced_query = query
+        
+        # Detectar si la query contiene caracteres asiáticos
+        import re
+        if re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', query):  # Japonés/Chino
+            # Si tiene caracteres japoneses/chinos, añadir market JP/CN
+            if re.search(r'[\u3040-\u309F\u30A0-\u30FF]', query):  # Hiragana/Katakana
+                logger.info(f"🎌 Búsqueda detectada como japonesa, optimizando...")
+            elif re.search(r'[\u4E00-\u9FFF]', query):  # Kanji/Hanzi
+                logger.info(f"🇨🇳 Búsqueda detectada como china, optimizando...")
+        elif re.search(r'[\uAC00-\uD7AF]', query):  # Coreano (Hangul)
+            logger.info(f"🇰🇷 Búsqueda detectada como coreana, optimizando...")
+        
+        results = sp.search(q=enhanced_query, limit=limit, type='track')
         items = results['tracks']['items']
         tracks = []
         

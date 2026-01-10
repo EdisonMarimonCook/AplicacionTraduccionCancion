@@ -75,11 +75,22 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         tvOfflineMessage = view.findViewById(R.id.tvOfflineMessage)
         chipGroup = view.findViewById(R.id.chipGroupLanguages)
         chipScrollView = view.findViewById(R.id.chipScrollView)
+        chipScrollView.isSmoothScrollingEnabled = true
         swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
         
         // Configurar SwipeRefreshLayout
         swipeRefresh.setOnRefreshListener {
             loadUserProfile()  // Recargar perfil y recomendaciones
+        }
+        
+        // 🔥 Mejorar scroll de chips: evitar conflicto con ViewPager2
+        chipScrollView.setOnTouchListener { v, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    v.parent.requestDisallowInterceptTouchEvent(true)
+                }
+            }
+            false
         }
     }
 
