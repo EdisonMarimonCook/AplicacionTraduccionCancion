@@ -1,26 +1,35 @@
 ﻿package com.example.diccionario_hiphop
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SongAdapter(
     private var songs: List<SongItem>,
-    private val onSongClick: (SongItem) -> Unit
+    private val onSongClick: (SongItem) -> Unit,
+    private val selectedLanguage: String = "en"
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     class SongViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvTitle: TextView = view.findViewById(R.id.tvSongTitle)
         val tvArtist: TextView = view.findViewById(R.id.tvSongArtist)
         val ivCover: ImageView = view.findViewById(R.id.ivSongCover)
+        val tvGrammyBadge: TextView = view.findViewById(R.id.tvGrammyBadge)
+        val cardSong: CardView = view.findViewById(R.id.cardSong)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
@@ -45,8 +54,49 @@ class SongAdapter(
             .apply(RequestOptions().transform(RoundedCorners(16)))
             .into(holder.ivCover)
 
+        // 🏆 Verificar si es nominado/ganador de Grammy
+        checkGrammyStatus(holder, song)
+
         holder.itemView.setOnClickListener {
             onSongClick(song)
+        }
+    }
+
+    /**
+     * Verifica si una canción es nominada/ganadora de Grammy y muestra el badge
+     */
+    private fun checkGrammyStatus(holder: SongViewHolder, song: SongItem) {
+        // Reset estado por defecto
+        holder.tvGrammyBadge.visibility = View.GONE
+        holder.cardSong.setCardBackgroundColor(Color.WHITE)
+
+        // Llamada asíncrona al backend para verificar status Grammy
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val response = RetrofitService.api.checkGrammyStatus(
+                    title = song.title,
+                    artist = song.artist,
+                    lang = selectedLanguage
+                )
+
+                if (response.isSuccessful && response.body()?.isGrammy == true) {
+                    withContext(Dispatchers.Main) {
+                        // Mostrar badge dorado con shimmer
+                        holder.tvGrammyBadge.visibility = View.VISIBLE
+                        holder.tvGrammyBadge.setBackgroundResource(R.drawable.bg_grammy_shimmer)
+                        
+                        // Iniciar animación shimmer
+                        val shimmerDrawable = holder.tvGrammyBadge.background as? android.graphics.drawable.AnimationDrawable
+                        shimmerDrawable?.start()
+                        
+                        // Aplicar tinte dorado sutil a la tarjeta
+                        holder.cardSong.setCardBackgroundColor(Color.parseColor("#FFF9E6"))
+                    }
+                }
+            } catch (e: Exception) {
+                // Silenciar errores para no afectar la UX
+                android.util.Log.e("SongAdapter", "Error checking Grammy status: ${e.message}")
+            }
         }
     }
 

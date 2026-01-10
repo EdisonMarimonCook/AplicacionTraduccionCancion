@@ -456,6 +456,7 @@ class ManageLanguagesActivity : AppCompatActivity() {
             val btnPrimary: Button = view.findViewById(R.id.btnSetPrimary)
             val btnLevel: Button = view.findViewById(R.id.btnEditLevel)
             val btnGoal: Button = view.findViewById(R.id.btnEditGoal)
+            val btnDelete: Button = view.findViewById(R.id.btnDeleteLanguage)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -510,6 +511,11 @@ class ManageLanguagesActivity : AppCompatActivity() {
 
             holder.btnLevel.setOnClickListener { onEditLevel(lang) }
             holder.btnGoal.setOnClickListener { onEditGoal(lang) }
+            
+            // 🗑️ Botón eliminar con validaciones
+            holder.btnDelete.setOnClickListener {
+                showDeleteLanguageDialog(lang)
+            }
         }
 
         override fun getItemCount() = languages.size
@@ -527,6 +533,109 @@ class ManageLanguagesActivity : AppCompatActivity() {
                 "ko" -> "🇰🇷"
                 else -> "🌐"
             }
+        }
+    }
+
+    // 🗑️ FUNCIONES DE BORRADO DE IDIOMA
+    private fun showDeleteLanguageDialog(lang: LearningLanguage) {
+        val flag = getLanguageFlag(lang.language)
+        val name = getLanguageName(lang.language)
+        
+        // Validación: No eliminar si es el único idioma activo
+        val activeCount = userLanguages.count { it.isActive }
+        if (activeCount <= 1) {
+            AlertDialog.Builder(this)
+                .setTitle("No se puede eliminar")
+                .setMessage("No puedes eliminar tu único idioma activo. Añade otro idioma primero.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        // Validación: No eliminar si es el idioma principal
+        if (lang.language == primaryLanguageCode) {
+            AlertDialog.Builder(this)
+                .setTitle("No se puede eliminar")
+                .setMessage("No puedes eliminar tu idioma principal. Cambia primero el idioma principal a otro.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        // Dialog de confirmación con estadísticas
+        val message = "¿Estás seguro de eliminar $flag $name?\n\n" +
+                "📚 ${lang.wordsLearned} palabras\n" +
+                "🧠 ${lang.reviewsPending} flashcards pendientes\n\n" +
+                "⚠️ Esta acción no se puede deshacer."
+        
+        AlertDialog.Builder(this)
+            .setTitle("⚠️ Eliminar idioma")
+            .setMessage(message)
+            .setPositiveButton("Eliminar") { _, _ ->
+                deleteLanguage(lang)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+    
+    private fun deleteLanguage(lang: LearningLanguage) {
+        progressBar.visibility = android.view.View.VISIBLE
+        
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitService.api.deleteLanguage(lang.language)
+                
+                if (response.isSuccessful && response.body() != null) {
+                    val result = response.body()!!
+                    
+                    // Animación de shake + desintegración
+                    val position = userLanguages.indexOf(lang)
+                    if (position != -1) {
+                        userLanguages.removeAt(position)
+                        adapter?.notifyItemRemoved(position)
+                    }
+                    
+                    // Mensaje de éxito
+                    val flag = getLanguageFlag(lang.language)
+                    val name = getLanguageName(lang.language)
+                    Toast.makeText(
+                        this@ManageLanguagesActivity,
+                        "✅ $flag $name eliminado: ${result.deletedWords} palabras y ${result.deletedFlashcards} flashcards",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    
+                } else {
+                    val errorMsg = when (response.code()) {
+                        400 -> "No puedes eliminar este idioma"
+                        404 -> "Idioma no encontrado"
+                        else -> "Error al eliminar idioma"
+                    }
+                    Toast.makeText(this@ManageLanguagesActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@ManageLanguagesActivity,
+                    "Error: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                progressBar.visibility = android.view.View.GONE
+            }
+        }
+    }
+    
+    private fun getLanguageFlag(code: String): String {
+        return when (code) {
+            "en" -> "🇬🇧"
+            "es" -> "🇪🇸"
+            "fr" -> "🇫🇷"
+            "de" -> "🇩🇪"
+            "it" -> "🇮🇹"
+            "pt" -> "🇵🇹"
+            "ja" -> "🇯🇵"
+            "zh" -> "🇨🇳"
+            "ko" -> "🇰🇷"
+            else -> "🌐"
         }
     }
 }

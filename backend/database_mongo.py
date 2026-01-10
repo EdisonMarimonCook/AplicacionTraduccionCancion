@@ -28,6 +28,14 @@ class MongoDatabase:
             raise e
 
     # ================================================================
+    # PROPERTIES
+    # ================================================================
+    @property
+    def users_collection(self):
+        """Acceso directo a la colección de usuarios"""
+        return self.db["users"]
+
+    # ================================================================
     # HELPERS
     # ================================================================
     def _fix_id(self, doc):
@@ -381,6 +389,60 @@ class MongoDatabase:
                 
         except Exception as e:
             logger.error(f"❌ Error actualizando avatar en BD: {e}")
+            raise
+
+    # ================================================================
+    # FUNCIONES PARA BORRADO DE IDIOMAS
+    # ================================================================
+    
+    async def count_user_words(self, user_id: str, language: str) -> int:
+        """Cuenta palabras de un usuario en un idioma específico"""
+        try:
+            count = await self.db["dictionary"].count_documents({
+                "user_id": user_id,
+                "language": language
+            })
+            return count
+        except Exception as e:
+            logger.error(f"❌ Error contando palabras: {e}")
+            return 0
+    
+    async def count_user_flashcards(self, user_id: str, language: str) -> int:
+        """Cuenta flashcards de un usuario en un idioma específico"""
+        try:
+            count = await self.db["flashcards_srs"].count_documents({
+                "user_id": user_id,
+                "language": language
+            })
+            return count
+        except Exception as e:
+            logger.error(f"❌ Error contando flashcards: {e}")
+            return 0
+    
+    async def delete_user_words_by_language(self, user_id: str, language: str) -> int:
+        """Elimina todas las palabras de un usuario en un idioma específico"""
+        try:
+            result = await self.db["dictionary"].delete_many({
+                "user_id": user_id,
+                "language": language
+            })
+            logger.info(f"🗑️ Eliminadas {result.deleted_count} palabras de {language} para usuario {user_id}")
+            return result.deleted_count
+        except Exception as e:
+            logger.error(f"❌ Error eliminando palabras: {e}")
+            raise
+    
+    async def delete_user_flashcards_by_language(self, user_id: str, language: str) -> int:
+        """Elimina todas las flashcards de un usuario en un idioma específico"""
+        try:
+            result = await self.db["flashcards_srs"].delete_many({
+                "user_id": user_id,
+                "language": language
+            })
+            logger.info(f"🗑️ Eliminadas {result.deleted_count} flashcards de {language} para usuario {user_id}")
+            return result.deleted_count
+        except Exception as e:
+            logger.error(f"❌ Error eliminando flashcards: {e}")
             raise
 
 # Instancia global

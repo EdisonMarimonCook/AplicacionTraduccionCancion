@@ -71,6 +71,7 @@ class SongLearningActivity : AppCompatActivity() {
     private var songArtist: String = ""
     private var coverUrl: String? = null
     private var previewUrl: String? = null
+    private var allowSaving: Boolean = true // Flag para permitir guardar palabras
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +82,7 @@ class SongLearningActivity : AppCompatActivity() {
         songArtist = intent.getStringExtra("song_artist") ?: "Desconocido"
         coverUrl = intent.getStringExtra("song_image")
         previewUrl = intent.getStringExtra("song_audio")
+        allowSaving = intent.getBooleanExtra("allow_saving", true)
 
         // 2. Inicializar Vistas
         initViews()
@@ -455,7 +457,13 @@ class SongLearningActivity : AppCompatActivity() {
         }
 
         val itemSaved = if (itemData is WordDefinition) itemData.alreadySaved else (itemData as ExpressionDefinition).alreadySaved
-        if (itemSaved) {
+        
+        if (!allowSaving) {
+            // Si no se permite guardar (idioma no configurado), mostrar mensaje
+            builder.setNeutralButton("⚠️ Guardar deshabilitado") { _, _ ->
+                Toast.makeText(this, "No puedes guardar en este idioma (no está en tu lista)", Toast.LENGTH_LONG).show()
+            }
+        } else if (itemSaved) {
             builder.setNeutralButton("✓ Ya guardado") { _, _ ->
                 Toast.makeText(this, "Ya está en tu diccionario", Toast.LENGTH_SHORT).show()
             }

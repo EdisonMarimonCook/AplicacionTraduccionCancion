@@ -316,3 +316,18 @@ data class UpdateDailyGoalRequest(
 data class UpdateLevelRequest(
     @SerializedName("level") val level: String
 )
+
+// ===========================================================
+// 🔟 BORRADO DE IDIOMAS & GRAMMY (BLOQUE 2)
+// ===========================================================
+data class DeleteLanguageResponse(
+    val message: String,
+    @SerializedName("deleted_words") val deletedWords: Int,
+    @SerializedName("deleted_flashcards") val deletedFlashcards: Int,
+    @SerializedName("remaining_languages") val remainingLanguages: Int
+)
+
+data class GrammyCheckResponse(
+    @SerializedName("is_grammy") val isGrammy: Boolean,
+    val badge: String?
+)

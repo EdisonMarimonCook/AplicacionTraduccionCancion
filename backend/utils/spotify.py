@@ -41,10 +41,10 @@ GRAMMY_SEARCHES = {
     "de": ["Top Germany", "Apache 207"],
     "pt": ["Top Brasil", "Anitta"],
     "it": ["Top Italy", "Maneskin"],
-    # 🔥 MEJORADO: Búsquedas más específicas para idiomas asiáticos
-    "ja": ["YOASOBI", "Ado", "米津玄師", "Official髭男dism", "Aimer", "LiSA"],  # J-Pop específico
-    "ko": ["BTS", "BLACKPINK", "NewJeans", "IU", "Stray Kids", "SEVENTEEN"],  # K-Pop top
-    "zh": ["周杰伦", "邓紫棋", "林俊杰", "五月天", "王心凌", "田馥甄"]  # Mandopop
+    # 🔥 MEJORADO: Búsquedas 100% en idioma nativo con market forzado
+    "ja": ["YOASOBI アイドル", "Ado うっせぇわ", "米津玄師 Lemon", "Official髭男dism", "LiSA 紅蓮華", "millennium parade"],  # 100% J-Pop
+    "ko": ["뉴진스 Ditto", "아이유 Love wins all", "세븐틴", "BTS Dynamite", "에스파", "르세라핌"],  # K-Pop con hangul
+    "zh": ["周杰伦 晴天", "邓紫棋 光年之外", "五月天 温柔", "林俊杰 江南", "王心凌 爱你", "田馥甄"]  # Mandopop clásico
 }
 
 # ===============================================================================
@@ -100,7 +100,7 @@ def get_itunes_preview(query: str) -> Optional[str]:
 # FUNCIONES PRINCIPALES
 # ===============================================================================
 
-def search_songs_spotify(query: str, limit: int = 10) -> List[Dict]:
+def search_songs_spotify(query: str, limit: int = 10, market: str = None) -> List[Dict]:
     """Busca en Spotify y rellena huecos con iTunes si hace falta"""
     sp = get_spotify_client()
     if not sp: 
@@ -108,21 +108,25 @@ def search_songs_spotify(query: str, limit: int = 10) -> List[Dict]:
         return []
 
     try:
-        # 🔥 MEJORADO: Detectar idioma asiático y añadir filtro
-        enhanced_query = query
+        # 🔥 MEJORADO: Detectar idioma asiático y añadir market específico
+        search_params = {"q": query, "limit": limit, "type": "track"}
         
         # Detectar si la query contiene caracteres asiáticos
         import re
         if re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', query):  # Japonés/Chino
-            # Si tiene caracteres japoneses/chinos, añadir market JP/CN
             if re.search(r'[\u3040-\u309F\u30A0-\u30FF]', query):  # Hiragana/Katakana
-                logger.info(f"🎌 Búsqueda detectada como japonesa, optimizando...")
+                logger.info(f"🎌 Búsqueda japonesa, forzando market=JP")
+                search_params["market"] = "JP"
             elif re.search(r'[\u4E00-\u9FFF]', query):  # Kanji/Hanzi
-                logger.info(f"🇨🇳 Búsqueda detectada como china, optimizando...")
+                logger.info(f"🇨🇳 Búsqueda china, forzando market=TW")
+                search_params["market"] = "TW"
         elif re.search(r'[\uAC00-\uD7AF]', query):  # Coreano (Hangul)
-            logger.info(f"🇰🇷 Búsqueda detectada como coreana, optimizando...")
+            logger.info(f"🇰🇷 Búsqueda coreana, forzando market=KR")
+            search_params["market"] = "KR"
+        elif market:
+            search_params["market"] = market
         
-        results = sp.search(q=enhanced_query, limit=limit, type='track')
+        results = sp.search(**search_params)
         items = results['tracks']['items']
         tracks = []
         
@@ -153,13 +157,28 @@ def search_songs_spotify(query: str, limit: int = 10) -> List[Dict]:
         return []
 
 def get_grammy_songs(lang: str = "en") -> List[Dict]:
-    """Obtiene mix de canciones populares/nominadas"""
+    """Obtiene mix de canciones populares/nominadas CON MARKET ESPECÍFICO"""
     queries = GRAMMY_SEARCHES.get(lang, ["Top Hits"])
     all_tracks = []
     
+    # 🔥 Mapeo de idioma a market de Spotify
+    MARKET_MAP = {
+        "ja": "JP",
+        "ko": "KR",
+        "zh": "TW",  # Taiwan para Mandopop
+        "es": "ES",
+        "en": "US",
+        "fr": "FR",
+        "de": "DE",
+        "pt": "BR",
+        "it": "IT"
+    }
+    
+    market = MARKET_MAP.get(lang, None)
+    
     # Buscamos un poco de cada query para tener variedad
     for q in queries:
-        tracks = search_songs_spotify(q, limit=3)
+        tracks = search_songs_spotify(q, limit=3, market=market)
         all_tracks.extend(tracks)
     
     # Eliminamos duplicados por ID
@@ -205,3 +224,33 @@ async def enrich_single_song(title: str, artist: str) -> Dict:
 def get_top_tracks_by_language(lang: str) -> List[Dict]:
     """Alias para que main.py pueda actualizar la cache"""
     return get_grammy_songs(lang)
+
+def is_grammy_nominee(song_title: str, artist: str, lang: str = "en") -> bool:
+    """
+    🏆 Detecta si una canción es nominada a Grammy/Top Hit
+    
+    Compara el título y artista con las listas de GRAMMY_SEARCHES.
+    Retorna True si la canción está en la lista curada.
+    """
+    try:
+        # Obtener lista de hits para el idioma
+        grammy_tracks = get_grammy_songs(lang)
+        
+        # Normalizar para comparación
+        song_title_lower = song_title.lower().strip()
+        artist_lower = artist.lower().strip()
+        
+        # Buscar coincidencia
+        for track in grammy_tracks:
+            track_title_lower = track.get('name', '').lower().strip()
+            track_artist_lower = track.get('artist', '').lower().strip()
+            
+            # Coincidencia si título Y artista matchean
+            if song_title_lower in track_title_lower or track_title_lower in song_title_lower:
+                if artist_lower in track_artist_lower or track_artist_lower in artist_lower:
+                    return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"❌ Error verificando Grammy: {e}")
+        return False

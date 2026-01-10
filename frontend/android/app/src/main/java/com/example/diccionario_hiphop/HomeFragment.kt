@@ -95,16 +95,53 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     }
 
     private fun setupRecyclerView() {
-        adapter = SongAdapter(emptyList()) { song ->
-            val intent = Intent(requireContext(), SongLearningActivity::class.java)
-            intent.putExtra("song_title", song.title)
-            intent.putExtra("song_artist", song.artist)
-            intent.putExtra("song_image", song.imageUrl)
-            intent.putExtra("song_audio", song.previewUrl)
-            startActivity(intent)
-        }
+        adapter = SongAdapter(emptyList(), { song ->
+            // Validar idioma antes de abrir la actividad
+            checkLanguageBeforeOpening(song)
+        }, selectedLanguage)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
+    }
+
+    /**
+     * Valida si el idioma de la canción está en los idiomas de aprendizaje del usuario
+     */
+    private fun checkLanguageBeforeOpening(song: SongItem) {
+        val isLanguageActive = userLanguages.any { it.language == selectedLanguage && it.isActive }
+        
+        if (!isLanguageActive) {
+            // Mostrar diálogo de advertencia
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ Idioma no configurado")
+                .setMessage("Esta canción está en ${getLanguageName(selectedLanguage)}, pero no lo tienes como idioma de aprendizaje activo.\n\n¿Quieres continuar? No podrás guardar palabras ni crear flashcards.")
+                .setPositiveButton("Continuar de todos modos") { _, _ ->
+                    openSongLearningActivity(song, allowSaving = false)
+                }
+                .setNegativeButton("Cancelar", null)
+                .setNeutralButton("Configurar idiomas") { _, _ ->
+                    // Abrir pantalla de gestión de idiomas
+                    val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
+                    startActivity(intent)
+                }
+                .show()
+        } else {
+            // Idioma válido, abrir normalmente
+            openSongLearningActivity(song, allowSaving = true)
+        }
+    }
+
+    /**
+     * Abre SongLearningActivity con los datos de la canción
+     */
+    private fun openSongLearningActivity(song: SongItem, allowSaving: Boolean) {
+        val intent = Intent(requireContext(), SongLearningActivity::class.java)
+        intent.putExtra("song_title", song.title)
+        intent.putExtra("song_artist", song.artist)
+        intent.putExtra("song_image", song.imageUrl)
+        intent.putExtra("song_audio", song.previewUrl)
+        intent.putExtra("allow_saving", allowSaving)
+        intent.putExtra("language_code", selectedLanguage)
+        startActivity(intent)
     }
 
     private fun setupSearchView() {
@@ -236,6 +273,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             chip.setOnClickListener {
                 selectedLanguage = lang.language
                 selectedLevel = lang.level
+                // Recrear adapter con nuevo idioma para Grammy checks
+                setupRecyclerView()
                 performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
             }
             
