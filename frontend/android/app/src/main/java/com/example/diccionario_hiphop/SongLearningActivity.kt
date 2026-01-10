@@ -20,11 +20,13 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.cardview.widget.CardView // IMPORTANTE: Importar CardView
 import coil.load
 import coil.transform.RoundedCornersTransformation
 import java.util.concurrent.TimeUnit
 import com.example.diccionario_hiphop.utils.WindowInsetsHelper
-
+import android.graphics.Color
+import android.graphics.PorterDuff
 
 class SongLearningActivity : AppCompatActivity() {
 
@@ -38,14 +40,18 @@ class SongLearningActivity : AppCompatActivity() {
     private lateinit var tvArtist: TextView
     private lateinit var btnBack: ImageButton
     private lateinit var ivCover: ImageView
-    
+
+    // 🔥 NUEVOS ELEMENTOS PARA EDICIÓN GRAMMY
+    private lateinit var cvAlbumContainer: CardView
+    private lateinit var tvGrammyBadge: TextView
+
     // 👇 Overlay de carga y mensaje
     private lateinit var loadingOverlay: FrameLayout
     private lateinit var tvLoadingMessage: TextView
     // 👇 Spinner discreto IA
     private lateinit var layoutAiStatus: LinearLayout
 
-    // 🔥 NUEVOS ELEMENTOS PARA LA SEEKBAR
+    // 🔥 ELEMENTOS PARA LA SEEKBAR
     private lateinit var sbProgress: SeekBar
     private lateinit var tvCurrentTime: TextView
     private lateinit var tvTotalTime: TextView
@@ -54,11 +60,11 @@ class SongLearningActivity : AppCompatActivity() {
     private var originalLyricsText: String = ""
     private var mediaPlayer: MediaPlayer? = null
     private var isPlaying = false
-    private var wordWasAdded = false // Flag para saber si se añadió alguna palabra
+    private var wordWasAdded = false
 
     // 🔥 VARIABLES PARA CONTROL DE TIEMPO
     private val handler = Handler(Looper.getMainLooper())
-    private var isUserSeeking = false // Para saber si el usuario está arrastrando la barra
+    private var isUserSeeking = false
 
     // Datos recibidos
     private var songTitle: String = ""
@@ -70,38 +76,68 @@ class SongLearningActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_song_learning)
 
-        // � Aplicar WindowInsets para controles de reproducción
-        val rootView = findViewById<View>(android.R.id.content)
-        WindowInsetsHelper.applySystemBarInsets(rootView)
+        // 1. Recoger datos del Intent primero
+        songTitle = intent.getStringExtra("song_title") ?: "Desconocido"
+        songArtist = intent.getStringExtra("song_artist") ?: "Desconocido"
+        coverUrl = intent.getStringExtra("song_image")
+        previewUrl = intent.getStringExtra("song_audio")
 
-        // �🔥 INICIALIZAR EL MOTOR NUCLEAR AQUÍ
+        // 2. Inicializar Vistas
+        initViews()
+        setupUI()
+        setupPlayer()
+        setupSeekBar()
+
+        //  Aplicar WindowInsets
+        val mainLayout = findViewById<View>(R.id.mainLayout)
+        WindowInsetsHelper.applySystemBarInsets(mainLayout)
+
+        // 🏆 DETECCIÓN DE TEMA GRAMMY (LÓGICA ACTUALIZADA)
+        val isGrammyTheme = intent.getBooleanExtra("is_grammy_theme", false)
+
+        if (isGrammyTheme) {
+            // 1. Fondo Dorado Radiante
+            mainLayout?.background = ContextCompat.getDrawable(this, R.drawable.gradient_grammy_gold)
+
+            // 2. Caja de Cristal para la letra
+            tvLyrics.background = ContextCompat.getDrawable(this, R.drawable.bg_lyrics_panel)
+            tvLyrics.setTextColor(Color.WHITE)
+
+            // 3. ✨ VISIBILIDAD DE ETIQUETA NOMINADO ✨
+            tvGrammyBadge.visibility = View.VISIBLE
+
+            // 4. ✨ BORDE DORADO A LA CARÁTULA ✨
+            // Usamos el CardView como borde poniendo el fondo dorado y añadiendo padding
+            cvAlbumContainer.setCardBackgroundColor(Color.parseColor("#FFD700"))
+            cvAlbumContainer.setContentPadding(6, 6, 6, 6) // Grosor del borde
+
+            // 5. Header de Lujo
+            tvTitle.setTextColor(Color.WHITE)
+            // Sombra fuerte para leer sobre dorado
+            tvTitle.setShadowLayer(12f, 0f, 4f, Color.parseColor("#80000000"))
+
+            // 6. Artista con Estrella y Dorado
+            tvArtist.setTextColor(Color.parseColor("#FFD700")) // Texto Dorado
+            tvArtist.setShadowLayer(4f, 0f, 2f, Color.BLACK)
+            tvArtist.text = "⭐ $songArtist" // Añadimos la estrella
+
+            // Barra de estado oscura
+            window.statusBarColor = Color.parseColor("#3A2C00")
+        }
+
+        // 🔥 INICIALIZAR EL MOTOR NUCLEAR
         try {
             com.yausername.youtubedl_android.YoutubeDL.getInstance().init(applicationContext)
-            // Opcional: inicializar FFmpeg si fuera necesario, pero para sacar URL suele sobrar
-            // com.yausername.youtubedl_android.FFmpeg.getInstance().init(applicationContext)
-            android.util.Log.d("YoutubeDL", "Motor iniciado correctamente 🚀")
         } catch (e: Exception) {
             android.util.Log.e("YoutubeDL", "Error fatal al iniciar motor", e)
         }
 
-        // 1. Recoger datos del Intent
-        songTitle = intent.getStringExtra("song_title") ?: "Desconocido"
-        songArtist = intent.getStringExtra("song_artist") ?: "Desconocido"
-        coverUrl = intent.getStringExtra("song_image")      
-        previewUrl = intent.getStringExtra("song_audio")    
-
-        initViews()
-        setupUI()     // Pone textos y CARGA LA IMAGEN
-        setupPlayer() // Prepara el audio inicial
-        setupSeekBar() // 🔥 CONFIGURA LA BARRA DE PROGRESO
-
-        // Inicializar overlay (ya buscados en initViews, pero aseguramos)
+        // Inicializar vistas extra (Overlays)
         loadingOverlay = findViewById(R.id.loadingOverlay)
         tvLoadingMessage = findViewById(R.id.tvLoadingMessage)
         layoutAiStatus = findViewById(R.id.layoutAiStatus)
-        
 
-        // 2. Observar ViewModel
+        // 3. Observar ViewModel
         viewModel.lyricsState.observe(this) { lyrics ->
             originalLyricsText = lyrics
             tvLyrics.text = lyrics
@@ -113,12 +149,7 @@ class SongLearningActivity : AppCompatActivity() {
 
         // CONTROL DE CARGA
         viewModel.loadingState.observe(this) { isLoading ->
-            if (isLoading) {
-                loadingOverlay.visibility = View.VISIBLE
-                // El mensaje se actualizará por el observer de statusMessage
-            } else {
-                loadingOverlay.visibility = View.GONE
-            }
+            loadingOverlay.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
 
         // SPINNER DISCRETO IA
@@ -131,16 +162,13 @@ class SongLearningActivity : AppCompatActivity() {
             if (message == "¡Análisis inteligente completado!") {
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
             }
-            // Actualizar mensaje de carga dinámicamente
             if (loadingOverlay.visibility == View.VISIBLE && !message.isNullOrEmpty()) {
                 tvLoadingMessage.text = message
             }
         }
 
-        // AUDIO STREAM (YouTube / Preview)
+        // AUDIO STREAM
         viewModel.audioStreamState.observe(this) { url ->
-            android.util.Log.d("SongLearningActivity", "[audioStreamState] url: $url")
-            android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility BEFORE: ${layoutPlayerControls.visibility}")
             layoutPlayerControls.visibility = View.VISIBLE
             if (!url.isNullOrEmpty()) {
                 btnPlay.visibility = View.VISIBLE
@@ -149,8 +177,6 @@ class SongLearningActivity : AppCompatActivity() {
                 btnPlay.alpha = 0.5f
                 sbProgress.isEnabled = false
                 sbProgress.alpha = 0.5f
-                android.util.Log.d("SongLearningActivity", "Intentando reproducir: $url")
-                android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility SET TO VISIBLE")
                 prepareMediaPlayer(url)
             } else {
                 btnPlay.isEnabled = false
@@ -158,107 +184,87 @@ class SongLearningActivity : AppCompatActivity() {
                 sbProgress.isEnabled = false
                 sbProgress.alpha = 0.5f
             }
-            android.util.Log.d("SongLearningActivity", "layoutPlayerControls.visibility AFTER: ${layoutPlayerControls.visibility}")
         }
-        
-        // 🔥 FASE 4: BURNOUT CAP - Dialog bloqueante
+
+        // WARNINGS
         viewModel.burnoutError.observe(this) { errorMsg ->
             if (!errorMsg.isNullOrEmpty()) {
                 AlertDialog.Builder(this)
                     .setTitle("⚠️ Demasiadas flashcards pendientes")
                     .setMessage(errorMsg)
-                    .setPositiveButton("Entendido") { dialog, _ ->
-                        dialog.dismiss()
-                    }
+                    .setPositiveButton("Entendido") { dialog, _ -> dialog.dismiss() }
                     .setCancelable(false)
                     .show()
             }
         }
-        
-        // 🔥 FASE 4: DAILY GOAL - Warning (permite continuar)
+
         viewModel.dailyGoalWarning.observe(this) { warningMsg ->
             if (!warningMsg.isNullOrEmpty()) {
                 AlertDialog.Builder(this)
                     .setTitle("📊 Meta diaria alcanzada")
                     .setMessage(warningMsg)
-                    .setPositiveButton("Continuar de todos modos") { dialog, _ ->
-                        dialog.dismiss()
-                    }
-                    .setNegativeButton("Detener por hoy") { dialog, _ ->
-                        dialog.dismiss()
-                    }
+                    .setPositiveButton("Continuar") { dialog, _ -> dialog.dismiss() }
+                    .setNegativeButton("Detener") { dialog, _ -> dialog.dismiss() }
                     .show()
             }
         }
-        
-        // Llamar a loadContent fuera del observer
+
+        // Cargar contenido
         val userLevel = getSharedPreferences("user_prefs", MODE_PRIVATE).getString("userLevel", "B1") ?: "B1"
         viewModel.loadContent(songTitle, songArtist, userLevel, previewUrl)
-        
-    } // 🔥 ESTA ERA LA LLAVE QUE FALTABA (Fin del onCreate)
+    }
 
     private fun initViews() {
         tvLyrics = findViewById(R.id.tvLyrics)
-        btnPlay = findViewById(R.id.btnPlayPause) 
-        progressBar = findViewById(R.id.progressBar) // Nota: ¿Usas progressBar o loadingOverlay?
         tvTitle = findViewById(R.id.tvHeaderTitle)
         tvArtist = findViewById(R.id.tvHeaderArtist)
+
+        // 🔥 NUEVOS ELEMENTOS
+        cvAlbumContainer = findViewById(R.id.cvAlbumContainer)
+        tvGrammyBadge = findViewById(R.id.tvGrammyBadge)
+
+        btnPlay = findViewById(R.id.btnPlayPause)
+        progressBar = findViewById(R.id.progressBar)
         btnBack = findViewById(R.id.btnBack)
-        ivCover = findViewById(R.id.ivAlbumCover) 
+        ivCover = findViewById(R.id.ivAlbumCover)
         layoutPlayerControls = findViewById(R.id.layoutPlayerControls)
 
-        // 🔥 Inicializar vistas de la SeekBar
         sbProgress = findViewById(R.id.sbProgress)
         tvCurrentTime = findViewById(R.id.tvCurrentTime)
         tvTotalTime = findViewById(R.id.tvTotalTime)
 
         tvLyrics.movementMethod = LinkMovementMethod.getInstance()
-        
         btnBack.setOnClickListener { finish() }
     }
 
     private fun setupUI() {
         tvTitle.text = songTitle
-        tvArtist.text = songArtist
-        
-        // CARGA DE IMAGEN CON COIL
+        tvArtist.text = songArtist // Se sobrescribe en onCreate si es Grammy theme
+
         if (!coverUrl.isNullOrEmpty()) {
             ivCover.load(coverUrl) {
                 crossfade(true)
-                transformations(RoundedCornersTransformation(16f))
-                error(R.drawable.ic_launcher_background) 
+                // Quitamos RoundedCornersTransformation aquí porque el CardView ya recorta las esquinas
+                // y queda mejor si la imagen llena todo el CardView cuadrado
+                error(R.drawable.ic_launcher_background)
             }
         }
     }
 
     private fun setupPlayer() {
-        // Ya no mostramos controles aquí, solo configuramos el click
-        btnPlay.setOnClickListener {
-            togglePlay()
-        }
+        btnPlay.setOnClickListener { togglePlay() }
     }
 
-    /**
-     * 🔥 CONFIGURACIÓN DE LA BARRA DE PROGRESO (LISTENER)
-     */
     private fun setupSeekBar() {
         sbProgress.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) {
-                    // Si el usuario mueve el dedo, actualizamos el texto en tiempo real
-                    tvCurrentTime.text = formatTime(progress.toLong())
-                }
+                if (fromUser) tvCurrentTime.text = formatTime(progress.toLong())
             }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                isUserSeeking = true // Pausamos el reloj automático
-            }
-
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { isUserSeeking = true }
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                isUserSeeking = false // Reanudamos el reloj automático
+                isUserSeeking = false
                 mediaPlayer?.let { player ->
                     val targetProgress = seekBar?.progress ?: 0
-                    // Asegurarse de no buscar más allá del final
                     if (targetProgress >= player.duration) {
                         player.seekTo(player.duration)
                         player.pause()
@@ -266,7 +272,6 @@ class SongLearningActivity : AppCompatActivity() {
                         btnPlay.setImageResource(android.R.drawable.ic_media_play)
                     } else {
                         player.seekTo(targetProgress)
-                        // Si estaba reproduciendo antes de arrastrar, seguir reproduciendo
                         if (isPlaying) {
                             player.start()
                             startSeekBarUpdater()
@@ -279,8 +284,6 @@ class SongLearningActivity : AppCompatActivity() {
 
     private fun prepareMediaPlayer(url: String) {
         try {
-            android.util.Log.d("SongLearningActivity", "prepareMediaPlayer: $url")
-            // Liberar anterior si existe
             if (mediaPlayer != null) {
                 mediaPlayer?.release()
                 mediaPlayer = null
@@ -292,48 +295,42 @@ class SongLearningActivity : AppCompatActivity() {
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .build()
                 )
-                setOnErrorListener { _, what, extra ->
-                    android.util.Log.e("SongLearningActivity", "Error al reproducir audio: $url (code: $what)")
+                setOnErrorListener { _, what, _ ->
                     if (what == -38) {
-                        tvLoadingMessage.text = "Cargando audio... (esperando buffer)"
-                        // No ocultar loadingOverlay ni mostrar Toast
+                        tvLoadingMessage.text = "Buffering audio..."
                         return@setOnErrorListener true
-                    } else {
-                        loadingOverlay.visibility = View.GONE
-                        return@setOnErrorListener false
                     }
+                    loadingOverlay.visibility = View.GONE
+                    return@setOnErrorListener false
                 }
                 setDataSource(url)
-                prepareAsync() // Async para no bloquear UI
+                prepareAsync()
 
                 setOnPreparedListener { mp ->
-                // 🔥 ACTUALIZAR BARRA AL CARGAR
-                val duration = mp.duration
-                if (duration > 0) {
-                    sbProgress.max = duration
-                    tvTotalTime.text = formatTime(duration.toLong())
-                }
-                // Solo ocultar loadingOverlay y habilitar controles cuando el buffer esté listo y el cronómetro (tvCurrentTime) muestra tiempo real
-                fun checkAndHideLoading() {
-                    val formatted = tvTotalTime.text?.toString() ?: "00:00"
-                    if (mp.duration > 0 && formatted != "00:00" && formatted != "-:--") {
-                        loadingOverlay.visibility = View.GONE
-                        btnPlay.isEnabled = true
-                        btnPlay.alpha = 1.0f
-                        sbProgress.isEnabled = true
-                        sbProgress.alpha = 1.0f
-                    } else {
-                        handler.postDelayed({ checkAndHideLoading() }, 300)
+                    val duration = mp.duration
+                    if (duration > 0) {
+                        sbProgress.max = duration
+                        tvTotalTime.text = formatTime(duration.toLong())
+                    }
+                    fun checkAndHideLoading() {
+                        val formatted = tvTotalTime.text?.toString() ?: "00:00"
+                        if (mp.duration > 0 && formatted != "00:00" && formatted != "-:--") {
+                            loadingOverlay.visibility = View.GONE
+                            btnPlay.isEnabled = true
+                            btnPlay.alpha = 1.0f
+                            sbProgress.isEnabled = true
+                            sbProgress.alpha = 1.0f
+                        } else {
+                            handler.postDelayed({ checkAndHideLoading() }, 300)
+                        }
+                    }
+                    handler.postDelayed({ checkAndHideLoading() }, 300)
+
+                    if (isPlaying) {
+                        mp.start()
+                        startSeekBarUpdater()
                     }
                 }
-                handler.postDelayed({ checkAndHideLoading() }, 300)
-                // Si ya estábamos reproduciendo (cambio de preview a full), reanudar
-                if (isPlaying) {
-                    mp.start()
-                    startSeekBarUpdater()
-                }
-                }
-
                 setOnCompletionListener {
                     this@SongLearningActivity.isPlaying = false
                     btnPlay.setImageResource(android.R.drawable.ic_media_play)
@@ -343,7 +340,6 @@ class SongLearningActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("SongLearningActivity", "Excepción en prepareMediaPlayer: $url", e)
             Toast.makeText(this, "Error cargando audio", Toast.LENGTH_SHORT).show()
         }
     }
@@ -359,32 +355,23 @@ class SongLearningActivity : AppCompatActivity() {
                 player.start()
                 isPlaying = true
                 btnPlay.setImageResource(android.R.drawable.ic_media_pause)
-                startSeekBarUpdater() 
+                startSeekBarUpdater()
             }
         }
     }
 
-    /**
-     * 🔥 RELOJ QUE MUEVE LA BARRA CADA SEGUNDO
-     */
     private val updateSeekBarRunnable = object : Runnable {
         override fun run() {
             mediaPlayer?.let { player ->
                 if (player.isPlaying && !isUserSeeking) {
-                    val currentPosition = player.currentPosition
-                    val totalDuration = player.duration
-
-                    // Actualizar UI
-                    sbProgress.progress = currentPosition
-                    tvCurrentTime.text = formatTime(currentPosition.toLong())
-                    
-                    // Asegurar que el total está bien puesto
-                    if (totalDuration > 0 && sbProgress.max != totalDuration) {
-                        sbProgress.max = totalDuration
-                        tvTotalTime.text = formatTime(totalDuration.toLong())
+                    val current = player.currentPosition
+                    val total = player.duration
+                    sbProgress.progress = current
+                    tvCurrentTime.text = formatTime(current.toLong())
+                    if (total > 0 && sbProgress.max != total) {
+                        sbProgress.max = total
+                        tvTotalTime.text = formatTime(total.toLong())
                     }
-                    
-                    // Repetir en 1 segundo (o menos para más fluidez)
                     handler.postDelayed(this, 1000)
                 }
             }
@@ -392,15 +379,11 @@ class SongLearningActivity : AppCompatActivity() {
     }
 
     private fun startSeekBarUpdater() {
-        handler.removeCallbacks(updateSeekBarRunnable) // Evitar duplicados
+        handler.removeCallbacks(updateSeekBarRunnable)
         handler.post(updateSeekBarRunnable)
     }
+    private fun stopSeekBarUpdater() { handler.removeCallbacks(updateSeekBarRunnable) }
 
-    private fun stopSeekBarUpdater() {
-        handler.removeCallbacks(updateSeekBarRunnable)
-    }
-
-    // Helper para formato 00:00
     private fun formatTime(millis: Long): String {
         if (millis < 0) return "00:00"
         val minutes = TimeUnit.MILLISECONDS.toMinutes(millis)
@@ -408,20 +391,12 @@ class SongLearningActivity : AppCompatActivity() {
         return String.format("%02d:%02d", minutes, seconds)
     }
 
-    // -------------------------------------------------------------
-    // LÓGICA DE LETRAS Y DIÁLOGOS (Highlight Words)
-    // -------------------------------------------------------------
-
-    // Usa HighlightWordsResponse (que ya tienes)
+    // --- HIGHLIGHTS Y DICCIONARIO ---
     private fun applyHighlights(data: HighlightWordsResponse) {
         val spannable = SpannableString(originalLyricsText)
         val lowerLyrics = originalLyricsText.lowercase()
-
-        // Usamos 'data.words' que es List<WordDefinition>
         data.words.forEach { w -> highlightTerm(spannable, lowerLyrics, w.word, w, false) }
-        // Usamos 'data.expressions' que es List<ExpressionDefinition>
         data.expressions.forEach { e -> highlightTerm(spannable, lowerLyrics, e.expression, e, true) }
-
         tvLyrics.text = spannable
     }
 
@@ -430,22 +405,18 @@ class SongLearningActivity : AppCompatActivity() {
         var startIndex = fullTextLower.indexOf(termLower)
         while (startIndex >= 0) {
             val endIndex = startIndex + termLower.length
-            
-            // 🔥 CORRECCIÓN: Usamos tus clases originales
             val colorString = when (itemData) {
                 is WordDefinition -> itemData.color
                 is ExpressionDefinition -> itemData.color
                 else -> "purple"
             }
-            
             val color = when (colorString.lowercase()) {
-                "orange" -> android.graphics.Color.parseColor("#FF9800") 
-                "red" -> android.graphics.Color.parseColor("#F44336")    
-                "green" -> android.graphics.Color.parseColor("#4CAF50")   
-                "gray" -> android.graphics.Color.parseColor("#9E9E9E")    
-                else -> ContextCompat.getColor(this, R.color.purple_200) 
+                "orange" -> android.graphics.Color.parseColor("#FF9800")
+                "red" -> android.graphics.Color.parseColor("#F44336")
+                "green" -> android.graphics.Color.parseColor("#4CAF50")
+                "gray" -> android.graphics.Color.parseColor("#9E9E9E")
+                else -> ContextCompat.getColor(this, R.color.purple_200)
             }
-            
             val clickableSpan = object : ClickableSpan() {
                 override fun onClick(widget: View) { showDefinitionDialog(itemData) }
                 override fun updateDrawState(ds: TextPaint) {
@@ -462,101 +433,47 @@ class SongLearningActivity : AppCompatActivity() {
 
     private fun showDefinitionDialog(itemData: Any) {
         val builder = AlertDialog.Builder(this)
-
         var term = ""
         var def = ""
         var exampleOrTranslation = ""
-        var isExpr = false 
+        var isExpr = false
 
-        // 🔥 CORRECCIÓN: Usamos WordDefinition
         if (itemData is WordDefinition) {
-            // En tu ApiModels: 'definition' viene del JSON "translation"
             builder.setTitle("📖 ${itemData.word}")
             builder.setMessage("Significado: ${itemData.definition}\n\nExplicación: ${itemData.explanation ?: ""}\n\nEjemplo: ${itemData.example}")
-            
             term = itemData.word
             def = itemData.definition
-            val explanation = itemData.explanation ?: ""
             exampleOrTranslation = itemData.example
-            isExpr = false 
-            
-            if (itemData.alreadySaved) {
-                builder.setNeutralButton("✓ Ya guardado") { _, _ ->
-                    // Snackbar informativo (sin acción)
-                    com.google.android.material.snackbar.Snackbar.make(
-                        findViewById(android.R.id.content),
-                        "Esta palabra ya está en tu diccionario",
-                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
-                    ).show()
-                }
-            } else {
-                builder.setNeutralButton("Guardar") { _, _ ->
-                    viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
-                    wordWasAdded = true
-                    
-                    // 🔥 Snackbar con acción "VER" para abrir diccionario
-                    com.google.android.material.snackbar.Snackbar.make(
-                        findViewById(android.R.id.content),
-                        "✓ \"$term\" añadida al diccionario",
-                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
-                    ).setAction("VER") {
-                        // Abrir diccionario
-                        val intent = Intent(this, DictionaryActivity::class.java)
-                        startActivity(intent)
-                    }.show()
-                }
-            }
-
-        // 🔥 CORRECCIÓN: Usamos ExpressionDefinition
+            isExpr = false
         } else if (itemData is ExpressionDefinition) {
-            // En tu ApiModels: 'meaning' es la traducción principal
             builder.setTitle("🗣️ ${itemData.expression}")
-            builder.setMessage("Significado: ${itemData.meaning}\n\nExplicación: ${itemData.translation ?: ""}") 
-            
+            builder.setMessage("Significado: ${itemData.meaning}\n\nExplicación: ${itemData.translation ?: ""}")
             term = itemData.expression
             def = itemData.meaning
-            val explanation = itemData.translation ?: "" // Ojo a tu mapeo en ApiModels
             exampleOrTranslation = itemData.example
-            isExpr = true 
-            
-            if (itemData.alreadySaved) {
-                builder.setNeutralButton("✓ Ya guardado") { _, _ ->
-                    // Snackbar informativo (sin acción)
-                    com.google.android.material.snackbar.Snackbar.make(
-                        findViewById(android.R.id.content),
-                        "Esta expresión ya está en tu diccionario",
-                        com.google.android.material.snackbar.Snackbar.LENGTH_SHORT
-                    ).show()
-                }
-            } else {
-                builder.setNeutralButton("Guardar") { _, _ ->
-                    viewModel.addToDictionary(term, def, explanation, exampleOrTranslation, isExpression = isExpr)
-                    wordWasAdded = true
-                    
-                    // 🔥 Snackbar con acción "VER" para abrir diccionario
-                    com.google.android.material.snackbar.Snackbar.make(
-                        findViewById(android.R.id.content),
-                        "✓ \"$term\" añadida al diccionario",
-                        com.google.android.material.snackbar.Snackbar.LENGTH_LONG
-                    ).setAction("VER") {
-                        // Abrir diccionario
-                        val intent = Intent(this, DictionaryActivity::class.java)
-                        startActivity(intent)
-                    }.show()
-                }
-            }
+            isExpr = true
         }
 
+        val itemSaved = if (itemData is WordDefinition) itemData.alreadySaved else (itemData as ExpressionDefinition).alreadySaved
+        if (itemSaved) {
+            builder.setNeutralButton("✓ Ya guardado") { _, _ ->
+                Toast.makeText(this, "Ya está en tu diccionario", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            builder.setNeutralButton("Guardar") { _, _ ->
+                viewModel.addToDictionary(term, def, "", exampleOrTranslation, isExpression = isExpr)
+                wordWasAdded = true
+                Toast.makeText(this, "✓ Guardado", Toast.LENGTH_SHORT).show()
+            }
+        }
         builder.setPositiveButton("Cerrar") { dialog, _ -> dialog.dismiss() }
         builder.show()
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         stopSeekBarUpdater()
-        if (wordWasAdded) {
-            setResult(RESULT_OK)
-        }
+        if (wordWasAdded) setResult(RESULT_OK)
         mediaPlayer?.release()
         mediaPlayer = null
     }
