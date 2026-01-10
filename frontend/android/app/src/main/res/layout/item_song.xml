@@ -2,6 +2,7 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardSong"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
@@ -25,6 +26,25 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <!-- Badge Grammy (dorado) -->
+        <TextView
+            android:id="@+id/tvGrammyBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🏆 GRAMMY"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:textColor="#1A1A1A"
+            android:background="@drawable/bg_grammy_badge"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:visibility="gone"
+            android:elevation="2dp"
+            app:layout_constraintTop_toTopOf="@id/ivSongCover"
+            app:layout_constraintEnd_toEndOf="@id/ivSongCover"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="2dp"/>
 
         <!-- Título y Artista -->
         <LinearLayout
