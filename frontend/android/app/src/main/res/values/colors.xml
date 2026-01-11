@@ -13,6 +13,7 @@
 
     <color name="bg_page">#F5F5F5</color>
     <color name="bg_card">#FFFFFF</color>
+    <color name="card_stroke">#E0E0E0</color>
     <color name="text_primary">#333333</color>
     <color name="text_secondary">#777777</color>
     <color name="icon_tint">#6200EE</color>

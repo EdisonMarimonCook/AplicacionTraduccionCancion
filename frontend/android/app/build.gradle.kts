@@ -82,6 +82,12 @@ dependencies {
     implementation ("org.jsoup:jsoup:1.16.1")
     // Para los React skeletons
     implementation("com.facebook.shimmer:shimmer:0.5.0")
+    
+    // 🎉 Konfetti para animación de confeti en flashcards
+    implementation("nl.dionsegijn:konfetti-xml:2.0.4")
+    
+    // ✨ Lottie para animaciones premium (partículas doradas)
+    implementation("com.airbnb.android:lottie:6.0.0")
 
     // DEPENDENCIAS PARA BACKEND (Retrofit + Corrutinas unificadas)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

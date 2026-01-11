@@ -583,7 +583,8 @@ class ManageLanguagesActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             try {
-                val response = RetrofitService.api.deleteLanguage(lang.language)
+                val apiService = RetrofitService.getInstance(this@ManageLanguagesActivity)
+                val response = apiService.deleteLanguage(lang.language)
                 
                 if (response.isSuccessful && response.body() != null) {
                     val result = response.body()!!

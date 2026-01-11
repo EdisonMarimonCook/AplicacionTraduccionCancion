@@ -836,6 +836,31 @@ El backend y la lógica funcionan. Todas las pantallas principales están organi
 - ✅ Banner de conectividad sin parpadeos
 - ✅ Avatar cacheado offline con limpieza al logout
 
+#### ✅ Grammy Card Visual Effects & UI/UX Polish (Enero 2026)
+
+- **Tarjeta Grammy:**  
+  - Efecto dorado instantáneo, badge visible junto al artista, animación de flash y sparkles en los bordes usando Lottie.
+  - Layout y lógica revisados para evitar huecos y asegurar visual consistente en todos los modos.
+  - Badge Grammy reposicionado para máxima visibilidad.
+  - Animación de flash corregida para recorrer toda la tarjeta.
+
+
+- **Mejoras de UI en Home y Profile:**  
+  - Ajustes visuales en cabeceras, banners y chips de idioma.
+  - Mejor contraste y adaptación a modo claro/oscuro.
+  - Mejoras en la disposición y visibilidad de elementos clave.
+
+- **Flashcards:**  
+  - Mejoras visuales en la experiencia de repaso.
+  - Barra de progreso y animaciones más suaves.
+  - Ajustes en la visualización de estadísticas y feedback inmediato.
+
+- **Búsqueda:**  
+  - Filtrado de resultados vacíos/nulos.
+  - Mejoras en la presentación de resultados y mensajes de feedback.
+  - Optimización de la experiencia de búsqueda en tiempo real.
+
+
 ---
 
 ### 🔵 FASE 4: EXTRAS OPCIONALES ("CUANDO NOS APETEZCA")

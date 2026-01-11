@@ -1,70 +1,123 @@
 ﻿package com.example.diccionario_hiphop
 
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.widget.SearchView
+import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.viewpager2.widget.CompositePageTransformer
+import androidx.viewpager2.widget.MarginPageTransformer
+import androidx.viewpager2.widget.ViewPager2
 import com.example.diccionario_hiphop.utils.NetworkMonitor
 import com.facebook.shimmer.ShimmerFrameLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class HomeFragment : Fragment(R.layout.fragment_home) {
 
+    // --- UI Components ---
     private lateinit var recyclerView: RecyclerView
     private lateinit var shimmerContainer: ShimmerFrameLayout
     private lateinit var searchView: SearchView
     private lateinit var tvHeader: TextView
     private lateinit var tvOfflineMessage: TextView
+    private lateinit var layoutOffline: View
+    private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var tvDestacados: TextView
+    private lateinit var tvTodas: TextView
+
+    // --- Banner / ViewPager2 ---
+    private lateinit var viewPagerBanner: ViewPager2
+    private lateinit var tabLayout: TabLayout
+    private lateinit var bannerContainer: View
+    private lateinit var bannerAdapter: BannerAdapter
+
+    // --- Selector de Idioma (CardView con emoji) ---
+    private lateinit var cardLanguageSelector: CardView
+    private lateinit var tvSelectedLanguage: TextView
+
+    // --- Adapters & Data ---
     private lateinit var adapter: SongAdapter
+    private var grammySongs: List<SongItem> = emptyList()
     private lateinit var repository: SongRepository
     private lateinit var profileRepository: ProfileRepository
     private lateinit var networkMonitor: NetworkMonitor
-    private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
+
     private var searchJob: Job? = null
     private var userLanguages: List<LearningLanguage> = emptyList()
     private var selectedLanguage: String = "en"
     private var selectedLevel: String = "B1"
-    private lateinit var chipGroup: com.google.android.material.chip.ChipGroup
-    private lateinit var chipScrollView: android.widget.HorizontalScrollView
+
+    // --- Auto-Scroll del Banner ---
+    private val sliderHandler = Handler(Looper.getMainLooper())
+    private val sliderRunnable = Runnable {
+        if (::viewPagerBanner.isInitialized && ::bannerAdapter.isInitialized) {
+            var nextItem = viewPagerBanner.currentItem + 1
+            if (nextItem >= bannerAdapter.itemCount) {
+                nextItem = 0
+            }
+            viewPagerBanner.setCurrentItem(nextItem, true)
+        }
+    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         repository = SongRepository(requireContext())
         profileRepository = ProfileRepository(requireContext())
         networkMonitor = NetworkMonitor.getInstance(requireContext())
-        
+
         initViews(view)
-        setupRecyclerView()
+        lifecycleScope.launch {
+            val response = repository.getTopGrammy(selectedLanguage)
+            if (response.isSuccessful && response.body() != null) {
+                grammySongs = response.body()!!
+            }
+            setupRecyclerView()
+        }
+        setupBanner()
         setupSearchView()
-        
-        // 🌐 Observar cambios de conectividad para actualizar UI
+
         lifecycleScope.launch {
             networkMonitor.isConnected.collect { isOnline ->
                 if (!isOnline) {
                     showOfflineState()
                 }
-                // No cargar automáticamente cuando vuelve online - onResume lo hará
             }
         }
     }
-    
+
     override fun onResume() {
         super.onResume()
-        // Verificar conectividad y cargar solo si hay conexión
+        sliderHandler.postDelayed(sliderRunnable, 4000)
+
         if (networkMonitor.isConnected.value) {
             loadUserProfile()
         } else {
             showOfflineState()
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        sliderHandler.removeCallbacks(sliderRunnable)
     }
 
     private fun initViews(view: View) {
@@ -73,172 +126,133 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         searchView = view.findViewById(R.id.searchView)
         tvHeader = view.findViewById(R.id.tvHeader)
         tvOfflineMessage = view.findViewById(R.id.tvOfflineMessage)
-        chipGroup = view.findViewById(R.id.chipGroupLanguages)
-        chipScrollView = view.findViewById(R.id.chipScrollView)
-        chipScrollView.isSmoothScrollingEnabled = true
-        swipeRefresh = view.findViewById(R.id.swipeRefresh)  // 🔄 Pull-to-refresh
-        
-        // Configurar SwipeRefreshLayout
+        layoutOffline = view.findViewById(R.id.layoutOffline)
+        swipeRefresh = view.findViewById(R.id.swipeRefresh)
+        tvDestacados = view.findViewById(R.id.tvDestacados)
+        tvTodas = view.findViewById(R.id.tvTodas)
+
+        // Banner
+        viewPagerBanner = view.findViewById(R.id.viewPagerBanner)
+        tabLayout = view.findViewById(R.id.tabLayoutIndicator)
+        bannerContainer = view.findViewById(R.id.bannerContainer)
+
+        // Selector de idioma
+        cardLanguageSelector = view.findViewById(R.id.cardLanguageSelector)
+        tvSelectedLanguage = view.findViewById(R.id.tvSelectedLanguage)
+
         swipeRefresh.setOnRefreshListener {
-            loadUserProfile()  // Recargar perfil y recomendaciones
-        }
-        
-        // 🔥 Mejorar scroll de chips: evitar conflicto con ViewPager2
-        chipScrollView.setOnTouchListener { v, event ->
-            when (event.action) {
-                android.view.MotionEvent.ACTION_MOVE -> {
-                    v.parent.requestDisallowInterceptTouchEvent(true)
-                }
-            }
-            false
+            loadUserProfile()
         }
     }
 
     private fun setupRecyclerView() {
         adapter = SongAdapter(emptyList(), { song ->
-            // Validar idioma antes de abrir la actividad
             checkLanguageBeforeOpening(song)
-        }, selectedLanguage)
+        }, selectedLanguage, grammySongs)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.isNestedScrollingEnabled = false
     }
 
-    /**
-     * Valida si el idioma de la canción está en los idiomas de aprendizaje del usuario
-     */
-    private fun checkLanguageBeforeOpening(song: SongItem) {
-        val isLanguageActive = userLanguages.any { it.language == selectedLanguage && it.isActive }
-        
-        if (!isLanguageActive) {
-            // Mostrar diálogo de advertencia
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("⚠️ Idioma no configurado")
-                .setMessage("Esta canción está en ${getLanguageName(selectedLanguage)}, pero no lo tienes como idioma de aprendizaje activo.\n\n¿Quieres continuar? No podrás guardar palabras ni crear flashcards.")
-                .setPositiveButton("Continuar de todos modos") { _, _ ->
-                    openSongLearningActivity(song, allowSaving = false)
-                }
-                .setNegativeButton("Cancelar", null)
-                .setNeutralButton("Configurar idiomas") { _, _ ->
-                    // Abrir pantalla de gestión de idiomas
-                    val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
-                    startActivity(intent)
-                }
-                .show()
-        } else {
-            // Idioma válido, abrir normalmente
-            openSongLearningActivity(song, allowSaving = true)
+    private fun setupBanner() {
+        viewPagerBanner.clipToPadding = false
+        viewPagerBanner.clipChildren = false
+        viewPagerBanner.offscreenPageLimit = 3
+        viewPagerBanner.getChildAt(0).overScrollMode = RecyclerView.OVER_SCROLL_NEVER
+
+        val compositePageTransformer = CompositePageTransformer()
+        compositePageTransformer.addTransformer(MarginPageTransformer(30))
+        compositePageTransformer.addTransformer { page, position ->
+            val r = 1 - abs(position)
+            page.scaleY = 0.85f + r * 0.15f
         }
-    }
+        viewPagerBanner.setPageTransformer(compositePageTransformer)
 
-    /**
-     * Abre SongLearningActivity con los datos de la canción
-     */
-    private fun openSongLearningActivity(song: SongItem, allowSaving: Boolean) {
-        val intent = Intent(requireContext(), SongLearningActivity::class.java)
-        intent.putExtra("song_title", song.title)
-        intent.putExtra("song_artist", song.artist)
-        intent.putExtra("song_image", song.imageUrl)
-        intent.putExtra("song_audio", song.previewUrl)
-        intent.putExtra("allow_saving", allowSaving)
-        intent.putExtra("language_code", selectedLanguage)
-        startActivity(intent)
+        viewPagerBanner.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                sliderHandler.removeCallbacks(sliderRunnable)
+                sliderHandler.postDelayed(sliderRunnable, 4000)
+            }
+        })
     }
 
     private fun setupSearchView() {
-        // Configurar el EditText interno del SearchView
+        searchView.queryHint = "🎧 Busca tu flow..."
         val searchEditText = searchView.findViewById<android.widget.EditText>(androidx.appcompat.R.id.search_src_text)
         searchEditText?.apply {
-            // Evitar popup de sugerencias del teclado
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            // Configurar acción del teclado
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
-            // Asegurar que se muestren las letras mientras escribe
             isSingleLine = true
+            // Cambia el color del texto según el modo (oscuro/blanco, claro/negro)
+            val isDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            if (isDark) {
+                setTextColor(resources.getColor(android.R.color.white, null))
+                setHintTextColor(resources.getColor(android.R.color.darker_gray, null))
+            } else {
+                setTextColor(resources.getColor(android.R.color.black, null))
+                setHintTextColor(resources.getColor(android.R.color.darker_gray, null))
+            }
         }
-        
+
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 if (!query.isNullOrEmpty()) {
                     searchJob?.cancel()
-                    performSearch(query)
+                    performSearch(query, isRecommendation = false)
                     searchView.clearFocus()
-                    // Ocultar chips en búsquedas personalizadas
-                    chipScrollView.visibility = View.GONE
+                    tvDestacados.visibility = View.GONE
+                    tvTodas.visibility = View.GONE
                 }
                 return true
             }
-            
+
             override fun onQueryTextChange(newText: String?): Boolean {
-                // Cancelar búsqueda anterior
                 searchJob?.cancel()
-                
-                when {
-                    newText.isNullOrEmpty() -> {
-                        // Si está vacío, volver a recomendaciones personalizadas
-                        chipScrollView.visibility = View.VISIBLE
-                        performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
-                    }
-                    newText.length >= 2 -> {
-                        // Mostrar shimmer INMEDIATAMENTE
-                        showLoading(true)
-                        // Ocultar chips durante búsqueda
-                        chipScrollView.visibility = View.GONE
-                        
-                        // Debounce: esperar 300ms antes de buscar (más rápido)
-                        searchJob = lifecycleScope.launch {
-                            delay(300)
-                            performSearch(newText, showShimmer = false) // No mostrar shimmer de nuevo
-                        }
-                    }
-                    else -> {
-                        // Si solo hay 1 carácter, ocultar resultados
-                        showLoading(false)
-                        adapter.updateData(emptyList())
+
+                if (newText.isNullOrEmpty()) {
+                    performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
+                    tvDestacados.visibility = View.VISIBLE
+                    tvTodas.visibility = View.VISIBLE
+                } else if (newText.length >= 2) {
+                    searchJob = lifecycleScope.launch {
+                        delay(400)
+                        performSearch(newText, showShimmer = false, isRecommendation = false)
+                        tvDestacados.visibility = View.GONE
+                        tvTodas.visibility = View.GONE
                     }
                 }
                 return true
             }
         })
-        
-        // Detectar cuando se cierra la búsqueda (X button)
+
         searchView.setOnCloseListener {
-            searchJob?.cancel()
-            chipScrollView.visibility = View.VISIBLE
             performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
+            tvDestacados.visibility = View.VISIBLE
+            tvTodas.visibility = View.VISIBLE
             false
         }
     }
 
     private fun loadUserProfile() {
-        // Re-habilitar controles (por si volvimos de offline)
         searchView.isEnabled = true
         searchView.alpha = 1f
-        swipeRefresh.isEnabled = true
-        chipScrollView.visibility = View.VISIBLE
-        tvHeader.visibility = View.VISIBLE
-        tvOfflineMessage.visibility = View.GONE
-        
+        layoutOffline.visibility = View.GONE
+        recyclerView.visibility = View.VISIBLE
+
         lifecycleScope.launch {
             try {
-                // 🚀 Usar ProfileRepository que aprovecha la precarga de MainActivity
                 val response = profileRepository.getProfile()
-                
                 if (response.isSuccessful && response.body() != null) {
                     val user = response.body()!!
                     userLanguages = user.learningLanguages?.filter { it.isActive } ?: emptyList()
-                    
+
                     if (userLanguages.isNotEmpty()) {
-                        // Encontrar idioma principal
-                        val primaryLang = userLanguages.find { it.language == user.primaryLanguage } 
-                            ?: userLanguages.first()
-                        
+                        val primaryLang = userLanguages.find { it.language == user.primaryLanguage } ?: userLanguages.first()
                         selectedLanguage = primaryLang.language
                         selectedLevel = primaryLang.level
-                        
-                        // Crear chips dinámicos
-                        setupLanguageChips()
-                        
-                        // Cargar recomendaciones según idioma y nivel
+
+                        setupLanguageSelector()
                         performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
                     } else {
                         performSearch("Viral 50 Global", isRecommendation = true)
@@ -247,167 +261,181 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     performSearch("Viral 50 Global", isRecommendation = true)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 performSearch("Viral 50 Global", isRecommendation = true)
             } finally {
-                swipeRefresh.isRefreshing = false  // 🔄 Detener animación de refresh
-            }
-        }
-    }
-    
-    private fun setupLanguageChips() {
-        chipGroup.removeAllViews()
-        
-        userLanguages.forEach { lang ->
-            val chip = com.google.android.material.chip.Chip(requireContext())
-            chip.text = "${getLanguageEmoji(lang.language)} ${getLanguageName(lang.language)} (${lang.level})"
-            chip.isCheckable = true
-            chip.setChipBackgroundColorResource(R.color.chip_background_selector)
-            chip.setTextColor(resources.getColorStateList(R.color.chip_text_selector, null))
-            
-            // Seleccionar el idioma actual
-            if (lang.language == selectedLanguage) {
-                chip.isChecked = true
-            }
-            
-            chip.setOnClickListener {
-                selectedLanguage = lang.language
-                selectedLevel = lang.level
-                // Recrear adapter con nuevo idioma para Grammy checks
-                setupRecyclerView()
-                performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
-            }
-            
-            chipGroup.addView(chip)
-        }
-    }
-    
-    private fun getLanguageEmoji(code: String): String {
-        return when(code) {
-            "es" -> "🇪🇸"
-            "fr" -> "🇫🇷"
-            "de" -> "🇩🇪"
-            "pt" -> "🇵🇹"
-            "it" -> "🇮🇹"
-            "ja" -> "🇯🇵"
-            "ko" -> "🇰🇷"
-            "zh" -> "🇨🇳"
-            else -> "🇬🇧"
-        }
-    }
-    
-    private fun getLanguageName(code: String): String {
-        return when(code) {
-            "es" -> "Español"
-            "fr" -> "Francés"
-            "de" -> "Alemán"
-            "pt" -> "Portugués"
-            "it" -> "Italiano"
-            "ja" -> "Japonés"
-            "ko" -> "Coreano"
-            "zh" -> "Chino"
-            else -> "Inglés"
-        }
-    }
-    
-    private fun getRecommendationQuery(lang: String, level: String): String {
-        // Búsqueda INTELIGENTE por género/playlists para evitar duplicados
-        return when(lang) {
-            "es" -> when(level) {
-                "A1", "A2" -> "Top 50 Spain"  // Español claro y popular
-                "B1", "B2" -> "Reggaeton Latino"  // Más dinámico
-                else -> "Rock en Español"
-            }
-            "fr" -> when(level) {
-                "A1", "A2" -> "Top 50 France"  // Francés estándar
-                "B1", "B2" -> "Chanson Française"
-                else -> "Rap Français"
-            }
-            "de" -> when(level) {
-                "A1", "A2" -> "Top 50 Germany"  // Alemán claro
-                "B1", "B2" -> "Deutschpop"
-                else -> "Neue Deutsche Welle"
-            }
-            "pt" -> when(level) {
-                "A1", "A2" -> "Top 50 Brazil"  // Portugués brasileño
-                "B1", "B2" -> "Samba MPB"
-                else -> "Funk Brasileiro"
-            }
-            "it" -> when(level) {
-                "A1", "A2" -> "Top 50 Italy"  // Italiano estándar
-                "B1", "B2" -> "Pop Italiano"
-                else -> "Indie Italiano"
-            }
-            "ja" -> when(level) {
-                "N5", "N4" -> "J-Pop Hits"  // Japonés claro y popular
-                "N3", "N2" -> "Japanese City Pop"  // Más complejo
-                else -> "J-Rock Anime"
-            }
-            "ko" -> when(level) {
-                "1", "2" -> "K-Pop Daebak"  // K-Pop mainstream
-                "3", "4" -> "Korean Indie"  // Más variado
-                else -> "K-Hip Hop"
-            }
-            "zh" -> when(level) {
-                "1", "2" -> "Mandopop"  // Mandarín estándar
-                "3", "4" -> "C-Pop Hits"  // Chino popular
-                else -> "Taiwan Pop"
-            }
-            else -> when(level) {  // Inglés
-                "A1", "A2" -> "Today's Top Hits"  // Inglés claro
-                "B1", "B2" -> "Pop Rising"
-                else -> "RapCaviar"
+                swipeRefresh.isRefreshing = false
             }
         }
     }
 
-    private fun performSearch(query: String, showShimmer: Boolean = true, isRecommendation: Boolean = false) {
-        // Determinar si es una búsqueda de recomendaciones automática
-        val isAutoRecommendation = isRecommendation || 
-            query.startsWith("Viral 50") || 
-            query.startsWith("Top ") ||
-            query.contains("BTS") ||
-            query.contains("YOASOBI") ||
-            query.contains("Shakira") ||
-            query.contains("Stromae") ||
-            query.contains("Nena") ||
-            query.contains("Anitta") ||
-            query.contains("Pausini") ||
-            query.contains("周杰伦") ||
-            query.contains("邓紫棋")
-        
-        tvHeader.text = if(isAutoRecommendation) "🎧 Descubrir" else "Resultados para '$query'"
-        
-        if (showShimmer) {
-            showLoading(true)
+    private fun setupLanguageSelector() {
+        val currentLang = userLanguages.find { it.language == selectedLanguage } ?: userLanguages.firstOrNull()
+
+        if (currentLang != null) {
+            tvSelectedLanguage.text = getLanguageEmoji(currentLang.language)
+            selectedLanguage = currentLang.language
+            selectedLevel = currentLang.level
         }
-        
+
+        cardLanguageSelector.setOnClickListener {
+            showLanguageBottomSheet()
+        }
+    }
+
+    private fun showLanguageBottomSheet() {
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_language_selector, null)
+        bottomSheetDialog.setContentView(view)
+
+        val container = view.findViewById<LinearLayout>(R.id.containerLanguages)
+
+        userLanguages.forEach { lang ->
+            val itemLayout = LinearLayout(requireContext())
+            itemLayout.orientation = LinearLayout.HORIZONTAL
+            itemLayout.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            itemLayout.setPadding(30, 40, 30, 40)
+            itemLayout.gravity = Gravity.CENTER_VERTICAL
+
+            val outValue = TypedValue()
+            requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, outValue, true)
+            itemLayout.setBackgroundResource(outValue.resourceId)
+
+            val textView = TextView(requireContext())
+            val emoji = getLanguageEmoji(lang.language)
+            val name = getLanguageName(lang.language)
+            textView.text = "$emoji  $name • ${lang.level}"
+            textView.textSize = 18f
+            textView.setTextColor(resources.getColor(R.color.text_primary, null))
+
+            if (lang.language == selectedLanguage) {
+                textView.setTypeface(null, Typeface.BOLD)
+                textView.setTextColor(resources.getColor(R.color.purple_500, null))
+            }
+
+            itemLayout.addView(textView)
+
+            itemLayout.setOnClickListener {
+                selectedLanguage = lang.language
+                selectedLevel = lang.level
+
+                setupLanguageSelector()
+                setupRecyclerView() // Recrear adapter con nuevo idioma para Grammy
+                performSearch(getRecommendationQuery(selectedLanguage, selectedLevel), isRecommendation = true)
+
+                bottomSheetDialog.dismiss()
+            }
+
+            container.addView(itemLayout)
+
+            val divider = View(requireContext())
+            divider.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
+            divider.setBackgroundColor(resources.getColor(R.color.text_secondary, null))
+            divider.alpha = 0.2f
+            container.addView(divider)
+        }
+
+        bottomSheetDialog.show()
+    }
+
+    /**
+     * ✅ VALIDACIÓN DE IDIOMAS (nuestra lógica)
+     */
+    private fun checkLanguageBeforeOpening(song: SongItem) {
+        val isLanguageActive = userLanguages.any { it.language == selectedLanguage && it.isActive }
+
+        if (!isLanguageActive) {
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ Idioma no configurado")
+                .setMessage("Esta canción está en ${getLanguageName(selectedLanguage)}, pero no lo tienes como idioma de aprendizaje activo.\n\n¿Quieres continuar? No podrás guardar palabras ni crear flashcards.")
+                .setPositiveButton("Continuar de todos modos") { _, _ ->
+                    openSongLearningActivity(song, allowSaving = false)
+                }
+                .setNegativeButton("Cancelar", null)
+                .setNeutralButton("Configurar idiomas") { _, _ ->
+                    val intent = Intent(requireContext(), ManageLanguagesActivity::class.java)
+                    startActivity(intent)
+                }
+                .show()
+        } else {
+            openSongLearningActivity(song, allowSaving = true)
+        }
+    }
+
+    /**
+     * 🏆 ABRIR CANCIÓN CON GRAMMY CHECK (nuestra lógica)
+     */
+    private fun openSongLearningActivity(song: SongItem, allowSaving: Boolean) {
+        lifecycleScope.launch {
+            var isGrammy = false
+            try {
+                val apiService = RetrofitService.getInstance(requireContext())
+                val response = apiService.checkGrammyStatus(song.title, song.artist, selectedLanguage)
+                isGrammy = response.isSuccessful && response.body()?.isGrammy == true
+            } catch (e: Exception) {
+                android.util.Log.e("HomeFragment", "Grammy check error: ${e.message}")
+            }
+
+            val intent = Intent(requireContext(), SongLearningActivity::class.java)
+            intent.putExtra("song_title", song.title)
+            intent.putExtra("song_artist", song.artist)
+            intent.putExtra("song_image", song.imageUrl)
+            intent.putExtra("song_audio", song.previewUrl)
+            intent.putExtra("allow_saving", allowSaving)
+            intent.putExtra("language_code", selectedLanguage)
+            intent.putExtra("is_grammy_theme", isGrammy)
+            startActivity(intent)
+        }
+    }
+
+    private fun performSearch(query: String, showShimmer: Boolean = true, isRecommendation: Boolean = false) {
+        val displayTitle = if (isRecommendation) "Filtrar por idioma" else "Resultados para '$query'"
+        tvHeader.text = displayTitle
+
+        // Ocultar/mostrar banner y selector según si es búsqueda o recomendación
+        if (isRecommendation) {
+            bannerContainer.visibility = View.VISIBLE
+            cardLanguageSelector.visibility = View.VISIBLE
+        } else {
+            bannerContainer.visibility = View.GONE
+            cardLanguageSelector.visibility = View.GONE
+        }
+
+        if (showShimmer) showLoading(true)
+
         lifecycleScope.launch {
             try {
                 val response = repository.searchSongs(query)
                 if (response.isSuccessful && response.body() != null) {
                     val results = response.body()!!
-                    adapter.updateData(results)
-                    
-                    // Si no hay resultados, mostrar mensaje (excepto en recomendaciones)
-                    val isRecommendation = query.startsWith("Viral 50")
-                    if (results.isEmpty() && !isRecommendation) {
-                        Toast.makeText(requireContext(), "No se encontraron canciones", Toast.LENGTH_SHORT).show()
+
+                    // Actualizar lista vertical
+                    // Filtrar resultados nulos o vacíos
+                    val filteredResults = results.filter {
+                        !it.title.isNullOrBlank() && !it.artist.isNullOrBlank()
                     }
-                } else {
-                    // Solo mostrar error si estamos online
-                    if (networkMonitor.isConnected.value) {
-                        Toast.makeText(requireContext(), "Error al buscar", Toast.LENGTH_SHORT).show()
+                    adapter.updateData(filteredResults)
+
+                    // Actualizar banner (solo en recomendaciones)
+                    if (isRecommendation && results.isNotEmpty()) {
+                        val bannerData = results.shuffled().take(5)
+                        bannerAdapter = BannerAdapter(bannerData) { song -> checkLanguageBeforeOpening(song) }
+                        viewPagerBanner.adapter = bannerAdapter
+                        TabLayoutMediator(tabLayout, viewPagerBanner) { _, _ -> }.attach()
+                    }
+
+                    if (results.isEmpty() && !isRecommendation) {
+                        Toast.makeText(requireContext(), "No se encontraron resultados", Toast.LENGTH_SHORT).show()
                     }
                 }
-            } catch (e: Exception) { 
-                e.printStackTrace()
-                // Solo mostrar error si estamos online
+            } catch (e: Exception) {
                 if (networkMonitor.isConnected.value) {
                     Toast.makeText(requireContext(), "Error de conexión", Toast.LENGTH_SHORT).show()
                 }
-            } finally { 
-                showLoading(false) 
+            } finally {
+                showLoading(false)
             }
         }
     }
@@ -417,33 +445,55 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             shimmerContainer.startShimmer()
             shimmerContainer.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
+            if (::bannerContainer.isInitialized) bannerContainer.visibility = View.GONE
         } else {
             shimmerContainer.stopShimmer()
             shimmerContainer.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
+
+            if (cardLanguageSelector.visibility == View.VISIBLE) {
+                bannerContainer.visibility = View.VISIBLE
+            } else {
+            // Aseguramos que se mantenga oculto si es una búsqueda
+            bannerContainer.visibility = View.GONE 
+            }
         }
     }
-    
+
     private fun showOfflineState() {
-        // Ocultar loading
         showLoading(false)
-        
-        // Limpiar resultados
         adapter.updateData(emptyList())
-        
-        // Deshabilitar búsqueda
+
         searchView.isEnabled = false
         searchView.alpha = 0.5f
-        
-        // Ocultar chips y header
-        chipScrollView.visibility = View.GONE
+        cardLanguageSelector.visibility = View.GONE
         tvHeader.visibility = View.GONE
-        
-        // Mostrar mensaje centrado
-        tvOfflineMessage.visibility = View.VISIBLE
-        
-        // Detener refresh si está activo
+        bannerContainer.visibility = View.GONE
+
+        layoutOffline.visibility = View.VISIBLE
+
         swipeRefresh.isRefreshing = false
         swipeRefresh.isEnabled = false
+    }
+
+    private fun getLanguageEmoji(code: String): String = when(code) {
+        "es" -> "🇪🇸"; "fr" -> "🇫🇷"; "de" -> "🇩🇪"; "pt" -> "🇵🇹"; "it" -> "🇮🇹"
+        "ja" -> "🇯🇵"; "ko" -> "🇰🇷"; "zh" -> "🇨🇳"; else -> "🇬🇧"
+    }
+
+    private fun getLanguageName(code: String): String = when(code) {
+        "es" -> "Español"; "fr" -> "Francés"; "de" -> "Alemán"; "pt" -> "Portugués"
+        "it" -> "Italiano"; "ja" -> "Japonés"; "ko" -> "Coreano"; "zh" -> "Chino"; else -> "Inglés"
+    }
+
+    private fun getRecommendationQuery(lang: String, level: String): String {
+        return when(lang) {
+            "es" -> "Top 50 Spain"
+            "fr" -> "Top 50 France"
+            "de" -> "Top 50 Germany"
+            "ja" -> "J-Pop Hits"
+            "ko" -> "K-Pop Daebak"
+            else -> "Today's Top Hits"
+        }
     }
 }
