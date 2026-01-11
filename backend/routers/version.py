@@ -1,79 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 """
 MÓDULO: Version Check
 PROPÓSITO: Sistema de control de versiones y actualizaciones forzadas
@@ -99,10 +23,10 @@ MIN_REQUIRED_VERSION = "1.0.0"
 LATEST_VERSION = "1.0.0"
 
 # URL de descarga (tu portal de descarga o GitHub Releases)
-DOWNLOAD_URL = "https://github.com/EdisonMarimonCook/AplicacionTraduccionCancion/releases/latest"
+DOWNLOAD_URL = "https://webappmusictransiator.pages.dev/"
 
 # Changelog resumido
-CHANGELOG = "Primera versión estable del MVP con audio completo y sistema SRS"
+CHANGELOG = "Primera versión estable del Producto"
 
 # ===============================================================================
 # SCHEMAS
