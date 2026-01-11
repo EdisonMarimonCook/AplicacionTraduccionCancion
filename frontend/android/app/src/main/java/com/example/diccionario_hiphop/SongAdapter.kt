@@ -1,29 +1,46 @@
 ﻿package com.example.diccionario_hiphop
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.Animation
+import android.view.animation.TranslateAnimation
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.recyclerview.widget.DiffUtil
+import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
+import com.airbnb.lottie.LottieAnimationView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+// Imports necesarios para los efectos
+import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.SimpleColorFilter
+import com.airbnb.lottie.model.KeyPath
+import com.airbnb.lottie.value.LottieValueCallback
 
 class SongAdapter(
     private var songs: List<SongItem>,
-    private val onSongClick: (SongItem) -> Unit
+    private val onSongClick: (SongItem) -> Unit,
+    private val selectedLanguage: String = "en",
+    private val grammySongs: List<SongItem> = emptyList()
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
 
     class SongViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        // Componentes básicos
         val tvTitle: TextView = view.findViewById(R.id.tvSongTitle)
         val tvArtist: TextView = view.findViewById(R.id.tvSongArtist)
         val ivCover: ImageView = view.findViewById(R.id.ivSongCover)
+        val tvGrammyBadge: TextView = view.findViewById(R.id.tvGrammyBadge)
+        val cardSong: CardView = view.findViewById(R.id.cardSong)
+        
+        // Componentes de Efectos Premium (Nuevos IDs)
+        val viewFlash: View = view.findViewById(R.id.viewFlashInternal)
+        val lottieAura: LottieAnimationView = view.findViewById(R.id.lottieAuraOutside)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
+        // Importante: attachToRoot debe ser false
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_song, parent, false)
         return SongViewHolder(view)
@@ -31,66 +48,84 @@ class SongAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songs[position]
+        val context = holder.itemView.context
 
-        // Limpiar caracteres corruptos por encoding
-        holder.tvTitle.text = cleanText(song.title)
-        holder.tvArtist.text = cleanText(song.artist)
+        holder.tvTitle.text = song.title
+        holder.tvArtist.text = song.artist
 
-        // Carga optimizada con Glide
-        Glide.with(holder.itemView.context)
+        Glide.with(context)
             .load(song.imageUrl)
-            .placeholder(R.drawable.album_cover_background)
-            .error(R.drawable.album_cover_background)
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .apply(RequestOptions().transform(RoundedCorners(16)))
+            .transform(RoundedCorners(16))
+            .placeholder(R.drawable.ic_launcher_foreground)
             .into(holder.ivCover)
 
-        holder.itemView.setOnClickListener {
-            onSongClick(song)
+        holder.itemView.setOnClickListener { onSongClick(song) }
+
+        // --- LÓGICA PREMIUM / GRAMMY ---
+        val isGrammy = grammySongs.any { 
+            it.title.equals(song.title, ignoreCase = true) && 
+            it.artist.equals(song.artist, ignoreCase = true) 
+        }
+
+        if (isGrammy) {
+            // 🌟 MODO PREMIUM 🌟
+            holder.cardSong.setCardBackgroundColor(Color.parseColor("#FFD700")) // Dorado
+            holder.tvTitle.setTextColor(Color.BLACK)
+            holder.tvArtist.setTextColor(Color.DKGRAY)
+            holder.tvGrammyBadge.visibility = View.VISIBLE
+            
+            // Activar efectos
+            playPremiumEffect(holder)
+
+        } else {
+            // 🌑 MODO NORMAL 🌑
+            val defaultCardColor = try {
+                 androidx.core.content.ContextCompat.getColor(context, R.color.bg_card)
+            } catch (e: Exception) { Color.WHITE }
+            holder.cardSong.setCardBackgroundColor(defaultCardColor)
+            
+            val colorPrimary = try { androidx.core.content.ContextCompat.getColor(context, R.color.text_primary) } catch (e: Exception) { Color.BLACK }
+            val colorSecondary = try { androidx.core.content.ContextCompat.getColor(context, R.color.text_secondary) } catch (e: Exception) { Color.GRAY }
+            holder.tvTitle.setTextColor(colorPrimary)
+            holder.tvArtist.setTextColor(colorSecondary)
+
+            holder.tvGrammyBadge.visibility = View.GONE
+            
+            // Apagar efectos
+            holder.lottieAura.visibility = View.GONE
+            holder.lottieAura.cancelAnimation()
+            holder.viewFlash.visibility = View.GONE
+            holder.viewFlash.clearAnimation()
         }
     }
 
-    /**
-     * Limpia caracteres corruptos por problemas de encoding UTF-8
-     */
-    private fun cleanText(text: String): String {
-        // Remover caracteres de control y caracteres no imprimibles
-        return text.replace(Regex("[\\p{C}]"), "")
-            .trim()
-            .takeIf { it.isNotEmpty() } ?: text
+  private fun playPremiumEffect(holder: SongViewHolder) {
+    holder.viewFlash.visibility = View.VISIBLE
+    holder.viewFlash.scaleY = 3f 
+    holder.viewFlash.scaleX = 1.2f
+
+    holder.viewFlash.post {
+        if (holder.viewFlash.visibility == View.VISIBLE) {
+            val width = holder.cardSong.width.toFloat()
+            holder.viewFlash.clearAnimation()
+
+            val animation = TranslateAnimation(
+                -width - 400f,
+                width + 400f,
+                0f, 0f
+            )
+            animation.duration = 1400
+            animation.repeatCount = Animation.INFINITE
+            animation.repeatMode = Animation.RESTART
+            holder.viewFlash.startAnimation(animation)
+        }
     }
+}
 
     override fun getItemCount() = songs.size
 
-    // 🔥 OPTIMIZACIÓN: DiffUtil para animaciones suaves (en vez de notifyDataSetChanged)
     fun updateData(newSongs: List<SongItem>) {
-        val diffCallback = SongDiffCallback(songs, newSongs)
-        val diffResult = DiffUtil.calculateDiff(diffCallback)
-        
         songs = newSongs
-        diffResult.dispatchUpdatesTo(this)
-    }
-    
-    // 🔥 DiffUtil Callback para comparar listas eficientemente
-    private class SongDiffCallback(
-        private val oldList: List<SongItem>,
-        private val newList: List<SongItem>
-    ) : DiffUtil.Callback() {
-        
-        override fun getOldListSize() = oldList.size
-        override fun getNewListSize() = newList.size
-        
-        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            // Comparar por ID único (asumiendo que SongItem tiene un identificador)
-            val oldItem = oldList[oldItemPosition]
-            val newItem = newList[newItemPosition]
-            // Si no hay ID, comparamos por título + artista (único razonable)
-            return oldItem.title == newItem.title && oldItem.artist == newItem.artist
-        }
-        
-        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            // Comparar si el contenido completo es igual
-            return oldList[oldItemPosition] == newList[newItemPosition]
-        }
+        notifyDataSetChanged()
     }
 }

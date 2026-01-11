@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:oneshot="false">
+    
+    <!-- Frame 1: Dorado base -->
+    <item android:duration="800">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFD700"
+                android:centerColor="#FFC107"
+                android:endColor="#FFB300"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Frame 2: Shimmer sutil -->
+    <item android:duration="600">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFC107"
+                android:centerColor="#FFECB3"
+                android:endColor="#FFC107"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Frame 3: Brillo suave -->
+    <item android:duration="400">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFEB3B"
+                android:centerColor="#FFF9C4"
+                android:endColor="#FFD54F"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Frame 4: Brillo máximo -->
+    <item android:duration="300">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFF176"
+                android:centerColor="#FFFEF7"
+                android:endColor="#FFE082"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Frame 5: Regreso brillo suave -->
+    <item android:duration="400">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFEB3B"
+                android:centerColor="#FFF9C4"
+                android:endColor="#FFD54F"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+    
+    <!-- Frame 6: Regreso sutil -->
+    <item android:duration="600">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FFC107"
+                android:centerColor="#FFECB3"
+                android:endColor="#FFC107"
+                android:type="linear" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</animation-list>

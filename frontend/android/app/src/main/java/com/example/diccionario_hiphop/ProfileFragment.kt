@@ -37,22 +37,22 @@ import java.io.FileOutputStream
 class ProfileFragment : Fragment(R.layout.fragment_profile) {
 
     // Vistas 
-    private lateinit var ivProfileImage: ImageView
-    private lateinit var btnEditProfilePic: ImageView 
+    private lateinit var ivProfile: ImageView
+    private lateinit var btnChangePhoto: ImageView 
     private lateinit var tvUsername: TextView
-    private lateinit var tvLevelInfo: TextView
-    private lateinit var swipeRefresh: SwipeRefreshLayout  // 🔄 Pull-to-refresh
+    private lateinit var btnManageLanguages: LinearLayout
+    private lateinit var tvCurrentLangProfile: TextView
     
     // Contadores
-    private lateinit var tvWordCount: TextView
-    private lateinit var tvStreak: TextView
-    private lateinit var tvReviews: TextView
+    private lateinit var tvWordsCount: TextView
+    private lateinit var tvStreakCount: TextView
+    private lateinit var tvReviewsCount: TextView
 
-    // Botones grandes
-    private lateinit var btnEditProfile: Button
-    private lateinit var btnDictionary: Button
-    private lateinit var btnFlashcards: Button
-    private lateinit var btnLogout: Button
+    // Botones grandes (ahora son LinearLayout según el nuevo diseño)
+    private lateinit var btnEditProfile: LinearLayout
+    private lateinit var btnDictionary: LinearLayout
+    private lateinit var btnFlashcards: LinearLayout
+    private lateinit var btnLogout: LinearLayout
 
     private var isLoadingProfile = false
     private var currentUser: User? = null  // ✨ Para el BottomSheet
@@ -199,26 +199,20 @@ private fun openCropper(uri: Uri) {
     }
 
     private fun initViews(view: View) {
-        ivProfileImage = view.findViewById(R.id.ivProfileImage)
-        btnEditProfilePic = view.findViewById(R.id.btnEditProfilePic)
+        ivProfile = view.findViewById(R.id.ivProfile)
+        btnChangePhoto = view.findViewById(R.id.btnChangePhoto)
         tvUsername = view.findViewById(R.id.tvUsername)
-        tvLevelInfo = view.findViewById(R.id.tvLevelInfo)
-        swipeRefresh = view.findViewById(R.id.swipeRefreshProfile)  // 🔄 Pull-to-refresh
+        btnManageLanguages = view.findViewById(R.id.btnManageLanguages)
+        tvCurrentLangProfile = view.findViewById(R.id.tvCurrentLangProfile)
 
-        tvWordCount = view.findViewById(R.id.tvWordCount)
-        tvStreak = view.findViewById(R.id.tvStreak)
-        tvReviews = view.findViewById(R.id.tvReviews)
+        tvWordsCount = view.findViewById(R.id.tvWordsCount)
+        tvStreakCount = view.findViewById(R.id.tvStreakCount)
+        tvReviewsCount = view.findViewById(R.id.tvReviewsCount)
 
         btnEditProfile = view.findViewById(R.id.btnEditProfile)
         btnDictionary = view.findViewById(R.id.btnDictionary)
         btnFlashcards = view.findViewById(R.id.btnFlashcards)
         btnLogout = view.findViewById(R.id.btnLogout)
-        
-        // Configurar SwipeRefreshLayout
-        swipeRefresh.setOnRefreshListener {
-            isLoadingProfile = false  // Permitir recarga
-            loadUserProfile()
-        }
     }
 
     private fun setupListeners() {
@@ -230,11 +224,11 @@ private fun openCropper(uri: Uri) {
 
         // Editar foto 
         val imageClickListener = View.OnClickListener { startCrop() }
-        ivProfileImage.setOnClickListener(imageClickListener)
-        btnEditProfilePic.setOnClickListener(imageClickListener)
+        ivProfile.setOnClickListener(imageClickListener)
+        btnChangePhoto.setOnClickListener(imageClickListener)
 
         // ✨ Click en idioma abre BottomSheet
-        tvLevelInfo.setOnClickListener {
+        btnManageLanguages.setOnClickListener {
             currentUser?.let { user -> showLanguagesBottomSheet(user) }
         }
 
@@ -331,14 +325,14 @@ private fun openCropper(uri: Uri) {
                     if (primaryLang != null) {
                         val flag = getLanguageFlag(primaryLang.language)
                         val langName = getLanguageName(primaryLang.language)
-                        tvLevelInfo.text = "$flag $langName • ${primaryLang.level}"
+                        tvCurrentLangProfile.text = "$flag $langName • ${primaryLang.level}"
                     } else {
-                        tvLevelInfo.text = "EN • A1"
+                        tvCurrentLangProfile.text = "EN • A1"
                     }
 
-                    tvWordCount.text = user.wordsCount.toString()
-                    tvStreak.text = "🔥 ${user.currentStreak}" 
-                    tvReviews.text = user.reviewsCount.toString()
+                    tvWordsCount.text = user.wordsCount.toString()
+                    tvStreakCount.text = "🔥 ${user.currentStreak}" 
+                    tvReviewsCount.text = user.reviewsCount.toString()
 
                     if (!user.avatarUrl.isNullOrEmpty()) {
                         val fullImageUrl = if (user.avatarUrl.startsWith("http")) {
@@ -354,17 +348,16 @@ private fun openCropper(uri: Uri) {
                                 .skipMemoryCache(false)  // 💾 Permitir caché en memoria
                                 .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)  // 💾 Cachear en disco para offline
                                 .placeholder(R.drawable.ic_person) 
-                                .into(ivProfileImage)
+                                .into(ivProfile)
                         }
                     } else {
-                        ivProfileImage.setImageResource(R.drawable.ic_person) 
+                        ivProfile.setImageResource(R.drawable.ic_person) 
                     }
                 }
             } catch (e: Exception) {
                 // Error silencioso o log
             } finally {
                 isLoadingProfile = false
-                swipeRefresh.isRefreshing = false  // 🔄 Detener animación
             }
         }
     }

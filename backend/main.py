@@ -118,10 +118,13 @@ async def update_top10_cache():
     from utils.spotify import get_top_tracks_by_language
     logger.info("🎵 Actualizando cache de Top 10 canciones...")
     try:
-        # Precargamos inglés y español
+        # Precargamos los idiomas más usados
         top10_cache["en"] = get_top_tracks_by_language("en")
         top10_cache["es"] = get_top_tracks_by_language("es")
-        logger.info("✅ Cache actualizada")
+        top10_cache["ja"] = get_top_tracks_by_language("ja")  # 🎌 Japonés
+        top10_cache["ko"] = get_top_tracks_by_language("ko")  # 🇰🇷 Coreano
+        top10_cache["zh"] = get_top_tracks_by_language("zh")  # 🇨🇳 Chino
+        logger.info("✅ Cache actualizada con 5 idiomas")
     except Exception as e:
         logger.error(f"❌ Error actualizando cache: {e}")
 

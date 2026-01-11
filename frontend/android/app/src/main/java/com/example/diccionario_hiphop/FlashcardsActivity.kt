@@ -22,6 +22,11 @@ import com.example.diccionario_hiphop.utils.OfflineManager
 import com.example.diccionario_hiphop.utils.WindowInsetsHelper
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import nl.dionsegijn.konfetti.core.Party
+import nl.dionsegijn.konfetti.core.Position
+import nl.dionsegijn.konfetti.core.emitter.Emitter
+import nl.dionsegijn.konfetti.xml.KonfettiView
+import java.util.concurrent.TimeUnit
 
 class FlashcardsActivity : AppCompatActivity() {
 
@@ -43,6 +48,7 @@ class FlashcardsActivity : AppCompatActivity() {
     private lateinit var cardView: CardView
     private lateinit var tvIntervalIndicator: TextView
     private lateinit var btnAudio: ImageButton
+    private lateinit var konfettiView: KonfettiView  // 🎉 Vista de confeti
     
     // Barras de Progreso
     private lateinit var progressBarLinear: ProgressBar
@@ -142,6 +148,7 @@ class FlashcardsActivity : AppCompatActivity() {
         cardView = findViewById(R.id.cardView)
         tvIntervalIndicator = findViewById(R.id.tvIntervalIndicator)
         btnAudio = findViewById(R.id.btnAudio)  // 🔊 Botón de audio
+        konfettiView = findViewById(R.id.konfettiView)  // 🎉 Vista de confeti
         
         // Enlazamos las dos barras (importante para que se muevan)
         progressBarLinear = findViewById(R.id.progressBarLinear)
@@ -235,10 +242,10 @@ class FlashcardsActivity : AppCompatActivity() {
             tvIntervalIndicator.text = "FÁCIL ✓"
             tvIntervalIndicator.setBackgroundColor(Color.parseColor("#4CAF50"))
         } else if (deltaX < -100) {
-            cardView.foreground = ColorDrawable(Color.parseColor("#4DF44336")) 
+            cardView.foreground = ColorDrawable(Color.parseColor("#4DFF9800"))  // 🟠 Naranja suave en vez de rojo
             tvIntervalIndicator.visibility = View.VISIBLE
             tvIntervalIndicator.text = "DIFÍCIL ✗"
-            tvIntervalIndicator.setBackgroundColor(Color.parseColor("#F44336"))
+            tvIntervalIndicator.setBackgroundColor(Color.parseColor("#FF9800"))  // 🟠 Naranja en vez de rojo
         } else {
             cardView.foreground = null
             tvIntervalIndicator.visibility = View.GONE
@@ -260,6 +267,10 @@ class FlashcardsActivity : AppCompatActivity() {
         isProcessingSwipe = true // 🔴 BLOQUEAMOS INTERACCIÓN
         
         showIntervalPreview(true)
+        
+        // ✅ Fondo verde degradado para "FÁCIL"
+        cardView.setBackgroundResource(R.drawable.bg_swipe_easy)
+        
         cardView.animate()
             .translationX(1500f) 
             .rotation(20f)
@@ -275,6 +286,10 @@ class FlashcardsActivity : AppCompatActivity() {
         isProcessingSwipe = true // 🔴 BLOQUEAMOS INTERACCIÓN
 
         showIntervalPreview(false)
+        
+        // ❌ Fondo naranja degradado para "DIFÍCIL"
+        cardView.setBackgroundResource(R.drawable.bg_swipe_hard)
+        
         cardView.animate()
             .translationX(-1500f) 
             .rotation(-20f)
@@ -305,7 +320,7 @@ class FlashcardsActivity : AppCompatActivity() {
         }
 
         tvIntervalIndicator.text = message
-        tvIntervalIndicator.setBackgroundColor(if (isEasy) Color.parseColor("#4CAF50") else Color.parseColor("#F44336"))
+        tvIntervalIndicator.setBackgroundColor(if (isEasy) Color.parseColor("#4CAF50") else Color.parseColor("#FF9800"))  // 🟠 Naranja para difícil
         tvIntervalIndicator.visibility = View.VISIBLE
     }
 
@@ -416,6 +431,7 @@ class FlashcardsActivity : AppCompatActivity() {
         cardView.rotation = 0f
         cardView.alpha = 1f
         cardView.foreground = null
+        cardView.setCardBackgroundColor(getColor(R.color.bg_card))  // 🎨 Restablecer fondo original
         tvIntervalIndicator.visibility = View.GONE
 
         // Datos
@@ -519,12 +535,30 @@ class FlashcardsActivity : AppCompatActivity() {
         // Verificar si quedan más flashcards
         if (currentIndex >= flashcards.size) {
             Log.d(TAG, "🎉 Repaso completado - currentIndex: $currentIndex >= ${flashcards.size}")
+            showCompletionCelebration()  // 🎉 Mostrar confeti
             showEmptyState("¡Repaso completado! 🎉")
             setProgressSmoothly(100)
         } else {
             Log.d(TAG, "➡️ Mostrando siguiente flashcard - índice: $currentIndex")
             showCard()
         }
+    }
+    
+    /**
+     * 🎉 Muestra animación de confeti al completar la sesión
+     */
+    private fun showCompletionCelebration() {
+        val party = Party(
+            speed = 0f,
+            maxSpeed = 30f,
+            damping = 0.9f,
+            spread = 360,
+            colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
+            emitter = Emitter(duration = 100, TimeUnit.MILLISECONDS).max(100),
+            position = Position.Relative(0.5, 0.3)
+        )
+        
+        konfettiView.start(party)
     }
 
     private fun showLoading(isLoading: Boolean) {

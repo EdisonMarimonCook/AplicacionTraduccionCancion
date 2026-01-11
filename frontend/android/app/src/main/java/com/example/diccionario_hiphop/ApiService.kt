@@ -159,4 +159,22 @@ interface ApiService {
 
     @PUT("/api/v1/users/languages/{code}/level")
     suspend fun updateLevel(@Path("code") code: String, @Body request: UpdateLevelRequest): Response<MessageResponse>
+
+    // =================================================================================
+    // 8️⃣ BORRADO DE IDIOMAS (BLOQUE 2)
+    // =================================================================================
+
+    @DELETE("/api/v1/users/me/languages/{code}")
+    suspend fun deleteLanguage(@Path("code") code: String): Response<DeleteLanguageResponse>
+
+    // =================================================================================
+    // 9️⃣ VERIFICACIÓN GRAMMY (BLOQUE 2)
+    // =================================================================================
+
+    @GET("/api/v1/songs/is-grammy")
+    suspend fun checkGrammyStatus(
+        @Query("title") title: String,
+        @Query("artist") artist: String,
+        @Query("lang") lang: String = "en"
+    ): Response<GrammyCheckResponse>
 }

@@ -295,3 +295,19 @@ class LyricsResponse(BaseModel):
     
     # 🔊 SYNCED LYRICS (para extraer fragmentos de audio)
     synced_lyrics: Optional[str] = None  # Formato LRC con timestamps
+
+# ===============================================================================
+# 8️⃣ LANGUAGE MANAGEMENT (BLOQUE 2)
+# ===============================================================================
+
+class DeleteLanguageResponse(BaseModel):
+    """Respuesta al eliminar un idioma de aprendizaje"""
+    message: str
+    deleted_words: int
+    deleted_flashcards: int
+    remaining_languages: int
+
+class GrammyCheckResponse(BaseModel):
+    """Respuesta de verificación Grammy/Top Hit"""
+    is_grammy: bool
+    badge: Optional[str] = None

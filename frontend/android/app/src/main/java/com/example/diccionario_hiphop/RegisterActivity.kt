@@ -1,11 +1,14 @@
 package com.example.diccionario_hiphop
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.diccionario_hiphop.utils.LevelIndicator
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -131,8 +134,9 @@ class RegisterActivity : AppCompatActivity() {
                 )
             }
 
-            // Spinner de nivel (inicialmente oculto)
-            val levelSpinner = Spinner(this).apply {
+            // Contenedor vertical para spinner + indicador
+            val spinnerContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
                     0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -140,6 +144,52 @@ class RegisterActivity : AppCompatActivity() {
                 )
                 visibility = View.GONE
             }
+
+            // Spinner de nivel
+            val levelSpinner = Spinner(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            // Indicador visual (ProgressBar + TextView)
+            val indicatorLayout = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    topMargin = 4
+                }
+            }
+
+            val levelProgress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    8,
+                    1f
+                )
+                max = 6
+                progress = 1
+            }
+
+            val levelDescription = TextView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginStart = 8
+                }
+                textSize = 10f
+                setTextColor(Color.parseColor("#4CAF50"))
+            }
+
+            indicatorLayout.addView(levelProgress)
+            indicatorLayout.addView(levelDescription)
+            spinnerContainer.addView(levelSpinner)
+            spinnerContainer.addView(indicatorLayout)
 
             // Configurar niveles según el idioma
             val levels = when (code) {
@@ -154,7 +204,7 @@ class RegisterActivity : AppCompatActivity() {
 
             // Listener: mostrar/ocultar spinner y actualizar lista
             checkbox.setOnCheckedChangeListener { _, isChecked ->
-                levelSpinner.visibility = if (isChecked) View.VISIBLE else View.GONE
+                spinnerContainer.visibility = if (isChecked) View.VISIBLE else View.GONE
 
                 if (isChecked) {
                     // Nivel por defecto según el sistema
@@ -164,6 +214,13 @@ class RegisterActivity : AppCompatActivity() {
                         else -> "A1"
                     }
                     selectedLanguages.add(LanguageSelection(code, name, defaultLevel))
+                    
+                    // Actualizar indicador con nivel por defecto
+                    val levelInfo = LevelIndicator.getLevelInfo(defaultLevel, code)
+                    levelProgress.progress = levelInfo.progress
+                    levelProgress.progressTintList = android.content.res.ColorStateList.valueOf(levelInfo.color)
+                    levelDescription.text = levelInfo.description
+                    levelDescription.setTextColor(levelInfo.color)
                 } else {
                     // Remover
                     selectedLanguages.removeAll { it.code == code }
@@ -180,6 +237,14 @@ class RegisterActivity : AppCompatActivity() {
                         else -> cefrLevels
                     }
                     val selectedLevel = currentLevels[position]
+                    
+                    // Actualizar indicador visual
+                    val levelInfo = LevelIndicator.getLevelInfo(selectedLevel, code)
+                    levelProgress.progress = levelInfo.progress
+                    levelProgress.progressTintList = android.content.res.ColorStateList.valueOf(levelInfo.color)
+                    levelDescription.text = levelInfo.description
+                    levelDescription.setTextColor(levelInfo.color)
+                    
                     // Actualizar en la lista
                     selectedLanguages.find { it.code == code }?.let {
                         val index = selectedLanguages.indexOf(it)
@@ -191,7 +256,7 @@ class RegisterActivity : AppCompatActivity() {
             }
 
             rowLayout.addView(checkbox)
-            rowLayout.addView(levelSpinner)
+            rowLayout.addView(spinnerContainer)
             llLanguageCheckboxes.addView(rowLayout)
         }
     }

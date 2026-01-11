@@ -34,21 +34,38 @@ def normalize_search_query(text: str) -> str:
     patterns = [
         r'\s*-\s*Remake Ver\.?',
         r'\s*-\s*Remaster',
+        r'\s*-\s*Remastered.*',
         r'\s*\(Remix\)',
+        r'\s*\(.*?Remix.*?\)',
         r'\s*\(Official.*?\)',
         r'\s*\(Lyric.*?\)',
         r'\s*\(Audio\)',
+        r'\s*\(Video\)',
+        r'\s*\(Music Video\)',
+        r'\s*\[.*?\]',  # Cualquier cosa entre corchetes
         r'\s*feat\..*',
         r'\s*ft\..*',
-        r'\s*&.*',  # Colaboraciones después de &
+        r'\s*featuring.*',
+        r'\s*&\s*.*',  # Colaboraciones después de &
+        r'\s*with\s+.*',  # "with Someone"
+        r'\s*x\s+.*',  # "Artist x Artist"
+        r'\s*\(.*?Edit\)',
+        r'\s*-\s*Live.*',
+        r'\s*\(Live.*?\)',
     ]
     
     result = text
     for pattern in patterns:
         result = re.sub(pattern, '', result, flags=re.IGNORECASE)
     
-    # Limpiar espacios extras
-    result = ' '.join(result.split())
+    # Eliminar caracteres especiales problemáticos
+    result = result.replace('–', '-').replace('—', '-')  # Guiones raros
+    result = re.sub(r'["""''`]', '', result)  # Comillas fancy
+    
+    # Limpiar espacios extras y múltiples guiones
+    result = re.sub(r'\s+', ' ', result)
+    result = re.sub(r'-+', '-', result)
+    
     return result.strip()
 
 def validate_lyrics_match(lyrics_data: Dict, spotify_metadata: Optional[Dict] = None) -> Dict:
@@ -172,18 +189,32 @@ def _lrclib_request(url: str, params: dict) -> requests.Response:
 
 def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
     """
-    Busca letras en LRCLIB.net con normalización y retry automático.
-    Máximo 3 variaciones para manejar artistas múltiples.
+    Busca letras en LRCLIB.net con normalización agresiva y múltiples fallbacks.
+    Máximo 8 variaciones para cubrir casos complejos.
     Ventajas: Gratis, Open Source, Sin Cloudflare, Muy rápido.
     """
-    # 🔥 3 variaciones para manejar casos como "Bowling For Soup" vs "Jaret Reddick"
+    # 🔥 FALLBACKS AGRESIVOS (de más específico a más general)
     variations = [
-        (title, artist),  # Original (siempre primero)
-        (normalize_search_query(title), normalize_search_query(artist)),  # Normalizados
-        (normalize_search_query(title), artist.split(',')[0].split('&')[0].strip()),  # Solo primer artista
+        (title, artist),  # 1. Original completo
+        (normalize_search_query(title), artist),  # 2. Título limpio
+        (normalize_search_query(title), normalize_search_query(artist)),  # 3. Ambos limpios
+        (title.split('-')[0].strip(), artist),  # 4. Primera parte del título (antes de -)
+        (title.split('(')[0].strip(), artist),  # 5. Título sin paréntesis
+        (normalize_search_query(title), artist.split(',')[0].strip()),  # 6. Título limpio + primer artista
+        (normalize_search_query(title), artist.split('&')[0].strip()),  # 7. Título limpio + artista antes de &
+        (title, artist.split(',')[0].split('&')[0].strip()),  # 8. Solo primer artista
     ]
     
-    for idx, (attempt_title, attempt_artist) in enumerate(variations, 1):
+    # Eliminar duplicados manteniendo orden
+    seen = set()
+    unique_variations = []
+    for t, a in variations:
+        key = f"{t.lower()}|||{a.lower()}"
+        if key not in seen and t and a:
+            seen.add(key)
+            unique_variations.append((t, a))
+    
+    for idx, (attempt_title, attempt_artist) in enumerate(unique_variations, start=1):
         try:
             url = "https://lrclib.net/api/get"
             params = {
@@ -191,7 +222,7 @@ def get_lyrics_lrclib(title: str, artist: str) -> Optional[Dict]:
                 "track_name": attempt_title
             }
             
-            logger.info(f"🔍 [LRCLIB {idx}/3] '{attempt_title}' - {attempt_artist}")
+            logger.info(f"🔍 [LRCLIB {idx}/{len(unique_variations)}] '{attempt_title}' - {attempt_artist}")
             
             # Usar helper con retry automático (2 intentos max, 10s timeout)
             response = _lrclib_request(url, params)

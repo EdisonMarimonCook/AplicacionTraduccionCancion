@@ -18,7 +18,8 @@ from routers.schemas import (
     EmailChangeRequest,
     LoginRequest,
     AvatarUpdateResponse,
-    LearningLanguage
+    LearningLanguage,
+    DeleteLanguageResponse
 )
 from routers.auth import get_current_user
 from auth import verify_password, hash_password
@@ -420,4 +421,103 @@ async def get_current_user_profile(current_user: User = Depends(get_current_user
         )
     except Exception as e:
         logger.error(f"❌ Error obteniendo perfil: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/me/languages/{language_code}", response_model=DeleteLanguageResponse)
+async def delete_language(
+    language_code: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🗑️ BORRADO DEFINITIVO de un idioma de aprendizaje.
+    Elimina: palabras del diccionario, flashcards, y el idioma de la lista.
+    
+    Validaciones:
+    - No se puede borrar si es el único idioma activo
+    - No se puede borrar si es el idioma principal
+    """
+    try:
+        user_id = str(current_user.id)
+        
+        # 1️⃣ Validar que el idioma exista en la lista del usuario
+        learning_languages = getattr(current_user, 'learning_languages', [])
+        if not learning_languages:
+            raise HTTPException(
+                status_code=400,
+                detail="No tienes idiomas de aprendizaje"
+            )
+        
+        language_to_delete = None
+        for lang in learning_languages:
+            lang_dict = lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+            if lang_dict.get('language') == language_code:
+                language_to_delete = lang_dict
+                break
+        
+        if not language_to_delete:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No estás aprendiendo {language_code}"
+            )
+        
+        # 2️⃣ Validar que no sea el único idioma activo
+        active_languages = [
+            lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)
+            for lang in learning_languages
+            if (lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)).get('is_active', True)
+        ]
+        
+        if len(active_languages) <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="No puedes eliminar tu único idioma activo. Añade otro primero."
+            )
+        
+        # 3️⃣ Validar que no sea el idioma principal
+        primary_language = getattr(current_user, 'primary_language', None)
+        if language_code == primary_language:
+            raise HTTPException(
+                status_code=400,
+                detail="No puedes eliminar tu idioma principal. Cambia primero el idioma principal a otro."
+            )
+        
+        # 4️⃣ Contar palabras y flashcards antes de borrar
+        words_count = await db.count_user_words(user_id, language_code)
+        flashcards_count = await db.count_user_flashcards(user_id, language_code)
+        
+        logger.info(f"🗑️ Eliminando idioma {language_code} para usuario {current_user.username}")
+        logger.info(f"   Palabras: {words_count}, Flashcards: {flashcards_count}")
+        
+        # 5️⃣ Eliminar palabras del diccionario
+        await db.delete_user_words_by_language(user_id, language_code)
+        
+        # 6️⃣ Eliminar flashcards
+        await db.delete_user_flashcards_by_language(user_id, language_code)
+        
+        # 7️⃣ Eliminar idioma de la lista
+        updated_languages = [
+            lang for lang in learning_languages
+            if (lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang)).get('language') != language_code
+        ]
+        
+        # 8️⃣ Actualizar usuario en BD
+        await db.users_collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"learning_languages": [lang.model_dump() if hasattr(lang, 'model_dump') else dict(lang) for lang in updated_languages]}}
+        )
+        
+        logger.info(f"✅ Idioma {language_code} eliminado correctamente")
+        
+        return {
+            "message": f"Idioma {language_code} eliminado correctamente",
+            "deleted_words": words_count,
+            "deleted_flashcards": flashcards_count,
+            "remaining_languages": len(updated_languages)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error eliminando idioma: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
