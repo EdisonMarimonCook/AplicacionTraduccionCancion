@@ -2,3 +2,9 @@ Descargar
 git clone https://github.com/EdisonMarimonCook/AplicacionTraduccionCancion.git
 
 Abrir android studio, File->Open, AplicacionTraduccionCancion/frontend/android/
+
+ULTIMOS CAMBIOS REALIZADOS (29/10/2025) (15:00)
++Modificacion del Login incluyendo: *La opción del recuerdo al iniciar sesion para que el usuario no tenga que volver a poner el correo y la contraseña(Funcion no implementada)
+                                    *La opcion de registrarse(Funcion no implementada)
+                                    *Cambio de color del menu
+                                    *La opcion de "recordar contraseña" al usuario introduciendo su correo(Funcion no implementada)
