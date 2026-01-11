@@ -26,6 +26,66 @@
             android:layout_height="wrap_content"
             android:padding="12dp">
 
+        <ImageView
+    android:id="@+id/ivSparkle1"
+    android:layout_width="12dp"
+    android:layout_height="12dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
+<ImageView
+    android:id="@+id/ivSparkle2"
+    android:layout_width="10dp"
+    android:layout_height="10dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
+<ImageView
+    android:id="@+id/ivSparkle3"
+    android:layout_width="14dp"
+    android:layout_height="14dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
+<ImageView
+    android:id="@+id/ivSparkle4"
+    android:layout_width="11dp"
+    android:layout_height="11dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
+<ImageView
+    android:id="@+id/ivSparkle5"
+    android:layout_width="13dp"
+    android:layout_height="13dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
+<ImageView
+    android:id="@+id/ivSparkle6"
+    android:layout_width="9dp"
+    android:layout_height="9dp"
+    android:src="@drawable/sparkle_star"
+    android:visibility="gone"
+    android:alpha="0"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"/>
+
             <!-- ✅ FLASH (ESTO SÍ FUNCIONA) -->
             <View
                 android:id="@+id/viewFlashInternal"
