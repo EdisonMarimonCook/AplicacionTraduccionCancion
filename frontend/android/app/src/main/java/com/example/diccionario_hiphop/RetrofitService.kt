@@ -28,31 +28,12 @@ class RetrofitService {
          * 🧠 DETECCIÓN INTELIGENTE DE ENTORNO
          */
         private fun getBaseUrl(): String {
-            // 1️⃣ Verificar si estamos en PRODUCCIÓN (BuildConfig)
-            //if (!BuildConfig.DEBUG) {
-                Log.i(TAG, "🌐 Modo PRODUCCIÓN → ${BuildConfig.PRODUCTION_URL}")
-                return BuildConfig.PRODUCTION_URL
-            //}
+           val productionUrl = "https://musictransiator.onrender.com/"
 
-            // 2️⃣ Modo DESARROLLO: Detectar emulador vs dispositivo físico
-            return if (isEmulator()) {
-                // Emulador Android Studio
-                val url = "http://10.0.2.2:${BuildConfig.LOCALHOST_PORT}/"
-                Log.i(TAG, "📱 EMULADOR detectado → $url")
-                url
-            } else {
-                // 🔥 Dispositivo físico: Detectar IP del GATEWAY (router/hotspot) automáticamente
-                val gatewayIp = appContext?.let { getGatewayIp(it) }
-                val url = if (gatewayIp != null) {
-                    "http://$gatewayIp:${BuildConfig.LOCALHOST_PORT}/"
-                } else {
-                    // Fallback: IP típica de hotspot Windows (solo si falla detección)
-                    Log.w(TAG, "⚠️ No se pudo detectar gateway, usando fallback 192.168.137.1")
-                    "http://192.168.137.1:${BuildConfig.LOCALHOST_PORT}/"
-                }
-                Log.i(TAG, "📲 DISPOSITIVO FÍSICO → $url")
-                url
-            }
+           // Log para que sepas que está usándola
+            Log.i(TAG, "🌐 Modo PRODUCCIÓN FORZADO → $productionUrl")
+
+            return productionUrl
         }
 
         /**
