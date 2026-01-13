@@ -29,15 +29,13 @@ async def get_user_by_id(user_id: str) -> dict:
     return await db.get_user_by_id(user_id)
 
 async def username_exists(username: str, exclude_email: str = None) -> bool:
-    """
-    Verificar si username está en uso.
-    """
+    """Verificar si username está en uso."""
+    # ✅ CORREGIDO: Usa users_collection
     user = await db.users_collection.find_one({"username": username})
     
     if not user:
         return False
     
-    # Si existe pero es del usuario actual (exclude_email), no cuenta como "existente"
     if exclude_email and user.get("email") == exclude_email:
         return False
     
@@ -50,7 +48,7 @@ async def email_exists(email: str) -> bool:
 
 async def change_user_email(current_email: str, new_email: str):
     """Cambiar email"""
-
+    # ✅ CORREGIDO: Usa users_collection
     result = await db.users_collection.update_one(
         {"email": current_email},
         {"$set": {"email": new_email}}
@@ -59,7 +57,13 @@ async def change_user_email(current_email: str, new_email: str):
 
 async def update_user_profile(email: str, update_data: dict):
     """Actualizar datos del perfil"""
+    # Limpieza de seguridad
+    if "_id" in update_data: del update_data["_id"]
+    if "email" in update_data: del update_data["email"]
+    if "password_hash" in update_data: del update_data["password_hash"]
+    if "hashed_password" in update_data: del update_data["hashed_password"]
 
+    # ✅ CORREGIDO: Usa users_collection
     result = await db.users_collection.update_one(
         {"email": email},
         {"$set": update_data}
@@ -68,11 +72,21 @@ async def update_user_profile(email: str, update_data: dict):
 
 async def change_user_password(email: str, new_hashed_password: str):
     """Cambiar contraseña"""
-   
+    # ✅ CORREGIDO CRÍTICO: 
+    # 1. Usa users_collection (arregla el crash)
+    # 2. Usa "password_hash" (arregla el login, coincide con tu captura)
+    
     result = await db.users_collection.update_one(
         {"email": email},
-        {"$set": {"hashed_password": new_hashed_password}}
+        {"$set": {"password_hash": new_hashed_password}}
     )
+    
+    # Log para confirmar que se hizo el cambio
+    if result.modified_count > 0:
+        logger.info(f"✅ Contraseña actualizada en campo 'password_hash' para {email}")
+    else:
+        logger.warning(f"⚠️ No se actualizó la contraseña para {email} (¿Email incorrecto?)")
+        
     return result.modified_count > 0
 
 # ================================================================
