@@ -29,13 +29,17 @@ async def get_user_by_id(user_id: str) -> dict:
     return await db.get_user_by_id(user_id)
 
 async def username_exists(username: str, exclude_email: str = None) -> bool:
-    """Verificar si username está en uso."""
-    # ✅ CORREGIDO: Usa users_collection
+    """
+    Verificar si username está en uso.
+    """
+    # Buscamos directamente en la colección de usuarios
     user = await db.users_collection.find_one({"username": username})
     
     if not user:
         return False
     
+    # Si existe pero es del usuario actual (exclude_email), no cuenta como "existente"
+    # (Esto permite guardar tu propio perfil sin que te diga "el nombre ya existe")
     if exclude_email and user.get("email") == exclude_email:
         return False
     
@@ -56,18 +60,21 @@ async def change_user_email(current_email: str, new_email: str):
     return result.modified_count > 0
 
 async def update_user_profile(email: str, update_data: dict):
-    """Actualizar datos del perfil"""
-    # Limpieza de seguridad
+    """
+    Actualizar datos del perfil (Nombre, Bio, Avatar, etc.)
+    """
+    # Limpieza de seguridad: Evitar que se cuele el _id o cambios de email/pass por aquí
     if "_id" in update_data: del update_data["_id"]
     if "email" in update_data: del update_data["email"]
     if "password_hash" in update_data: del update_data["password_hash"]
     if "hashed_password" in update_data: del update_data["hashed_password"]
 
-    # ✅ CORREGIDO: Usa users_collection
+    # Ejecutar la actualización
     result = await db.users_collection.update_one(
         {"email": email},
         {"$set": update_data}
     )
+    
     return result.modified_count > 0
 
 async def change_user_password(email: str, new_hashed_password: str):
