@@ -31,16 +31,8 @@ async def get_user_by_id(user_id: str) -> dict:
 async def username_exists(username: str, exclude_email: str = None) -> bool:
     """
     Verificar si username está en uso.
-    
-    Args:
-        username: Username a verificar
-        exclude_email: Email del usuario actual (para ignorarlo al actualizar su propio perfil)
-    
-    Returns:
-        True si el username ya existe (y NO pertenece a exclude_email)
     """
-    # Buscar si existe algún usuario con ese username
-    user = await db.get_user_by_username(username)
+    user = await db.users_collection.find_one({"username": username})
     
     if not user:
         return False
@@ -49,17 +41,16 @@ async def username_exists(username: str, exclude_email: str = None) -> bool:
     if exclude_email and user.get("email") == exclude_email:
         return False
     
-    return True 
+    return True
 
 async def email_exists(email: str) -> bool:
     """Verificar si email está disponible"""
-    return await db.user_exists(email)
+    user = await db.users_collection.find_one({"email": email})
+    return user is not None
 
 async def change_user_email(current_email: str, new_email: str):
     """Cambiar email"""
-    # ANTES (ERROR): result = await db.users.update_one(...)
-    
-    # AHORA (CORRECTO):
+
     result = await db.users_collection.update_one(
         {"email": current_email},
         {"$set": {"email": new_email}}
@@ -69,8 +60,6 @@ async def change_user_email(current_email: str, new_email: str):
 async def update_user_profile(email: str, update_data: dict):
     """Actualizar datos del perfil"""
 
-    
-    # AHORA (CORRECTO):
     result = await db.users_collection.update_one(
         {"email": email},
         {"$set": update_data}
@@ -79,7 +68,7 @@ async def update_user_profile(email: str, update_data: dict):
 
 async def change_user_password(email: str, new_hashed_password: str):
     """Cambiar contraseña"""
-    # AHORA (CORRECTO):
+   
     result = await db.users_collection.update_one(
         {"email": email},
         {"$set": {"hashed_password": new_hashed_password}}
