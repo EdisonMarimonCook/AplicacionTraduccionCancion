@@ -224,12 +224,19 @@ async def update_profile(
                     detail=f"Username '{profile_update.username}' is already taken"
                 )
         
+        update_data = {}
+        if profile_update.username:
+            update_data["username"] = profile_update.username
+        if profile_update.full_name:
+            update_data["full_name"] = profile_update.full_name
+        if profile_update.native_language:
+            update_data["native_language"] = profile_update.native_language
+        if profile_update.learning_languages:
+            update_data["learning_languages"] = profile_update.learning_languages
+
         updated_user = await update_user_profile(
             email=current_user.email,
-            username=profile_update.username,
-            full_name=profile_update.full_name,
-            native_language=profile_update.native_language,
-            learning_languages=profile_update.learning_languages
+            update_data=update_data
         )
         
         if not updated_user:
