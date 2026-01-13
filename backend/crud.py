@@ -55,54 +55,36 @@ async def email_exists(email: str) -> bool:
     """Verificar si email está disponible"""
     return await db.user_exists(email)
 
-async def change_user_email(current_email: str, new_email: str) -> bool:
-    """
-    Cambiar email del usuario.
+async def change_user_email(current_email: str, new_email: str):
+    """Cambiar email"""
+    # ANTES (ERROR): result = await db.users.update_one(...)
     
-    IMPORTANTE: Si usas Mock DB (diccionario Python), hay que:
-    1. Copiar el usuario con la nueva clave (nuevo email)
-    2. Borrar la clave vieja
-    3. Si usas MongoDB, esto no es problema (actualiza directo)
-    
-    Returns:
-        True si se cambió exitosamente, False si new_email ya existe
-    """
-    # Verificar que nuevo email no esté en uso
-    if await user_exists(new_email):
-        return False
-    
-    # Actualizar en BD (esto maneja Mock DB y MongoDB correctamente)
-    await db.update_user_email(current_email, new_email)
-    return True
-
-async def update_user_profile(
-    email: str,
-    username: str = None,
-    full_name: str = None,
-    native_language: str = None,
-    learning_languages: list = None
-) -> dict:
-    """Actualizar perfil del usuario"""
-    update_data = {}
-    
-    if username is not None: update_data["username"] = username
-    if full_name is not None: update_data["full_name"] = full_name
-    if native_language is not None: update_data["native_language"] = native_language
-    
-    # Si quisieras actualizar idiomas, aquí iría la lógica
-    
-    return await db.update_user(email, update_data)
-
-async def change_user_password(email: str, new_password_hash: str) -> bool:
-    """
-    Actualiza la contraseña.
-    Si falla la BD, lanzará el error hacia arriba para que el log lo capture.
-    """
-    result = await db.users.update_one(
-        {"email": email},
-        {"$set": {"password_hash": new_password_hash}}
+    # AHORA (CORRECTO):
+    result = await db.users_collection.update_one(
+        {"email": current_email},
+        {"$set": {"email": new_email}}
     )
-    return result.modified_count > 0 or result.matched_count > 0
+    return result.modified_count > 0
+
+async def update_user_profile(email: str, update_data: dict):
+    """Actualizar datos del perfil"""
+
+    
+    # AHORA (CORRECTO):
+    result = await db.users_collection.update_one(
+        {"email": email},
+        {"$set": update_data}
+    )
+    return result.modified_count > 0
+
+async def change_user_password(email: str, new_hashed_password: str):
+    """Cambiar contraseña"""
+    # AHORA (CORRECTO):
+    result = await db.users_collection.update_one(
+        {"email": email},
+        {"$set": {"hashed_password": new_hashed_password}}
+    )
+    return result.modified_count > 0
 
 # ================================================================
 # DICCIONARIO
